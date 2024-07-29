@@ -43,6 +43,12 @@ const argv = yargs
     type: 'string',
     default: '.',
   })
+  .option('filetypes', {
+    alias: 'f',
+    describe: 'File types to download (comma-separated, e.g., bam,bai,vcf.gz)',
+    type: 'string',
+    default: 'bam,bam.bai',
+  })
   .option('proxy', {
     alias: 'x',
     describe: 'Proxy URL',
@@ -66,6 +72,7 @@ const analysisId = argv.analysisId;
 const destination = argv.destination;
 const proxy = argv.proxy;
 const overwrite = argv.overwrite;
+const fileTypes = argv.filetypes.split(',');
 
 let token = '';
 
@@ -171,8 +178,8 @@ async function confirmOverwrite(file) {
 }
 
 /**
- * Fetches the download links for BAM and BAI files from the Varvis API.
- * @returns {Promise<Object>} - An object containing the download links for BAM and BAI files.
+ * Fetches the download links for the specified file types from the Varvis API.
+ * @returns {Promise<Object>} - An object containing the download links for the specified file types.
  */
 async function getDownloadLinks() {
   try {
@@ -184,15 +191,21 @@ async function getDownloadLinks() {
     const data = await response.json();
     const apiFileLinks = data.response.apiFileLinks;
 
-    const bamBaiDict = {};
+    const filesDict = {};
     for (const file of apiFileLinks) {
-      if (file.fileName.endsWith('.bam')) {
-        bamBaiDict['bam'] = file;
-      } else if (file.fileName.endsWith('.bam.bai')) {
-        bamBaiDict['bai'] = file;
+      const fileType = file.fileName.split('.').slice(1).join('.');
+      if (fileTypes.includes(fileType)) {
+        filesDict[fileType] = file;
       }
     }
-    return bamBaiDict;
+
+    fileTypes.forEach((type) => {
+      if (!filesDict[type]) {
+        console.warn(`Warning: Requested file type ${type} is not available for the analysis.`);
+      }
+    });
+
+    return filesDict;
   } catch (error) {
     console.error('Failed to get download links:', error.message);
     process.exit(1);
@@ -238,17 +251,15 @@ async function downloadFile(url, outputPath) {
  */
 async function main() {
   await authService.login({ username: userName, password: password });
-  const bamBaiDict = await getDownloadLinks();
+  const filesDict = await getDownloadLinks();
 
-  const bamFile = bamBaiDict.bam.fileName;
-  const bamLink = bamBaiDict.bam.downloadLink;
-  const baiFile = bamBaiDict.bai.fileName;
-  const baiLink = bamBaiDict.bai.downloadLink;
+  for (const [fileType, fileInfo] of Object.entries(filesDict)) {
+    const fileName = fileInfo.fileName;
+    const fileLink = fileInfo.downloadLink;
 
-  console.log('Downloading BAI file...');
-  await downloadFile(baiLink, path.join(destination, baiFile));
-  console.log('Downloading BAM file...');
-  await downloadFile(bamLink, path.join(destination, bamFile));
+    console.log(`Downloading ${fileType.toUpperCase()} file...`);
+    await downloadFile(fileLink, path.join(destination, fileName));
+  }
 
   console.log('Download complete.');
   rl.close();

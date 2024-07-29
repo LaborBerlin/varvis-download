@@ -26,3 +26,6 @@ pnpm-debug.log*
 # download files
 *.bam
 *.bai
+*.vcf.gz
+*.vcf.gz.tbi
+*.bed.gz
