@@ -1,0 +1,29 @@
+{
+  "name": "varvis-download",
+  "version": "0.1.0",
+  "description": "",
+  "main": "varvis-download.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.2",
+    "axios-cookiejar-support": "^5.0.2",
+    "axios-https-proxy-fix": "^0.17.1",
+    "date-fns": "^3.6.0",
+    "fs-extra": "^11.2.0",
+    "http-cookie-agent": "^6.0.5",
+    "https-proxy-agent": "^7.0.5",
+    "node-fetch": "^3.3.2",
+    "tough-cookie": "^4.1.4",
+    "undici": "^6.19.4",
+    "yargs": "^17.7.2",
+    "yargs-interactive": "^3.0.1"
+  },
+  "bin": {
+    "varvis-download": "./varvis-download.js"
+  }
+}
