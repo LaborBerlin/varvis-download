@@ -6,7 +6,7 @@ const yargs = require('yargs');
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
-const { ProxyAgent, fetch } = require('undici');
+const { ProxyAgent, fetch, Agent } = require('undici');
 const { version } = require('./package.json'); // Import the version from package.json
 
 // Command line arguments setup
@@ -77,19 +77,20 @@ const filetypes = argv.filetypes.split(',').map(ft => ft.trim());
 let token = '';
 
 const jar = new CookieJar();
-const agentOptions = proxy ? {
-  uri: proxy,
-  factory: (origin, opts) => new CookieClient(origin, {
-    ...opts,
-    cookies: { jar },
-  }),
-} : {
-  factory: (origin, opts) => new CookieClient(origin, {
-    ...opts,
-    cookies: { jar },
-  }),
-};
-const agent = new ProxyAgent(agentOptions);
+const agent = proxy 
+  ? new ProxyAgent({
+      uri: proxy,
+      factory: (origin, opts) => new CookieClient(origin, {
+        ...opts,
+        cookies: { jar },
+      }),
+    })
+  : new Agent({
+      factory: (origin, opts) => new CookieClient(origin, {
+        ...opts,
+        cookies: { jar },
+      }),
+    });
 
 /**
  * AuthService class handles authentication with the Varvis API.
