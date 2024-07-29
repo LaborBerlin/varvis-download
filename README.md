@@ -9,7 +9,7 @@ This script provides a command-line interface (CLI) to download BAM and BAI file
 3. Install the required packages:
 
 ```sh
-git clone https://github.com/your-username/varvis-download.git
+git clone https://github.com/berntpopp/varvis-download.git
 cd varvis-download
 npm install
 npm link
