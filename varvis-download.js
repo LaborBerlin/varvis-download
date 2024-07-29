@@ -43,12 +43,6 @@ const argv = yargs
     type: 'string',
     default: '.',
   })
-  .option('filetypes', {
-    alias: 'f',
-    describe: 'File types to download (comma-separated, e.g., bam,bai,vcf.gz)',
-    type: 'string',
-    default: 'bam,bam.bai',
-  })
   .option('proxy', {
     alias: 'x',
     describe: 'Proxy URL',
@@ -59,6 +53,12 @@ const argv = yargs
     describe: 'Overwrite existing files',
     type: 'boolean',
     default: false,
+  })
+  .option('filetypes', {
+    alias: 'f',
+    describe: 'File types to download (comma-separated)',
+    type: 'string',
+    default: 'bam,bai',
   })
   .help()
   .alias('help', 'h')
@@ -72,7 +72,7 @@ const analysisId = argv.analysisId;
 const destination = argv.destination;
 const proxy = argv.proxy;
 const overwrite = argv.overwrite;
-const fileTypes = argv.filetypes.split(',');
+const filetypes = argv.filetypes.split(',').map(ft => ft.trim());
 
 let token = '';
 
@@ -178,7 +178,7 @@ async function confirmOverwrite(file) {
 }
 
 /**
- * Fetches the download links for the specified file types from the Varvis API.
+ * Fetches the download links for specified file types from the Varvis API.
  * @returns {Promise<Object>} - An object containing the download links for the specified file types.
  */
 async function getDownloadLinks() {
@@ -191,21 +191,22 @@ async function getDownloadLinks() {
     const data = await response.json();
     const apiFileLinks = data.response.apiFileLinks;
 
-    const filesDict = {};
+    const fileDict = {};
     for (const file of apiFileLinks) {
-      const fileType = file.fileName.split('.').slice(1).join('.');
-      if (fileTypes.includes(fileType)) {
-        filesDict[fileType] = file;
+      const fileType = file.fileName.split('.').slice(-2).join('.');
+      if (filetypes.includes(fileType) || filetypes.includes(file.fileName.split('.').pop())) {
+        fileDict[fileType] = file;
       }
     }
 
-    fileTypes.forEach((type) => {
-      if (!filesDict[type]) {
-        console.warn(`Warning: Requested file type ${type} is not available for the analysis.`);
-      }
-    });
+    // Warn if requested file types are not available
+    const availableFileTypes = Object.keys(fileDict);
+    const missingFileTypes = filetypes.filter(ft => !availableFileTypes.includes(ft));
+    if (missingFileTypes.length > 0) {
+      console.warn(`Warning: The following requested file types are not available for the analysis: ${missingFileTypes.join(', ')}`);
+    }
 
-    return filesDict;
+    return fileDict;
   } catch (error) {
     console.error('Failed to get download links:', error.message);
     process.exit(1);
@@ -250,15 +251,19 @@ async function downloadFile(url, outputPath) {
  * @returns {Promise<void>}
  */
 async function main() {
+  // Ensure the destination directory exists
+  if (!fs.existsSync(destination)) {
+    fs.mkdirSync(destination, { recursive: true });
+  }
+
   await authService.login({ username: userName, password: password });
-  const filesDict = await getDownloadLinks();
+  const fileDict = await getDownloadLinks();
 
-  for (const [fileType, fileInfo] of Object.entries(filesDict)) {
-    const fileName = fileInfo.fileName;
-    const fileLink = fileInfo.downloadLink;
-
-    console.log(`Downloading ${fileType.toUpperCase()} file...`);
-    await downloadFile(fileLink, path.join(destination, fileName));
+  for (const [fileType, file] of Object.entries(fileDict)) {
+    const fileName = file.fileName;
+    const downloadLink = file.downloadLink;
+    console.log(`Downloading ${fileType} file...`);
+    await downloadFile(downloadLink, path.join(destination, fileName));
   }
 
   console.log('Download complete.');
