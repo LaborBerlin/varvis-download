@@ -92,6 +92,11 @@ const argv = yargs
     describe: 'Path to the log file',
     type: 'string'
   })
+  .option('reportfile', {
+    alias: 'r',
+    describe: 'Path to the report file',
+    type: 'string'
+  })
   .help()
   .alias('help', 'h')
   .argv;
@@ -149,6 +154,7 @@ const destination = finalConfig.destination;
 const proxy = finalConfig.proxy;
 const overwrite = finalConfig.overwrite;
 const filetypes = finalConfig.filetypes;
+const reportfile = finalConfig.reportfile;
 
 let token = '';
 
@@ -383,15 +389,26 @@ async function downloadFile(url, outputPath) {
   const writer = fs.createWriteStream(outputPath);
   const response = await fetchWithRetry(url, { method: 'GET', dispatcher: agent });
 
+  const startTime = Date.now();
+  let totalBytes = 0;
+
   try {
     for await (const chunk of response.body) {
+      totalBytes += chunk.length;
       writer.write(chunk);
     }
     writer.end();
 
+    const endTime = Date.now();
+    const duration = (endTime - startTime) / 1000; // in seconds
+    const speed = totalBytes / duration; // bytes per second
+
     await new Promise((resolve, reject) => {
       writer.on('finish', () => {
         logger.info(`Successfully downloaded ${outputPath}`);
+        metrics.totalFilesDownloaded += 1;
+        metrics.totalBytesDownloaded += totalBytes;
+        metrics.downloadSpeeds.push(speed);
         resolve();
       });
       writer.on('error', (error) => {
@@ -405,6 +422,37 @@ async function downloadFile(url, outputPath) {
     throw error;
   }
 }
+
+/**
+ * Generates a summary report of the download process.
+ */
+function generateReport() {
+  const totalTime = (Date.now() - metrics.startTime) / 1000; // in seconds
+  const averageSpeed = metrics.downloadSpeeds.reduce((a, b) => a + b, 0) / metrics.downloadSpeeds.length;
+
+  const report = `
+    Download Summary Report:
+    ------------------------
+    Total Files Downloaded: ${metrics.totalFilesDownloaded}
+    Total Bytes Downloaded: ${metrics.totalBytesDownloaded}
+    Average Download Speed: ${averageSpeed.toFixed(2)} bytes/sec
+    Total Time Taken: ${totalTime.toFixed(2)} seconds
+  `;
+
+  logger.info(report);
+
+  if (reportfile) {
+    fs.writeFileSync(reportfile, report);
+    logger.info(`Report written to ${reportfile}`);
+  }
+}
+
+const metrics = {
+  startTime: Date.now(),
+  totalFilesDownloaded: 0,
+  totalBytesDownloaded: 0,
+  downloadSpeeds: []
+};
 
 /**
  * Main function to orchestrate the login and download process.
@@ -432,6 +480,7 @@ async function main() {
     }
 
     logger.info('Download complete.');
+    generateReport();
   } catch (error) {
     logger.error('An error occurred:', error.message);
   } finally {
