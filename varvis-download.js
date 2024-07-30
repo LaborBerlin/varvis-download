@@ -9,6 +9,7 @@ const readline = require('readline');
 const { ProxyAgent, fetch, Agent } = require('undici');
 const { version } = require('./package.json'); // Import the version from package.json
 const winston = require('winston');
+const ProgressBar = require('progress'); // Import progress module
 
 // Function to load configuration from a file
 function loadConfig(configFilePath) {
@@ -388,7 +389,7 @@ async function getDownloadLinks(analysisId) {
 }
 
 /**
- * Downloads a file from the given URL to the specified output path.
+ * Downloads a file from the given URL to the specified output path with progress reporting.
  * @param {string} url - The URL of the file to download.
  * @param {string} outputPath - The path where the file should be saved.
  * @returns {Promise<void>}
@@ -409,10 +410,20 @@ async function downloadFile(url, outputPath) {
   const startTime = Date.now();
   let totalBytes = 0;
 
+  // Get the total size of the file for progress reporting
+  const totalSize = parseInt(response.headers.get('content-length'), 10);
+  const progressBar = new ProgressBar('  downloading [:bar] :rate/bps :percent :etas', {
+    complete: '=',
+    incomplete: ' ',
+    width: 20,
+    total: totalSize
+  });
+
   try {
     for await (const chunk of response.body) {
       totalBytes += chunk.length;
       writer.write(chunk);
+      progressBar.tick(chunk.length);
     }
     writer.end();
 
