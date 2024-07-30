@@ -6,12 +6,15 @@ This script provides a command-line interface (CLI) to download BAM and BAI file
 
 1. Ensure you have [Node.js](https://nodejs.org/) installed.
 2. Clone the repository.
-3. Install the required packages:
+3. Install the required packages
+4. Make the script executable (Linux/Mac)
+5. Link the script to make it globally accessible (optional)
 
 ```sh
 git clone https://github.com/berntpopp/varvis-download.git
 cd varvis-download
 npm install
+chmod +x varvis-download.js
 npm link
 ```
 
