@@ -46,8 +46,17 @@ const argv = yargs
   .option('analysisIds', {
     alias: 'a',
     describe: 'Analysis IDs to download files for (comma-separated)',
-    type: 'string',
-    demandOption: true
+    type: 'string'
+  })
+  .option('sampleIds', {
+    alias: 's',
+    describe: 'Sample IDs to filter analyses (comma-separated)',
+    type: 'string'
+  })
+  .option('limsIds', {
+    alias: 'l',
+    describe: 'LIMS IDs to filter analyses (comma-separated)',
+    type: 'string'
   })
   .option('destination', {
     alias: 'd',
@@ -73,7 +82,7 @@ const argv = yargs
     default: 'bam,bam.bai'
   })
   .option('loglevel', {
-    alias: 'l',
+    alias: 'll',
     describe: 'Logging level (info, warn, error, debug)',
     type: 'string',
     default: 'info'
@@ -114,12 +123,14 @@ const finalConfig = {
   ...config,
   ...argv,
   filetypes: (argv.filetypes || config.filetypes || 'bam,bam.bai').split(',').map(ft => ft.trim()),
-  analysisIds: (argv.analysisIds || config.analysisIds || '').split(',').map(id => id.trim()),
+  analysisIds: (argv.analysisIds || config.analysisIds || '').split(',').map(id => id.trim()).filter(id => id),
+  sampleIds: (argv.sampleIds || config.sampleIds || '').split(',').map(id => id.trim()).filter(id => id),
+  limsIds: (argv.limsIds || config.limsIds || '').split(',').map(id => id.trim()).filter(id => id),
   destination: argv.destination !== '.' ? argv.destination : (config.destination || '.')
 };
 
 // Validate the final configuration
-const requiredFields = ['username', 'password', 'target', 'analysisIds'];
+const requiredFields = ['username', 'password', 'target'];
 for (const field of requiredFields) {
   if (!finalConfig[field]) {
     logger.error(`Error: Missing required argument --${field}`);
@@ -132,6 +143,8 @@ const target = finalConfig.target;
 const userName = finalConfig.username;
 const password = finalConfig.password;
 const analysisIds = finalConfig.analysisIds;
+const sampleIds = finalConfig.sampleIds;
+const limsIds = finalConfig.limsIds;
 const destination = finalConfig.destination;
 const proxy = finalConfig.proxy;
 const overwrite = finalConfig.overwrite;
@@ -140,7 +153,7 @@ const filetypes = finalConfig.filetypes;
 let token = '';
 
 const jar = new CookieJar();
-const agent = proxy 
+const agent = proxy
   ? new ProxyAgent({
       uri: proxy,
       factory: (origin, opts) => new CookieClient(origin, {
@@ -271,6 +284,43 @@ async function fetchWithRetry(url, options, retries = 3) {
 }
 
 /**
+ * Fetches analysis IDs based on sampleIds or limsIds.
+ * @returns {Promise<string[]>} - An array of analysis IDs.
+ */
+async function fetchAnalysisIds() {
+  try {
+    logger.debug('Fetching all analysis IDs');
+    const response = await fetchWithRetry(`https://${target}.varvis.com/api/analyses`, {
+      method: 'GET',
+      headers: { 'x-csrf-token': token },
+      dispatcher: agent
+    });
+    const data = await response.json();
+    const analyses = data.response;
+
+    // Filter out analyses of type "CNV"
+    let filteredAnalyses = analyses.filter(analysis => analysis.analysisType !== 'CNV');
+
+    if (sampleIds.length > 0) {
+      logger.debug(`Filtering analyses by sampleIds: ${sampleIds.join(', ')}`);
+      filteredAnalyses = filteredAnalyses.filter(analysis => sampleIds.includes(analysis.sampleId));
+    }
+
+    if (limsIds.length > 0) {
+      logger.debug(`Filtering analyses by limsIds: ${limsIds.join(', ')}`);
+      filteredAnalyses = filteredAnalyses.filter(analysis => limsIds.includes(analysis.personLimsId));
+    }
+
+    const ids = filteredAnalyses.map(analysis => analysis.id.toString());
+    logger.debug(`Filtered analysis IDs: ${ids.join(', ')}`);
+    return ids;
+  } catch (error) {
+    logger.error('Error fetching analysis IDs:', error);
+    throw error;
+  }
+}
+
+/**
  * Fetches the download links for specified file types from the Varvis API.
  * @param {string} analysisId - The analysis ID to fetch download links for.
  * @returns {Promise<Object>} - An object containing the download links for the specified file types.
@@ -369,7 +419,9 @@ async function main() {
   try {
     await authService.login({ username: userName, password: password });
 
-    for (const analysisId of analysisIds) {
+    const ids = analysisIds.length > 0 ? analysisIds : await fetchAnalysisIds();
+
+    for (const analysisId of ids) {
       const fileDict = await getDownloadLinks(analysisId);
 
       for (const [fileName, file] of Object.entries(fileDict)) {
