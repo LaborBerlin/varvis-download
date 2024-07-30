@@ -31,6 +31,7 @@ npm link
 
 ### Parameters
 
+- `--config`, `-c`: Path to a configuration file (default: .config.json in the current directory)
 - `--username`, `-u`: Varvis API username (required)
 - `--password`, `-p`: Varvis API password (required)
 - `--target`, `-t`: Target for the Varvis API (e.g., laborberlin or uni-leipzig) (required)
@@ -40,6 +41,28 @@ npm link
 - `--overwrite`, `-o`: Overwrite existing files (default: false)
 - `--version`, `-v`: Show version information
 - `--help`, `-h`: Show help message
+
+## Configuration File
+
+You can use a configuration file to specify default values for the parameters. The configuration file should be a JSON file with the following structure:
+
+```json
+{
+    "username": "your_username",
+    "password": "your_password",
+    "target": "your_target",
+    "destination": "download",
+    "proxy": "http://your_proxy:8080",
+    "overwrite": false,
+    "filetypes": "bam,bai"
+}
+```
+
+To use a configuration file, specify the --config or -c parameter followed by the path to the config file:
+  
+```sh
+./varvis-download.js -a 12345 -c ./your_config.json
+```
 
 ## Example
 

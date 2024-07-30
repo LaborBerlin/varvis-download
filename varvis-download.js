@@ -9,70 +9,102 @@ const readline = require('readline');
 const { ProxyAgent, fetch, Agent } = require('undici');
 const { version } = require('./package.json'); // Import the version from package.json
 
+// Function to load configuration from a file
+function loadConfig(configFilePath) {
+  if (fs.existsSync(configFilePath)) {
+    return JSON.parse(fs.readFileSync(configFilePath, 'utf-8'));
+  }
+  return {};
+}
+
 // Command line arguments setup
 const argv = yargs
   .usage('$0 <command> [args]')
   .version(version) // Use the built-in yargs version method
+  .option('config', {
+    alias: 'c',
+    describe: 'Path to the configuration file',
+    type: 'string',
+    default: '.config.json'
+  })
   .option('username', {
     alias: 'u',
     describe: 'Varvis API username',
-    type: 'string',
-    demandOption: true,
+    type: 'string'
   })
   .option('password', {
     alias: 'p',
     describe: 'Varvis API password',
-    type: 'string',
-    demandOption: true,
+    type: 'string'
   })
   .option('target', {
     alias: 't',
     describe: 'Target for the Varvis API',
-    type: 'string',
-    demandOption: true,
+    type: 'string'
   })
   .option('analysisId', {
     alias: 'a',
     describe: 'Analysis ID to download files for',
     type: 'string',
-    demandOption: true,
+    demandOption: true
   })
   .option('destination', {
     alias: 'd',
     describe: 'Destination folder for the downloaded files',
     type: 'string',
-    default: '.',
+    default: '.'
   })
   .option('proxy', {
     alias: 'x',
     describe: 'Proxy URL',
-    type: 'string',
+    type: 'string'
   })
   .option('overwrite', {
     alias: 'o',
     describe: 'Overwrite existing files',
     type: 'boolean',
-    default: false,
+    default: false
   })
   .option('filetypes', {
     alias: 'f',
     describe: 'File types to download (comma-separated)',
     type: 'string',
-    default: 'bam,bai',
+    default: 'bam,bai'
   })
   .help()
   .alias('help', 'h')
   .argv;
 
-// Extract the command line arguments
-const target = argv.target;
-const userName = argv.username;
-const password = argv.password;
-const analysisId = argv.analysisId;
-const destination = argv.destination;
-const proxy = argv.proxy;
-const overwrite = argv.overwrite;
-const filetypes = argv.filetypes.split(',').map(ft => ft.trim());
+// Load configuration file settings
+const configFilePath = path.resolve(argv.config);
+const config = loadConfig(configFilePath);
+
+// Merge command line arguments with configuration file settings
+const finalConfig = {
+  ...config,
+  ...argv,
+  filetypes: (argv.filetypes || config.filetypes || 'bam,bai').split(',').map(ft => ft.trim()),
+  destination: argv.destination !== '.' ? argv.destination : (config.destination || '.')
+};
+
+// Validate the final configuration
+const requiredFields = ['username', 'password', 'target', 'analysisId'];
+for (const field of requiredFields) {
+  if (!finalConfig[field]) {
+    console.error(`Error: Missing required argument --${field}`);
+    process.exit(1);
+  }
+}
+
+// Extract the final configuration values
+const target = finalConfig.target;
+const userName = finalConfig.username;
+const password = finalConfig.password;
+const analysisId = finalConfig.analysisId;
+const destination = finalConfig.destination;
+const proxy = finalConfig.proxy;
+const overwrite = finalConfig.overwrite;
+const filetypes = finalConfig.filetypes;
 
 let token = '';
 
