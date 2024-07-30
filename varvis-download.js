@@ -42,9 +42,9 @@ const argv = yargs
     describe: 'Target for the Varvis API',
     type: 'string'
   })
-  .option('analysisId', {
+  .option('analysisIds', {
     alias: 'a',
-    describe: 'Analysis ID to download files for',
+    describe: 'Analysis IDs to download files for (comma-separated)',
     type: 'string',
     demandOption: true
   })
@@ -84,11 +84,12 @@ const finalConfig = {
   ...config,
   ...argv,
   filetypes: (argv.filetypes || config.filetypes || 'bam,bai').split(',').map(ft => ft.trim()),
+  analysisIds: (argv.analysisIds || config.analysisIds || '').split(',').map(id => id.trim()),
   destination: argv.destination !== '.' ? argv.destination : (config.destination || '.')
 };
 
 // Validate the final configuration
-const requiredFields = ['username', 'password', 'target', 'analysisId'];
+const requiredFields = ['username', 'password', 'target', 'analysisIds'];
 for (const field of requiredFields) {
   if (!finalConfig[field]) {
     console.error(`Error: Missing required argument --${field}`);
@@ -100,7 +101,7 @@ for (const field of requiredFields) {
 const target = finalConfig.target;
 const userName = finalConfig.username;
 const password = finalConfig.password;
-const analysisId = finalConfig.analysisId;
+const analysisIds = finalConfig.analysisIds;
 const destination = finalConfig.destination;
 const proxy = finalConfig.proxy;
 const overwrite = finalConfig.overwrite;
@@ -212,9 +213,10 @@ async function confirmOverwrite(file) {
 
 /**
  * Fetches the download links for specified file types from the Varvis API.
+ * @param {string} analysisId - The analysis ID to fetch download links for.
  * @returns {Promise<Object>} - An object containing the download links for the specified file types.
  */
-async function getDownloadLinks() {
+async function getDownloadLinks(analysisId) {
   try {
     const response = await fetch(`https://${target}.varvis.com/api/analysis/${analysisId}/get-file-download-links`, {
       method: 'GET',
@@ -236,12 +238,12 @@ async function getDownloadLinks() {
     const availableFileTypes = Object.keys(fileDict);
     const missingFileTypes = filetypes.filter(ft => !availableFileTypes.includes(ft));
     if (missingFileTypes.length > 0) {
-      console.warn(`Warning: The following requested file types are not available for the analysis: ${missingFileTypes.join(', ')}`);
+      console.warn(`Warning: The following requested file types are not available for the analysis ${analysisId}: ${missingFileTypes.join(', ')}`);
     }
 
     return fileDict;
   } catch (error) {
-    console.error('Failed to get download links:', error.message);
+    console.error(`Failed to get download links for analysis ID ${analysisId}:`, error.message);
     process.exit(1);
   }
 }
@@ -290,13 +292,16 @@ async function main() {
   }
 
   await authService.login({ username: userName, password: password });
-  const fileDict = await getDownloadLinks();
 
-  for (const [fileType, file] of Object.entries(fileDict)) {
-    const fileName = file.fileName;
-    const downloadLink = file.downloadLink;
-    console.log(`Downloading ${fileType} file...`);
-    await downloadFile(downloadLink, path.join(destination, fileName));
+  for (const analysisId of analysisIds) {
+    const fileDict = await getDownloadLinks(analysisId);
+
+    for (const [fileType, file] of Object.entries(fileDict)) {
+      const fileName = file.fileName;
+      const downloadLink = file.downloadLink;
+      console.log(`Downloading ${fileType} file for analysis ID ${analysisId}...`);
+      await downloadFile(downloadLink, path.join(destination, fileName));
+    }
   }
 
   console.log('Download complete.');

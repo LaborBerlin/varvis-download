@@ -35,7 +35,7 @@ npm link
 - `--username`, `-u`: Varvis API username (required)
 - `--password`, `-p`: Varvis API password (required)
 - `--target`, `-t`: Target for the Varvis API (e.g., laborberlin or uni-leipzig) (required)
-- `--analysisId`, `-a`: Analysis ID to download files for (required)
+- `--analysisId`, `-a`: Analysis ID(s) to download files for, comma-separated for multiple IDs (required)
 - `--destination`, `-d`: Destination folder for the downloaded files (default: current directory)
 - `--proxy`, `-x`: Proxy URL (optional)
 - `--overwrite`, `-o`: Overwrite existing files (default: false)
@@ -61,7 +61,7 @@ You can use a configuration file to specify default values for the parameters. T
 To use a configuration file, specify the --config or -c parameter followed by the path to the config file:
   
 ```sh
-./varvis-download.js -a 12345 -c ./your_config.json
+./varvis-download.js -a '12345,67890' -c ./your_config.json
 ```
 
 ## Example
@@ -116,19 +116,19 @@ sequenceDiagram
     CLI->>CLI: Save BAI file
 ```
 
-## Detailed Function Documentation
+### Detailed Function Documentation
 
-### `AuthService` Class
+#### `AuthService` Class
 
 Handles authentication with the Varvis API.
 
-#### `async getCsrfToken()`
+##### `async getCsrfToken()`
 
 Fetches the CSRF token required for login.
 
 - **Returns**: `Promise<string>` - The CSRF token.
 
-#### `async login(user)`
+##### `async login(user)`
 
 Logs in to the Varvis API and retrieves the CSRF token.
 
@@ -138,7 +138,7 @@ Logs in to the Varvis API and retrieves the CSRF token.
     - `password`: The Varvis API password.
 - **Returns**: `Promise<Object>` - The login response containing the CSRF token.
 
-### `async confirmOverwrite(file)`
+#### `async confirmOverwrite(file)`
 
 Prompts the user to confirm file overwrite if the file already exists.
 
@@ -146,13 +146,15 @@ Prompts the user to confirm file overwrite if the file already exists.
   - `file`: The file path.
 - **Returns**: `Promise<boolean>` - True if the user confirms overwrite, otherwise false.
 
-### `async getDownloadLinks()`
+#### `async getDownloadLinks(analysisId)`
 
-Fetches the download links for BAM and BAI files from the Varvis API.
+Fetches the download links for specified file types from the Varvis API for a given analysis ID.
 
-- **Returns**: `Promise<Object>` - An object containing the download links for BAM and BAI files.
+- **Parameters**:
+  - `analysisId`: The analysis ID to get download links for.
+- **Returns**: `Promise<Object>` - An object containing the download links for the specified file types.
 
-### `async downloadFile(url, outputPath)`
+#### `async downloadFile(url, outputPath)`
 
 Downloads a file from the given URL to the specified output path.
 
@@ -161,8 +163,8 @@ Downloads a file from the given URL to the specified output path.
   - `outputPath`: The path where the file should be saved.
 - **Returns**: `Promise<void>`
 
-### `async main()`
+#### `async main()`
 
-Main function to orchestrate the login and download process.
+Main function to orchestrate the login and download process for multiple analysis IDs.
 
 - **Returns**: `Promise<void>`
