@@ -6,9 +6,9 @@ This script provides a command-line interface (CLI) to download BAM and BAI file
 
 1. Ensure you have [Node.js](https://nodejs.org/) installed.
 2. Clone the repository.
-3. Install the required packages
-4. Make the script executable (Linux/Mac)
-5. Link the script to make it globally accessible (optional)
+3. Install the required packages.
+4. Make the script executable (Linux/Mac).
+5. Link the script to make it globally accessible (optional).
 
 ```sh
 git clone https://github.com/berntpopp/varvis-download.git
@@ -26,8 +26,10 @@ npm link
 ## Usage
 
 ```sh
-./varvis-download.js --username <username> --password <password> --target <target> --analysisId <analysisId> [options]
+./varvis-download.js --username <username> --password <password> --target <target> --analysisIds <analysisId> [options]
 ```
+
+### Parameters
 
 ### Parameters
 
@@ -35,10 +37,18 @@ npm link
 - `--username`, `-u`: Varvis API username (required)
 - `--password`, `-p`: Varvis API password (required)
 - `--target`, `-t`: Target for the Varvis API (e.g., laborberlin or uni-leipzig) (required)
-- `--analysisId`, `-a`: Analysis ID(s) to download files for, comma-separated for multiple IDs (required)
+- `--analysisIds`, `-a`: Analysis ID(s) to download files for, comma-separated for multiple IDs (required)
+- `--sampleIds`, `-s`: Sample IDs to filter analyses (comma-separated)
+- `--limsIds`, `-l`: LIMS IDs to filter analyses (comma-separated)
 - `--destination`, `-d`: Destination folder for the downloaded files (default: current directory)
 - `--proxy`, `-x`: Proxy URL (optional)
+- `--proxyUsername`, `-pxu`: Proxy username (optional)
+- `--proxyPassword`, `-pxp`: Proxy password (optional)
 - `--overwrite`, `-o`: Overwrite existing files (default: false)
+- `--filetypes`, `-f`: File types to download (comma-separated, default: 'bam,bam.bai')
+- `--loglevel`, `-ll`: Logging level (info, warn, error, debug, default: 'info')
+- `--logfile`, `-lf`: Path to the log file (optional)
+- `--reportfile`, `-r`: Path to the report file (optional)
 - `--version`, `-v`: Show version information
 - `--help`, `-h`: Show help message
 
@@ -53,8 +63,10 @@ You can use a configuration file to specify default values for the parameters. T
     "target": "your_target",
     "destination": "download",
     "proxy": "http://your_proxy:8080",
+    "proxyUsername": "proxy_user",
+    "proxyPassword": "proxy_pass",
     "overwrite": false,
-    "filetypes": "bam,bai"
+    "filetypes": "bam,bam.bai"
 }
 ```
 
@@ -78,11 +90,13 @@ To use a configuration file, specify the --config or -c parameter followed by th
 graph TD;
     A[Main Function] --> B[AuthService.login]
     B --> C[AuthService.getCsrfToken]
-    A --> D[getDownloadLinks]
-    D --> E[fetch download links]
-    A --> F[downloadFile]
-    F --> G[fetch file data]
-    F --> H[write to file]
+    A --> D[fetchAnalysisIds]
+    A --> E[getDownloadLinks]
+    E --> F[fetch download links]
+    A --> G[downloadFile]
+    G --> H[fetch file data]
+    G --> I[write to file]
+    A --> J[generateReport]
 ```
 
 ### Function Flow
@@ -104,6 +118,9 @@ sequenceDiagram
     VarvisAPI-->>AuthService: Return session token
     AuthService-->>CLI: Return session token
 
+    CLI->>VarvisAPI: GET analysis IDs
+    VarvisAPI-->>CLI: Return analysis IDs
+
     CLI->>VarvisAPI: GET download links
     VarvisAPI-->>CLI: Return download links
 
@@ -114,6 +131,8 @@ sequenceDiagram
     CLI->>VarvisAPI: GET BAI file
     VarvisAPI-->>CLI: Stream BAI file
     CLI->>CLI: Save BAI file
+
+    CLI->>CLI: generateReport()
 ```
 
 ### Detailed Function Documentation
@@ -146,13 +165,38 @@ Prompts the user to confirm file overwrite if the file already exists.
   - `file`: The file path.
 - **Returns**: `Promise<boolean>` - True if the user confirms overwrite, otherwise false.
 
-#### `async getDownloadLinks(analysisId)`
+#### `async fetchWithRetry(url, options, retries = 3)`
+
+Retries a fetch operation with a specified number of attempts.
+
+- **Parameters**:
+  - `url`: The URL to fetch.
+  - `options`: The fetch options.
+  - `retries`: The number of retry attempts.
+- **Returns**: `Promise<Response>` - The fetch response.
+
+#### `async fetchAnalysisIds()`
+
+Fetches analysis IDs based on sampleIds or limsIds.
+
+- **Returns**: `Promise<string[]>` - An array of analysis IDs.
+
+#### `async getDownloadLinks(analysisId, filter = null)`
 
 Fetches the download links for specified file types from the Varvis API for a given analysis ID.
 
 - **Parameters**:
   - `analysisId`: The analysis ID to get download links for.
+  - `filter`: An optional array of file types to filter by.
 - **Returns**: `Promise<Object>` - An object containing the download links for the specified file types.
+
+#### `async listAvailableFiles(analysisId)`
+
+Lists available files for the specified analysis IDs.
+
+- **Parameters**:
+  - `analysisId`: The analysis ID to list files for.
+- **Returns**: `Promise<void>`
 
 #### `async downloadFile(url, outputPath)`
 
@@ -162,6 +206,12 @@ Downloads a file from the given URL to the specified output path.
   - `url`: The URL of the file to download.
   - `outputPath`: The path where the file should be saved.
 - **Returns**: `Promise<void>`
+
+#### `function generateReport()`
+
+Generates a summary report of the download process.
+
+- **Returns**: `void`
 
 #### `async main()`
 
