@@ -32,3 +32,6 @@ pnpm-debug.log*
 
 # config files
 *.config.json
+
+# log files
+*.log

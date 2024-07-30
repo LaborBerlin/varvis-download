@@ -59,6 +59,11 @@ const argv = yargs
     describe: 'LIMS IDs to filter analyses (comma-separated)',
     type: 'string'
   })
+  .option('list', {
+    alias: 'L',
+    describe: 'List available files for the specified analysis IDs',
+    type: 'boolean'
+  })
   .option('destination', {
     alias: 'd',
     describe: 'Destination folder for the downloaded files',
@@ -347,9 +352,10 @@ async function fetchAnalysisIds() {
 /**
  * Fetches the download links for specified file types from the Varvis API.
  * @param {string} analysisId - The analysis ID to fetch download links for.
+ * @param {Array<string>} [filter] - An optional array of file types to filter by.
  * @returns {Promise<Object>} - An object containing the download links for the specified file types.
  */
-async function getDownloadLinks(analysisId) {
+async function getDownloadLinks(analysisId, filter = null) {
   try {
     logger.debug(`Fetching download links for analysis ID: ${analysisId}`);
     const response = await fetchWithRetry(`https://${target}.varvis.com/api/analysis/${analysisId}/get-file-download-links`, {
@@ -365,26 +371,51 @@ async function getDownloadLinks(analysisId) {
       const fileNameParts = file.fileName.split('.');
       const fileType = fileNameParts.length > 2 ? fileNameParts.slice(-2).join('.') : fileNameParts.pop();
       logger.debug(`Checking file type: ${fileType}`);
-      if (filetypes.includes(fileType)) {
+      if (!filter || filter.includes(fileType)) {
         fileDict[file.fileName] = file;
       }
     }
 
     // Warn if requested file types are not available
-    const availableFileTypes = Object.keys(fileDict).map(fileName => {
-      const parts = fileName.split('.');
-      return parts.length > 2 ? parts.slice(-2).join('.') : parts.pop();
-    });
-    logger.debug(`Available file types: ${availableFileTypes.join(', ')}`);
-    const missingFileTypes = filetypes.filter(ft => !availableFileTypes.includes(ft));
-    if (missingFileTypes.length > 0) {
-      logger.warn(`Warning: The following requested file types are not available for the analysis ${analysisId}: ${missingFileTypes.join(', ')}`);
+    if (filter) {
+      const availableFileTypes = Object.keys(fileDict).map(fileName => {
+        const parts = fileName.split('.');
+        return parts.length > 2 ? parts.slice(-2).join('.') : parts.pop();
+      });
+      logger.debug(`Available file types: ${availableFileTypes.join(', ')}`);
+      const missingFileTypes = filter.filter(ft => !availableFileTypes.includes(ft));
+      if (missingFileTypes.length > 0) {
+        logger.warn(`Warning: The following requested file types are not available for the analysis ${analysisId}: ${missingFileTypes.join(', ')}`);
+      }
     }
 
     return fileDict;
   } catch (error) {
     logger.error(`Failed to get download links for analysis ID ${analysisId}:`, error.message);
     process.exit(1);
+  }
+}
+
+/**
+ * Lists available files for the specified analysis IDs.
+ * @param {string} analysisId - The analysis ID to list files for.
+ * @returns {Promise<void>}
+ */
+async function listAvailableFiles(analysisId) {
+  try {
+    logger.info(`Listing available files for analysis ID: ${analysisId}`);
+    const fileDict = await getDownloadLinks(analysisId);
+
+    if (Object.keys(fileDict).length === 0) {
+      logger.info('No files available for the specified analysis ID.');
+    } else {
+      logger.info('Available files:');
+      for (const fileName of Object.keys(fileDict)) {
+        logger.info(`- ${fileName}`);
+      }
+    }
+  } catch (error) {
+    logger.error(`Failed to list available files for analysis ID ${analysisId}:`, error.message);
   }
 }
 
@@ -497,18 +528,24 @@ async function main() {
 
     const ids = analysisIds.length > 0 ? analysisIds : await fetchAnalysisIds();
 
-    for (const analysisId of ids) {
-      const fileDict = await getDownloadLinks(analysisId);
-
-      for (const [fileName, file] of Object.entries(fileDict)) {
-        const downloadLink = file.downloadLink;
-        logger.info(`Downloading ${fileName} file for analysis ID ${analysisId}...`);
-        await downloadFile(downloadLink, path.join(destination, fileName));
+    if (argv.list) {
+      for (const analysisId of ids) {
+        await listAvailableFiles(analysisId);
       }
-    }
+    } else {
+      for (const analysisId of ids) {
+        const fileDict = await getDownloadLinks(analysisId, filetypes);
 
-    logger.info('Download complete.');
-    generateReport();
+        for (const [fileName, file] of Object.entries(fileDict)) {
+          const downloadLink = file.downloadLink;
+          logger.info(`Downloading ${fileName} file for analysis ID ${analysisId}...`);
+          await downloadFile(downloadLink, path.join(destination, fileName));
+        }
+      }
+
+      logger.info('Download complete.');
+      generateReport();
+    }
   } catch (error) {
     logger.error('An error occurred:', error.message);
   } finally {
