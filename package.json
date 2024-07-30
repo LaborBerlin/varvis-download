@@ -1,6 +1,6 @@
 {
   "name": "varvis-download",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "",
   "main": "varvis-download.js",
   "scripts": {
@@ -15,6 +15,7 @@
     "http-cookie-agent": "^6.0.5",
     "tough-cookie": "^4.1.4",
     "undici": "^6.19.4",
+    "winston": "^3.13.1",
     "yargs": "^17.7.2",
     "yargs-interactive": "^3.0.1"
   },

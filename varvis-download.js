@@ -8,6 +8,7 @@ const path = require('path');
 const readline = require('readline');
 const { ProxyAgent, fetch, Agent } = require('undici');
 const { version } = require('./package.json'); // Import the version from package.json
+const winston = require('winston');
 
 // Function to load configuration from a file
 function loadConfig(configFilePath) {
@@ -69,11 +70,40 @@ const argv = yargs
     alias: 'f',
     describe: 'File types to download (comma-separated)',
     type: 'string',
-    default: 'bam,bai'
+    default: 'bam,bam.bai'
+  })
+  .option('loglevel', {
+    alias: 'l',
+    describe: 'Logging level (info, warn, error, debug)',
+    type: 'string',
+    default: 'info'
+  })
+  .option('logfile', {
+    alias: 'lf',
+    describe: 'Path to the log file',
+    type: 'string'
   })
   .help()
   .alias('help', 'h')
   .argv;
+
+// Initialize logger
+const transports = [
+  new winston.transports.Console()
+];
+
+if (argv.logfile) {
+  transports.push(new winston.transports.File({ filename: argv.logfile }));
+}
+
+const logger = winston.createLogger({
+  level: argv.loglevel,
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.printf(({ timestamp, level, message }) => `${timestamp} [${level}]: ${message}`)
+  ),
+  transports: transports
+});
 
 // Load configuration file settings
 const configFilePath = path.resolve(argv.config);
@@ -83,7 +113,7 @@ const config = loadConfig(configFilePath);
 const finalConfig = {
   ...config,
   ...argv,
-  filetypes: (argv.filetypes || config.filetypes || 'bam,bai').split(',').map(ft => ft.trim()),
+  filetypes: (argv.filetypes || config.filetypes || 'bam,bam.bai').split(',').map(ft => ft.trim()),
   analysisIds: (argv.analysisIds || config.analysisIds || '').split(',').map(id => id.trim()),
   destination: argv.destination !== '.' ? argv.destination : (config.destination || '.')
 };
@@ -92,7 +122,7 @@ const finalConfig = {
 const requiredFields = ['username', 'password', 'target', 'analysisIds'];
 for (const field of requiredFields) {
   if (!finalConfig[field]) {
-    console.error(`Error: Missing required argument --${field}`);
+    logger.error(`Error: Missing required argument --${field}`);
     process.exit(1);
   }
 }
@@ -142,7 +172,7 @@ class AuthService {
       const csrfToken = response.headers.get('x-csrf-token');
       return csrfToken;
     } catch (error) {
-      console.error('Error fetching initial CSRF token:', error);
+      logger.error('Error fetching initial CSRF token:', error);
       throw error;
     }
   }
@@ -183,9 +213,10 @@ class AuthService {
 
       token = csrfToken2Response.headers.get('x-csrf-token');
 
+      logger.info('Login successful');
       return { csrfToken: token };
     } catch (error) {
-      console.error('Login error:', error);
+      logger.error('Login error:', error);
       throw error;
     }
   }
@@ -228,22 +259,26 @@ async function getDownloadLinks(analysisId) {
 
     const fileDict = {};
     for (const file of apiFileLinks) {
-      const fileType = file.fileName.split('.').slice(-2).join('.');
-      if (filetypes.includes(fileType) || filetypes.includes(file.fileName.split('.').pop())) {
-        fileDict[fileType] = file;
+      const fileNameParts = file.fileName.split('.');
+      const fileType = fileNameParts.length > 2 ? fileNameParts.slice(-2).join('.') : fileNameParts.pop();
+      if (filetypes.includes(fileType)) {
+        fileDict[file.fileName] = file;
       }
     }
 
     // Warn if requested file types are not available
-    const availableFileTypes = Object.keys(fileDict);
+    const availableFileTypes = Object.keys(fileDict).map(fileName => {
+      const parts = fileName.split('.');
+      return parts.length > 2 ? parts.slice(-2).join('.') : parts.pop();
+    });
     const missingFileTypes = filetypes.filter(ft => !availableFileTypes.includes(ft));
     if (missingFileTypes.length > 0) {
-      console.warn(`Warning: The following requested file types are not available for the analysis ${analysisId}: ${missingFileTypes.join(', ')}`);
+      logger.warn(`Warning: The following requested file types are not available for the analysis ${analysisId}: ${missingFileTypes.join(', ')}`);
     }
 
     return fileDict;
   } catch (error) {
-    console.error(`Failed to get download links for analysis ID ${analysisId}:`, error.message);
+    logger.error(`Failed to get download links for analysis ID ${analysisId}:`, error.message);
     process.exit(1);
   }
 }
@@ -258,7 +293,7 @@ async function downloadFile(url, outputPath) {
   if (fs.existsSync(outputPath) && !overwrite) {
     const confirm = await confirmOverwrite(outputPath);
     if (!confirm) {
-      console.log(`Skipped downloading ${outputPath}`);
+      logger.info(`Skipped downloading ${outputPath}`);
       return;
     }
   }
@@ -276,8 +311,14 @@ async function downloadFile(url, outputPath) {
   writer.end();
 
   return new Promise((resolve, reject) => {
-    writer.on('finish', resolve);
-    writer.on('error', reject);
+    writer.on('finish', () => {
+      logger.info(`Successfully downloaded ${outputPath}`);
+      resolve();
+    });
+    writer.on('error', (error) => {
+      logger.error(`Failed to download ${outputPath}: ${error.message}`);
+      reject(error);
+    });
   });
 }
 
@@ -291,25 +332,30 @@ async function main() {
     fs.mkdirSync(destination, { recursive: true });
   }
 
-  await authService.login({ username: userName, password: password });
+  try {
+    await authService.login({ username: userName, password: password });
 
-  for (const analysisId of analysisIds) {
-    const fileDict = await getDownloadLinks(analysisId);
+    for (const analysisId of analysisIds) {
+      const fileDict = await getDownloadLinks(analysisId);
 
-    for (const [fileType, file] of Object.entries(fileDict)) {
-      const fileName = file.fileName;
-      const downloadLink = file.downloadLink;
-      console.log(`Downloading ${fileType} file for analysis ID ${analysisId}...`);
-      await downloadFile(downloadLink, path.join(destination, fileName));
+      for (const [fileName, file] of Object.entries(fileDict)) {
+        const downloadLink = file.downloadLink;
+        logger.info(`Downloading ${fileName} file for analysis ID ${analysisId}...`);
+        await downloadFile(downloadLink, path.join(destination, fileName));
+      }
     }
-  }
 
-  console.log('Download complete.');
-  rl.close();
+    logger.info('Download complete.');
+  } catch (error) {
+    logger.error('An error occurred:', error.message);
+  } finally {
+    rl.close();
+    process.exit(1);
+  }
 }
 
 main().catch(error => {
-  console.error('An error occurred:', error.message);
+  logger.error('An unexpected error occurred:', error.message);
   rl.close();
   process.exit(1);
 });
