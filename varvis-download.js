@@ -246,6 +246,31 @@ async function confirmOverwrite(file) {
 }
 
 /**
+ * Retries a fetch operation with a specified number of attempts.
+ * @param {string} url - The URL to fetch.
+ * @param {Object} options - The fetch options.
+ * @param {number} retries - The number of retry attempts.
+ * @returns {Promise<Response>} - The fetch response.
+ */
+async function fetchWithRetry(url, options, retries = 3) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      if (!response.ok) throw new Error(`Fetch failed with status: ${response.status}`);
+      return response;
+    } catch (error) {
+      if (attempt < retries) {
+        logger.warn(`Fetch attempt ${attempt} failed. Retrying...`);
+        await new Promise(res => setTimeout(res, attempt * 1000)); // Exponential backoff
+      } else {
+        logger.error(`Fetch failed after ${retries} attempts: ${error.message}`);
+        throw error;
+      }
+    }
+  }
+}
+
+/**
  * Fetches the download links for specified file types from the Varvis API.
  * @param {string} analysisId - The analysis ID to fetch download links for.
  * @returns {Promise<Object>} - An object containing the download links for the specified file types.
@@ -253,7 +278,7 @@ async function confirmOverwrite(file) {
 async function getDownloadLinks(analysisId) {
   try {
     logger.debug(`Fetching download links for analysis ID: ${analysisId}`);
-    const response = await fetch(`https://${target}.varvis.com/api/analysis/${analysisId}/get-file-download-links`, {
+    const response = await fetchWithRetry(`https://${target}.varvis.com/api/analysis/${analysisId}/get-file-download-links`, {
       method: 'GET',
       headers: { 'x-csrf-token': token },
       dispatcher: agent
@@ -306,27 +331,29 @@ async function downloadFile(url, outputPath) {
   }
 
   const writer = fs.createWriteStream(outputPath);
-  const response = await fetch(url, {
-    method: 'GET',
-    dispatcher: agent
-  });
+  const response = await fetchWithRetry(url, { method: 'GET', dispatcher: agent });
 
-  for await (const chunk of response.body) {
-    writer.write(chunk);
+  try {
+    for await (const chunk of response.body) {
+      writer.write(chunk);
+    }
+    writer.end();
+
+    await new Promise((resolve, reject) => {
+      writer.on('finish', () => {
+        logger.info(`Successfully downloaded ${outputPath}`);
+        resolve();
+      });
+      writer.on('error', (error) => {
+        logger.error(`Failed to download ${outputPath}: ${error.message}`);
+        reject(error);
+      });
+    });
+  } catch (error) {
+    logger.error(`Download interrupted for ${outputPath}: ${error.message}`);
+    fs.unlinkSync(outputPath); // Clean up partial download
+    throw error;
   }
-
-  writer.end();
-
-  return new Promise((resolve, reject) => {
-    writer.on('finish', () => {
-      logger.info(`Successfully downloaded ${outputPath}`);
-      resolve();
-    });
-    writer.on('error', (error) => {
-      logger.error(`Failed to download ${outputPath}: ${error.message}`);
-      reject(error);
-    });
-  });
 }
 
 /**
