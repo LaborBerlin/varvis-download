@@ -69,6 +69,16 @@ const argv = yargs
     describe: 'Proxy URL',
     type: 'string'
   })
+  .option('proxyUsername', {
+    alias: 'pxu',
+    describe: 'Proxy username',
+    type: 'string'
+  })
+  .option('proxyPassword', {
+    alias: 'pxp',
+    describe: 'Proxy password',
+    type: 'string'
+  })
   .option('overwrite', {
     alias: 'o',
     describe: 'Overwrite existing files',
@@ -152,6 +162,8 @@ const sampleIds = finalConfig.sampleIds;
 const limsIds = finalConfig.limsIds;
 const destination = finalConfig.destination;
 const proxy = finalConfig.proxy;
+const proxyUsername = finalConfig.proxyUsername;
+const proxyPassword = finalConfig.proxyPassword;
 const overwrite = finalConfig.overwrite;
 const filetypes = finalConfig.filetypes;
 const reportfile = finalConfig.reportfile;
@@ -159,9 +171,14 @@ const reportfile = finalConfig.reportfile;
 let token = '';
 
 const jar = new CookieJar();
+const agentOptions = proxy ? { uri: proxy } : {};
+if (proxyUsername && proxyPassword) {
+  agentOptions.auth = `${proxyUsername}:${proxyPassword}`;
+}
+
 const agent = proxy
   ? new ProxyAgent({
-      uri: proxy,
+      ...agentOptions,
       factory: (origin, opts) => new CookieClient(origin, {
         ...opts,
         cookies: { jar },
