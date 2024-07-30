@@ -11,7 +11,7 @@ This script provides a command-line interface (CLI) to download BAM and BAI file
 5. Link the script to make it globally accessible (optional).
 
 ```sh
-git clone https://github.com/berntpopp/varvis-download.git
+git clone https://github.com/LaborBerlin/varvis-download.git
 cd varvis-download
 npm install
 chmod +x varvis-download.js

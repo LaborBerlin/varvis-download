@@ -4,7 +4,7 @@
   "description": "",
   "repository": {
     "type": "git",
-    "url": "https://github.com/berntpopp/varvis-download.git"
+    "url": "https://github.com/LaborBerlin/varvis-download.git"
   },
   "main": "varvis-download.js",
   "scripts": {
