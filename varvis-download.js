@@ -6,8 +6,9 @@ const yargs = require('yargs');
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
+const { execSync } = require('child_process');
 const { ProxyAgent, fetch, Agent } = require('undici');
-const { version } = require('./package.json'); // Import the version from package.json
+const { version, name, author, license, repository } = require('./package.json'); // Import the version and name from package.json
 const winston = require('winston');
 const ProgressBar = require('progress'); // Import progress module
 
@@ -19,10 +20,26 @@ function loadConfig(configFilePath) {
   return {};
 }
 
+// Function to read the ASCII logo from the logo.txt file
+function loadLogo() {
+  const logoPath = path.resolve(__dirname, 'assets/logo.txt');
+  if (fs.existsSync(logoPath)) {
+    return fs.readFileSync(logoPath, 'utf-8');
+  }
+  return '';
+}
+
+function getLastModifiedDate(filePath) {
+  const stats = fs.statSync(filePath);
+  return stats.mtime.toISOString().split('T')[0];
+}
+
+const logo = loadLogo();
+
 // Command line arguments setup
 const argv = yargs
   .usage('$0 <command> [args]')
-  .version(version) // Use the built-in yargs version method
+  .version(false) // Disable built-in version method
   .option('config', {
     alias: 'c',
     describe: 'Path to the configuration file',
@@ -113,6 +130,12 @@ const argv = yargs
     describe: 'Path to the report file',
     type: 'string'
   })
+  .option('version', {
+    alias: 'v',
+    type: 'boolean',
+    description: 'Show version information',
+    default: false
+  })
   .help()
   .alias('help', 'h')
   .argv;
@@ -134,6 +157,17 @@ const logger = winston.createLogger({
   ),
   transports: transports
 });
+
+// Show version information
+if (argv.version) {
+  console.log(logo);
+  console.log(`${name} - Version ${version}`);
+  console.log(`Date Last Modified: ${getLastModifiedDate(__filename)}`);
+  console.log(`Author: ${author}`);
+  console.log(`Repository: ${repository.url}`);
+  console.log(`License: ${license}`);
+  process.exit(0);
+}
 
 // Load configuration file settings
 const configFilePath = path.resolve(argv.config);
@@ -388,7 +422,6 @@ async function getDownloadLinks(analysisId, filter = null) {
         logger.warn(`Warning: The following requested file types are not available for the analysis ${analysisId}: ${missingFileTypes.join(', ')}`);
       }
     }
-
     return fileDict;
   } catch (error) {
     logger.error(`Failed to get download links for analysis ID ${analysisId}:`, error.message);

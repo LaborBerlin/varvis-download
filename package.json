@@ -1,14 +1,18 @@
 {
   "name": "varvis-download",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/berntpopp/varvis-download.git"
+  },
   "main": "varvis-download.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": ["api", "cli", "data-download", "varvis", "node", "bioinformatics", "genomics", "authentication", "proxy-support"],
+  "author": "Bernt Popp",
+  "license": "MIT",
   "dependencies": {
     "date-fns": "^3.6.0",
     "fs-extra": "^11.2.0",
