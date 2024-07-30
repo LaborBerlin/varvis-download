@@ -165,11 +165,13 @@ class AuthService {
    */
   async getCsrfToken() {
     try {
+      logger.debug(`Fetching CSRF token from https://${target}.varvis.com/authenticate`);
       const response = await fetch(`https://${target}.varvis.com/authenticate`, {
         method: 'HEAD',
         dispatcher: agent
       });
       const csrfToken = response.headers.get('x-csrf-token');
+      logger.debug(`Received CSRF token: ${csrfToken}`);
       return csrfToken;
     } catch (error) {
       logger.error('Error fetching initial CSRF token:', error);
@@ -193,6 +195,7 @@ class AuthService {
       params.append('username', user.username);
       params.append('password', user.password);
 
+      logger.debug(`Logging in to https://${target}.varvis.com/login with username: ${user.username}`);
       const loginResponse = await fetch(`https://${target}.varvis.com/login`, {
         method: 'POST',
         headers: {
@@ -249,6 +252,7 @@ async function confirmOverwrite(file) {
  */
 async function getDownloadLinks(analysisId) {
   try {
+    logger.debug(`Fetching download links for analysis ID: ${analysisId}`);
     const response = await fetch(`https://${target}.varvis.com/api/analysis/${analysisId}/get-file-download-links`, {
       method: 'GET',
       headers: { 'x-csrf-token': token },
@@ -261,6 +265,7 @@ async function getDownloadLinks(analysisId) {
     for (const file of apiFileLinks) {
       const fileNameParts = file.fileName.split('.');
       const fileType = fileNameParts.length > 2 ? fileNameParts.slice(-2).join('.') : fileNameParts.pop();
+      logger.debug(`Checking file type: ${fileType}`);
       if (filetypes.includes(fileType)) {
         fileDict[file.fileName] = file;
       }
@@ -271,6 +276,7 @@ async function getDownloadLinks(analysisId) {
       const parts = fileName.split('.');
       return parts.length > 2 ? parts.slice(-2).join('.') : parts.pop();
     });
+    logger.debug(`Available file types: ${availableFileTypes.join(', ')}`);
     const missingFileTypes = filetypes.filter(ft => !availableFileTypes.includes(ft));
     if (missingFileTypes.length > 0) {
       logger.warn(`Warning: The following requested file types are not available for the analysis ${analysisId}: ${missingFileTypes.join(', ')}`);
@@ -290,6 +296,7 @@ async function getDownloadLinks(analysisId) {
  * @returns {Promise<void>}
  */
 async function downloadFile(url, outputPath) {
+  logger.debug(`Starting download for: ${url}`);
   if (fs.existsSync(outputPath) && !overwrite) {
     const confirm = await confirmOverwrite(outputPath);
     if (!confirm) {
