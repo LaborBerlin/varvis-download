@@ -1,4 +1,20 @@
 #!/usr/bin/env node
+#VarVis Download CLI provides a command-line interface (CLI) to download BAM and BAI files from the Limbus MedTech Varvis API.
+#Copyright (C) 2024 Bernt Popp
+#
+#This program is free software: you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation, either version 3 of the License, or
+#(at your option) any later version.
+#
+#This program is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+#
+#You should have received a copy of the GNU General Public License
+#along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
 
 const { CookieJar } = require('tough-cookie');
 const { CookieClient } = require('http-cookie-agent/undici');
@@ -166,6 +182,10 @@ if (argv.version) {
   console.log(`Author: ${author}`);
   console.log(`Repository: ${repository.url}`);
   console.log(`License: ${license}`);
+  console.log("VarVis Download CLI Copyright (C) 2024 Bernt Popp\n",
+    "This program comes with ABSOLUTELY NO WARRANTY; for details type `cat LICENSE'.\n",
+    "This is free software, and you are welcome to redistribute it\n",
+    "under certain conditions; type `cat LICENSE' for details.");
   process.exit(0);
 }
 
