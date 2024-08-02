@@ -147,7 +147,7 @@ Fetches the CSRF token required for login.
 
 - **Returns**: `Promise<string>` - The CSRF token.
 
-##### `async login(user)`
+##### `async login(user, target)`
 
 Logs in to the Varvis API and retrieves the CSRF token.
 
@@ -155,17 +155,20 @@ Logs in to the Varvis API and retrieves the CSRF token.
   - `user`: Object containing the username and password.
     - `username`: The Varvis API username.
     - `password`: The Varvis API password.
+  - `target`: The Varvis API target.
 - **Returns**: `Promise<Object>` - The login response containing the CSRF token.
 
-#### `async confirmOverwrite(file)`
+#### `async confirmOverwrite(file, rl, logger)`
 
 Prompts the user to confirm file overwrite if the file already exists.
 
 - **Parameters**:
   - `file`: The file path.
+  - `rl`: Readline interface for user input.
+  - `logger`: Logger instance for logging.
 - **Returns**: `Promise<boolean>` - True if the user confirms overwrite, otherwise false.
 
-#### `async fetchWithRetry(url, options, retries = 3)`
+#### `async fetchWithRetry(url, options, retries = 3, logger)`
 
 Retries a fetch operation with a specified number of attempts.
 
@@ -173,48 +176,66 @@ Retries a fetch operation with a specified number of attempts.
   - `url`: The URL to fetch.
   - `options`: The fetch options.
   - `retries`: The number of retry attempts.
+  - `logger`: Logger instance for logging.
 - **Returns**: `Promise<Response>` - The fetch response.
 
-#### `async fetchAnalysisIds()`
+#### `async fetchAnalysisIds(target, token, agent, sampleIds, limsIds, logger)`
 
-Fetches analysis IDs based on sampleIds or limsIds.
+Fetches analysis IDs based on sample IDs or LIMS IDs.
 
+- **Parameters**:
+  - `target`: The Varvis API target.
+  - `token`: The CSRF token.
+  - `agent`: The HTTP agent.
+  - `sampleIds`: Array of sample IDs to filter analyses.
+  - `limsIds`: Array of LIMS IDs to filter analyses.
+  - `logger`: Logger instance for logging.
 - **Returns**: `Promise<string[]>` - An array of analysis IDs.
 
-#### `async getDownloadLinks(analysisId, filter = null)`
+#### `async getDownloadLinks(analysisId, filter, target, token, agent, logger)`
 
 Fetches the download links for specified file types from the Varvis API for a given analysis ID.
 
 - **Parameters**:
   - `analysisId`: The analysis ID to get download links for.
   - `filter`: An optional array of file types to filter by.
+  - `target`: The Varvis API target.
+  - `token`: The CSRF token.
+  - `agent`: The HTTP agent.
+  - `logger`: Logger instance for logging.
 - **Returns**: `Promise<Object>` - An object containing the download links for the specified file types.
 
-#### `async listAvailableFiles(analysisId)`
+#### `async listAvailableFiles(analysisId, target, token, agent, logger)`
 
 Lists available files for the specified analysis IDs.
 
 - **Parameters**:
   - `analysisId`: The analysis ID to list files for.
+  - `target`: The Varvis API target.
+  - `token`: The CSRF token.
+  - `agent`: The HTTP agent.
+  - `logger`: Logger instance for logging.
 - **Returns**: `Promise<void>`
 
-#### `async downloadFile(url, outputPath)`
+#### `async downloadFile(url, outputPath, overwrite, agent, rl, logger, metrics)`
 
 Downloads a file from the given URL to the specified output path.
 
 - **Parameters**:
   - `url`: The URL of the file to download.
   - `outputPath`: The path where the file should be saved.
+  - `overwrite`: Boolean to indicate whether to overwrite existing files.
+  - `agent`: The HTTP agent.
+  - `rl`: Readline interface for user input.
+  - `logger`: Logger instance for logging.
+  - `metrics`: Object to store download metrics.
 - **Returns**: `Promise<void>`
 
-#### `function generateReport()`
+#### `function generateReport(reportfile, logger)`
 
 Generates a summary report of the download process.
 
+- **Parameters**:
+  - `reportfile`: Path to the report file.
+  - `logger`: Logger instance for logging.
 - **Returns**: `void`
-
-#### `async main()`
-
-Main function to orchestrate the login and download process for multiple analysis IDs.
-
-- **Returns**: `Promise<void>`
