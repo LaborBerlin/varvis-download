@@ -1,62 +1,24 @@
 #!/usr/bin/env node
 
-// VarVis Download CLI provides a command-line interface (CLI) to download BAM and BAI files from the Limbus MedTech Varvis API.
-// Copyright (C) 2024 Bernt Popp
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-// 
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
-//
-
 const { CookieJar } = require('tough-cookie');
 const { CookieClient } = require('http-cookie-agent/undici');
 const yargs = require('yargs');
-const fs = require('fs');
+const fs = require('fs'); // Import the fs module
 const path = require('path');
 const readline = require('readline');
-const { execSync } = require('child_process');
-const { ProxyAgent, fetch, Agent } = require('undici');
-const { version, name, author, license, repository } = require('./package.json'); // Import the version and name from package.json
-const winston = require('winston');
-const ProgressBar = require('progress'); // Import progress module
+const { ProxyAgent, Agent } = require('undici');
+const { version, name, author, license, repository } = require('./package.json');
 
-// Function to load configuration from a file
-function loadConfig(configFilePath) {
-  if (fs.existsSync(configFilePath)) {
-    return JSON.parse(fs.readFileSync(configFilePath, 'utf-8'));
-  }
-  return {};
-}
-
-// Function to read the ASCII logo from the logo.txt file
-function loadLogo() {
-  const logoPath = path.resolve(__dirname, 'assets/logo.txt');
-  if (fs.existsSync(logoPath)) {
-    return fs.readFileSync(logoPath, 'utf-8');
-  }
-  return '';
-}
-
-function getLastModifiedDate(filePath) {
-  const stats = fs.statSync(filePath);
-  return stats.mtime.toISOString().split('T')[0];
-}
-
-const logo = loadLogo();
+const { loadConfig, loadLogo, getLastModifiedDate } = require('./js/configUtils');
+const createLogger = require('./js/logger');
+const AuthService = require('./js/authService');
+const { fetchAnalysisIds, getDownloadLinks, listAvailableFiles, generateReport, metrics } = require('./js/fetchUtils');
+const { downloadFile } = require('./js/fileUtils');
 
 // Command line arguments setup
 const argv = yargs
   .usage('$0 <command> [args]')
-  .version(false) // Disable built-in version method
+  .version(false)
   .option('config', {
     alias: 'c',
     describe: 'Path to the configuration file',
@@ -157,26 +119,12 @@ const argv = yargs
   .alias('help', 'h')
   .argv;
 
-// Initialize logger
-const transports = [
-  new winston.transports.Console()
-];
+// Create logger instance
+const logger = createLogger(argv);
 
-if (argv.logfile) {
-  transports.push(new winston.transports.File({ filename: argv.logfile }));
-}
-
-const logger = winston.createLogger({
-  level: argv.loglevel,
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.printf(({ timestamp, level, message }) => `${timestamp} [${level}]: ${message}`)
-  ),
-  transports: transports
-});
-
-// Show version information
+// Show version information if the --version flag is set
 if (argv.version) {
+  const logo = loadLogo();
   console.log(logo);
   console.log(`${name} - Version ${version}`);
   console.log(`Date Last Modified: ${getLastModifiedDate(__filename)}`);
@@ -229,8 +177,7 @@ const overwrite = finalConfig.overwrite;
 const filetypes = finalConfig.filetypes;
 const reportfile = finalConfig.reportfile;
 
-let token = '';
-
+// Setup HTTP agent for proxy and cookie handling
 const jar = new CookieJar();
 const agentOptions = proxy ? { uri: proxy } : {};
 if (proxyUsername && proxyPassword) {
@@ -252,356 +199,58 @@ const agent = proxy
       }),
     });
 
-/**
- * AuthService class handles authentication with the Varvis API.
- */
-class AuthService {
-  /**
-   * Fetches the CSRF token required for login.
-   * @returns {Promise<string>} - The CSRF token.
-   */
-  async getCsrfToken() {
-    try {
-      logger.debug(`Fetching CSRF token from https://${target}.varvis.com/authenticate`);
-      const response = await fetch(`https://${target}.varvis.com/authenticate`, {
-        method: 'HEAD',
-        dispatcher: agent
-      });
-      const csrfToken = response.headers.get('x-csrf-token');
-      logger.debug(`Received CSRF token: ${csrfToken}`);
-      return csrfToken;
-    } catch (error) {
-      logger.error('Error fetching initial CSRF token:', error);
-      throw error;
-    }
-  }
+// Initialize AuthService instance
+const authService = new AuthService(logger, agent);
 
-  /**
-   * Logs in to the Varvis API and retrieves the CSRF token.
-   * @param {Object} user - The user credentials.
-   * @param {string} user.username - The username.
-   * @param {string} user.password - The password.
-   * @returns {Promise<Object>} - The login response containing the CSRF token.
-   */
-  async login(user) {
-    try {
-      const csrfToken1 = await this.getCsrfToken();
-
-      const params = new URLSearchParams();
-      params.append('_csrf', csrfToken1);
-      params.append('username', user.username);
-      params.append('password', user.password);
-
-      logger.debug(`Logging in to https://${target}.varvis.com/login with username: ${user.username}`);
-      const loginResponse = await fetch(`https://${target}.varvis.com/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: params,
-        dispatcher: agent
-      });
-
-      if (loginResponse.status !== 200) {
-        throw new Error('Login failed');
-      }
-
-      const csrfToken2Response = await fetch(`https://${target}.varvis.com/authenticate`, {
-        method: 'HEAD',
-        dispatcher: agent
-      });
-
-      token = csrfToken2Response.headers.get('x-csrf-token');
-
-      logger.info('Login successful');
-      return { csrfToken: token };
-    } catch (error) {
-      logger.error('Login error:', error);
-      throw error;
-    }
-  }
-}
-
-const authService = new AuthService();
-
+// Initialize readline interface for user prompts
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout
 });
 
 /**
- * Prompts the user to confirm file overwrite if the file already exists.
- * @param {string} file - The file path.
- * @returns {Promise<boolean>} - True if the user confirms overwrite, otherwise false.
- */
-async function confirmOverwrite(file) {
-  return new Promise((resolve) => {
-    rl.question(`File ${file} already exists. Overwrite? (y/n): `, (answer) => {
-      resolve(answer.toLowerCase() === 'y');
-    });
-  });
-}
-
-/**
- * Retries a fetch operation with a specified number of attempts.
- * @param {string} url - The URL to fetch.
- * @param {Object} options - The fetch options.
- * @param {number} retries - The number of retry attempts.
- * @returns {Promise<Response>} - The fetch response.
- */
-async function fetchWithRetry(url, options, retries = 3) {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      const response = await fetch(url, options);
-      if (!response.ok) throw new Error(`Fetch failed with status: ${response.status}`);
-      return response;
-    } catch (error) {
-      if (attempt < retries) {
-        logger.warn(`Fetch attempt ${attempt} failed. Retrying...`);
-        await new Promise(res => setTimeout(res, attempt * 1000)); // Exponential backoff
-      } else {
-        logger.error(`Fetch failed after ${retries} attempts: ${error.message}`);
-        throw error;
-      }
-    }
-  }
-}
-
-/**
- * Fetches analysis IDs based on sampleIds or limsIds.
- * @returns {Promise<string[]>} - An array of analysis IDs.
- */
-async function fetchAnalysisIds() {
-  try {
-    logger.debug('Fetching all analysis IDs');
-    const response = await fetchWithRetry(`https://${target}.varvis.com/api/analyses`, {
-      method: 'GET',
-      headers: { 'x-csrf-token': token },
-      dispatcher: agent
-    });
-    const data = await response.json();
-    const analyses = data.response;
-
-    // Filter out analyses of type "CNV"
-    let filteredAnalyses = analyses.filter(analysis => analysis.analysisType !== 'CNV');
-
-    if (sampleIds.length > 0) {
-      logger.debug(`Filtering analyses by sampleIds: ${sampleIds.join(', ')}`);
-      filteredAnalyses = filteredAnalyses.filter(analysis => sampleIds.includes(analysis.sampleId));
-    }
-
-    if (limsIds.length > 0) {
-      logger.debug(`Filtering analyses by limsIds: ${limsIds.join(', ')}`);
-      filteredAnalyses = filteredAnalyses.filter(analysis => limsIds.includes(analysis.personLimsId));
-    }
-
-    const ids = filteredAnalyses.map(analysis => analysis.id.toString());
-    logger.debug(`Filtered analysis IDs: ${ids.join(', ')}`);
-    return ids;
-  } catch (error) {
-    logger.error('Error fetching analysis IDs:', error);
-    throw error;
-  }
-}
-
-/**
- * Fetches the download links for specified file types from the Varvis API.
- * @param {string} analysisId - The analysis ID to fetch download links for.
- * @param {Array<string>} [filter] - An optional array of file types to filter by.
- * @returns {Promise<Object>} - An object containing the download links for the specified file types.
- */
-async function getDownloadLinks(analysisId, filter = null) {
-  try {
-    logger.debug(`Fetching download links for analysis ID: ${analysisId}`);
-    const response = await fetchWithRetry(`https://${target}.varvis.com/api/analysis/${analysisId}/get-file-download-links`, {
-      method: 'GET',
-      headers: { 'x-csrf-token': token },
-      dispatcher: agent
-    });
-    const data = await response.json();
-    const apiFileLinks = data.response.apiFileLinks;
-
-    const fileDict = {};
-    for (const file of apiFileLinks) {
-      const fileNameParts = file.fileName.split('.');
-      const fileType = fileNameParts.length > 2 ? fileNameParts.slice(-2).join('.') : fileNameParts.pop();
-      logger.debug(`Checking file type: ${fileType}`);
-      if (!filter || filter.includes(fileType)) {
-        fileDict[file.fileName] = file;
-      }
-    }
-
-    // Warn if requested file types are not available
-    if (filter) {
-      const availableFileTypes = Object.keys(fileDict).map(fileName => {
-        const parts = fileName.split('.');
-        return parts.length > 2 ? parts.slice(-2).join('.') : parts.pop();
-      });
-      logger.debug(`Available file types: ${availableFileTypes.join(', ')}`);
-      const missingFileTypes = filter.filter(ft => !availableFileTypes.includes(ft));
-      if (missingFileTypes.length > 0) {
-        logger.warn(`Warning: The following requested file types are not available for the analysis ${analysisId}: ${missingFileTypes.join(', ')}`);
-      }
-    }
-    return fileDict;
-  } catch (error) {
-    logger.error(`Failed to get download links for analysis ID ${analysisId}:`, error.message);
-    process.exit(1);
-  }
-}
-
-/**
- * Lists available files for the specified analysis IDs.
- * @param {string} analysisId - The analysis ID to list files for.
- * @returns {Promise<void>}
- */
-async function listAvailableFiles(analysisId) {
-  try {
-    logger.info(`Listing available files for analysis ID: ${analysisId}`);
-    const fileDict = await getDownloadLinks(analysisId);
-
-    if (Object.keys(fileDict).length === 0) {
-      logger.info('No files available for the specified analysis ID.');
-    } else {
-      logger.info('Available files:');
-      for (const fileName of Object.keys(fileDict)) {
-        logger.info(`- ${fileName}`);
-      }
-    }
-  } catch (error) {
-    logger.error(`Failed to list available files for analysis ID ${analysisId}:`, error.message);
-  }
-}
-
-/**
- * Downloads a file from the given URL to the specified output path with progress reporting.
- * @param {string} url - The URL of the file to download.
- * @param {string} outputPath - The path where the file should be saved.
- * @returns {Promise<void>}
- */
-async function downloadFile(url, outputPath) {
-  logger.debug(`Starting download for: ${url}`);
-  if (fs.existsSync(outputPath) && !overwrite) {
-    const confirm = await confirmOverwrite(outputPath);
-    if (!confirm) {
-      logger.info(`Skipped downloading ${outputPath}`);
-      return;
-    }
-  }
-
-  const writer = fs.createWriteStream(outputPath);
-  const response = await fetchWithRetry(url, { method: 'GET', dispatcher: agent });
-
-  const startTime = Date.now();
-  let totalBytes = 0;
-
-  // Get the total size of the file for progress reporting
-  const totalSize = parseInt(response.headers.get('content-length'), 10);
-  const progressBar = new ProgressBar('  downloading [:bar] :rate/bps :percent :etas', {
-    complete: '=',
-    incomplete: ' ',
-    width: 20,
-    total: totalSize
-  });
-
-  try {
-    for await (const chunk of response.body) {
-      totalBytes += chunk.length;
-      writer.write(chunk);
-      progressBar.tick(chunk.length);
-    }
-    writer.end();
-
-    const endTime = Date.now();
-    const duration = (endTime - startTime) / 1000; // in seconds
-    const speed = totalBytes / duration; // bytes per second
-
-    await new Promise((resolve, reject) => {
-      writer.on('finish', () => {
-        logger.info(`Successfully downloaded ${outputPath}`);
-        metrics.totalFilesDownloaded += 1;
-        metrics.totalBytesDownloaded += totalBytes;
-        metrics.downloadSpeeds.push(speed);
-        resolve();
-      });
-      writer.on('error', (error) => {
-        logger.error(`Failed to download ${outputPath}: ${error.message}`);
-        reject(error);
-      });
-    });
-  } catch (error) {
-    logger.error(`Download interrupted for ${outputPath}: ${error.message}`);
-    fs.unlinkSync(outputPath); // Clean up partial download
-    throw error;
-  }
-}
-
-/**
- * Generates a summary report of the download process.
- */
-function generateReport() {
-  const totalTime = (Date.now() - metrics.startTime) / 1000; // in seconds
-  const averageSpeed = metrics.downloadSpeeds.reduce((a, b) => a + b, 0) / metrics.downloadSpeeds.length;
-
-  const report = `
-    Download Summary Report:
-    ------------------------
-    Total Files Downloaded: ${metrics.totalFilesDownloaded}
-    Total Bytes Downloaded: ${metrics.totalBytesDownloaded}
-    Average Download Speed: ${averageSpeed.toFixed(2)} bytes/sec
-    Total Time Taken: ${totalTime.toFixed(2)} seconds
-  `;
-
-  logger.info(report);
-
-  if (reportfile) {
-    fs.writeFileSync(reportfile, report);
-    logger.info(`Report written to ${reportfile}`);
-  }
-}
-
-const metrics = {
-  startTime: Date.now(),
-  totalFilesDownloaded: 0,
-  totalBytesDownloaded: 0,
-  downloadSpeeds: []
-};
-
-/**
  * Main function to orchestrate the login and download process.
  * @returns {Promise<void>}
  */
 async function main() {
-  // Ensure the destination directory exists
-  if (!fs.existsSync(destination)) {
-    fs.mkdirSync(destination, { recursive: true });
-  }
-
   try {
-    await authService.login({ username: userName, password: password });
+    logger.debug('Starting main function');
+    
+    // Ensure the destination directory exists
+    if (!fs.existsSync(destination)) {
+      logger.debug(`Creating destination directory: ${destination}`);
+      fs.mkdirSync(destination, { recursive: true });
+    }
 
-    const ids = analysisIds.length > 0 ? analysisIds : await fetchAnalysisIds();
+    logger.debug('Attempting to log in');
+    await authService.login({ username: userName, password: password }, target);
+    logger.debug('Login successful');
+
+    const ids = analysisIds.length > 0 ? analysisIds : await fetchAnalysisIds(target, authService.token, agent, sampleIds, limsIds, logger);
+    logger.debug(`Fetched analysis IDs: ${ids.join(', ')}`);
 
     if (argv.list) {
       for (const analysisId of ids) {
-        await listAvailableFiles(analysisId);
+        await listAvailableFiles(analysisId, target, authService.token, agent, logger);
       }
     } else {
       for (const analysisId of ids) {
-        const fileDict = await getDownloadLinks(analysisId, filetypes);
+        const fileDict = await getDownloadLinks(analysisId, filetypes, target, authService.token, agent, logger);
+        logger.debug(`Fetched download links for analysis ID ${analysisId}`);
 
         for (const [fileName, file] of Object.entries(fileDict)) {
           const downloadLink = file.downloadLink;
           logger.info(`Downloading ${fileName} file for analysis ID ${analysisId}...`);
-          await downloadFile(downloadLink, path.join(destination, fileName));
+          await downloadFile(downloadLink, path.join(destination, fileName), overwrite, agent, rl, logger, metrics);
         }
       }
 
       logger.info('Download complete.');
-      generateReport();
+      generateReport(reportfile, logger);
     }
   } catch (error) {
     logger.error('An error occurred:', error.message);
+    logger.debug(error.stack);
   } finally {
     rl.close();
     process.exit(1);
@@ -610,6 +259,7 @@ async function main() {
 
 main().catch(error => {
   logger.error('An unexpected error occurred:', error.message);
+  logger.debug(error.stack);
   rl.close();
   process.exit(1);
 });
