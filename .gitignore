@@ -29,6 +29,7 @@ pnpm-debug.log*
 *.vcf.gz
 *.vcf.gz.tbi
 *.bed.gz
+*.sam
 
 # config files
 *.config.json
