@@ -109,6 +109,12 @@ const argv = yargs
     describe: 'Path to the report file',
     type: 'string'
   })
+  .option('filter', {
+    alias: 'F',
+    describe: 'Filter expressions (e.g., "analysisType=SNV", "sampleId>LB24-0001")',
+    type: 'array',
+    default: []
+  })
   .option('version', {
     alias: 'v',
     type: 'boolean',
@@ -150,6 +156,7 @@ const finalConfig = {
   analysisIds: (argv.analysisIds || config.analysisIds || '').split(',').map(id => id.trim()).filter(id => id),
   sampleIds: (argv.sampleIds || config.sampleIds || '').split(',').map(id => id.trim()).filter(id => id),
   limsIds: (argv.limsIds || config.limsIds || '').split(',').map(id => id.trim()).filter(id => id),
+  filters: (argv.filter || config.filter || []).map(filter => filter.trim()),
   destination: argv.destination !== '.' ? argv.destination : (config.destination || '.')
 };
 
@@ -176,6 +183,7 @@ const proxyPassword = finalConfig.proxyPassword;
 const overwrite = finalConfig.overwrite;
 const filetypes = finalConfig.filetypes;
 const reportfile = finalConfig.reportfile;
+const filters = finalConfig.filters;
 
 // Setup HTTP agent for proxy and cookie handling
 const jar = new CookieJar();
@@ -226,8 +234,11 @@ async function main() {
     await authService.login({ username: userName, password: password }, target);
     logger.debug('Login successful');
 
-    const ids = analysisIds.length > 0 ? analysisIds : await fetchAnalysisIds(target, authService.token, agent, sampleIds, limsIds, logger);
-    logger.debug(`Fetched analysis IDs: ${ids.join(', ')}`);
+    logger.debug('filters:', filters);
+
+    const ids = analysisIds.length > 0 
+    ? analysisIds 
+    : await fetchAnalysisIds(target, authService.token, agent, sampleIds, limsIds, filters, logger);
 
     if (argv.list) {
       for (const analysisId of ids) {

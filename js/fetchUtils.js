@@ -1,6 +1,7 @@
 const { fetch } = require('undici');
 const ProgressBar = require('progress');
 const fs = require('fs');
+const { applyFilters } = require('./filterUtils');
 
 const metrics = {
   startTime: Date.now(),
@@ -42,10 +43,11 @@ async function fetchWithRetry(url, options, retries = 3, logger) {
  * @param {Object} agent - The HTTP agent instance.
  * @param {Array<string>} sampleIds - The sample IDs to filter analyses.
  * @param {Array<string>} limsIds - The LIMS IDs to filter analyses.
+ * @param {Array<string>} filters - An array of custom filters to apply.
  * @param {Object} logger - The logger instance.
  * @returns {Promise<string[]>} - An array of analysis IDs.
  */
-async function fetchAnalysisIds(target, token, agent, sampleIds, limsIds, logger) {
+async function fetchAnalysisIds(target, token, agent, sampleIds, limsIds, filters, logger) {
   try {
     logger.debug('Fetching all analysis IDs');
     const response = await fetchWithRetry(`https://${target}.varvis.com/api/analyses`, {
@@ -53,12 +55,13 @@ async function fetchAnalysisIds(target, token, agent, sampleIds, limsIds, logger
       headers: { 'x-csrf-token': token },
       dispatcher: agent
     }, 3, logger);
-    const data = await response.json();
-    const analyses = data.response;
+    
+    let analyses = await response.json();
+    analyses = analyses.response;
 
     // Filter out analyses of type "CNV"
     let filteredAnalyses = analyses.filter(analysis => analysis.analysisType !== 'CNV');
-
+    
     if (sampleIds.length > 0) {
       logger.debug(`Filtering analyses by sampleIds: ${sampleIds.join(', ')}`);
       filteredAnalyses = filteredAnalyses.filter(analysis => sampleIds.includes(analysis.sampleId));
@@ -69,8 +72,20 @@ async function fetchAnalysisIds(target, token, agent, sampleIds, limsIds, logger
       filteredAnalyses = filteredAnalyses.filter(analysis => limsIds.includes(analysis.personLimsId));
     }
 
+    if (filters.length > 0) {
+      logger.debug(`Applying custom filters: ${filters.join(', ')}`);
+      filteredAnalyses = applyFilters(filteredAnalyses, filters);
+    }
+
     const ids = filteredAnalyses.map(analysis => analysis.id.toString());
-    logger.debug(`Filtered analysis IDs: ${ids.join(', ')}`);
+
+    if (ids.length === 0) {
+      logger.info('No analysis IDs found after applying filters.');
+    } else {
+      logger.info(`Found ${ids.length} analysis IDs after filtering.`);
+      logger.debug(`Filtered analysis IDs: ${ids.join(', ')}`);
+    }
+
     return ids;
   } catch (error) {
     logger.error('Error fetching analysis IDs:', error);
@@ -109,6 +124,14 @@ async function getDownloadLinks(analysisId, filter, target, token, agent, logger
       }
     }
 
+    const totalFiles = Object.keys(fileDict).length;
+
+    if (totalFiles === 0) {
+      logger.info(`No files found for analysis ID: ${analysisId} after applying file type filters.`);
+    } else {
+      logger.info(`Found ${totalFiles} files for analysis ID: ${analysisId}`);
+    }
+
     // Warn if requested file types are not available
     if (filter) {
       const availableFileTypes = Object.keys(fileDict).map(fileName => {
@@ -121,6 +144,7 @@ async function getDownloadLinks(analysisId, filter, target, token, agent, logger
         logger.warn(`Warning: The following requested file types are not available for the analysis ${analysisId}: ${missingFileTypes.join(', ')}`);
       }
     }
+
     return fileDict;
   } catch (error) {
     logger.error(`Failed to get download links for analysis ID ${analysisId}:`, error.message);
@@ -142,14 +166,12 @@ async function listAvailableFiles(analysisId, target, token, agent, logger) {
     logger.info(`Listing available files for analysis ID: ${analysisId}`);
     const fileDict = await getDownloadLinks(analysisId, null, target, token, agent, logger);
 
-    if (Object.keys(fileDict).length === 0) {
-      logger.info('No files available for the specified analysis ID.');
-    } else {
-      logger.info('Available files:');
-      for (const fileName of Object.keys(fileDict)) {
-        logger.info(`- ${fileName}`);
-      }
+    const totalFiles = Object.keys(fileDict).length;
+
+    for (const fileName of Object.keys(fileDict)) {
+      logger.info(`- ${fileName}`);
     }
+
   } catch (error) {
     logger.error(`Failed to list available files for analysis ID ${analysisId}:`, error.message);
   }
