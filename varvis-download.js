@@ -284,8 +284,8 @@ async function main() {
             logger.info(`Output file: ${outputFile}`);
 
             try {
-              await rangedDownloadBAM(downloadLink, argv.range, outputFile, indexFilePath, logger);
-              await indexBAM(outputFile, logger);  // Optionally index the newly downloaded BAM file
+              await rangedDownloadBAM(downloadLink, argv.range, outputFile, indexFilePath, logger, overwrite);
+              await indexBAM(outputFile, logger, overwrite);  // Optionally index the newly downloaded BAM file
             } catch (error) {
               logger.error(`Error during ranged download and indexing for BAM file: ${fileName}`);
               logger.error(`Detailed error: ${error.message}`);

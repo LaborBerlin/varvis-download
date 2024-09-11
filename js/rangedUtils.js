@@ -1,5 +1,3 @@
-// rangeUtils.js
-
 const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -56,12 +54,19 @@ function compareVersions(version, minVersion) {
  * @param {string} outputFile - The output file name.
  * @param {string} indexFile - The path to the downloaded .bai index file.
  * @param {Object} logger - The logger instance.
+ * @param {boolean} overwrite - Flag indicating whether to overwrite existing files.
  * @returns {Promise<void>}
  */
-async function rangedDownloadBAM(url, range, outputFile, indexFile, logger) {
+async function rangedDownloadBAM(url, range, outputFile, indexFile, logger, overwrite = false) {
   try {
+    // Check if the output BAM file already exists and skip download if overwrite is false
+    if (fs.existsSync(outputFile) && !overwrite) {
+      logger.info(`BAM file already exists: ${outputFile}, skipping download.`);
+      return;
+    }
+
     logger.debug(`Preparing to download BAM for URL: ${url}, range: ${range}, using index: ${indexFile}`);
-    
+
     // Add the '-X' option to specify the index file location
     const cmd = `samtools view -b -X '${url}' ${indexFile} ${range} -o ${outputFile}`;
     logger.info(`Running command: ${cmd}`);
@@ -80,10 +85,17 @@ async function rangedDownloadBAM(url, range, outputFile, indexFile, logger) {
  * @param {string} range - The genomic range (e.g., 'chr1:1-100000').
  * @param {string} outputFile - The output file name (compressed as .vcf.gz).
  * @param {Object} logger - The logger instance.
+ * @param {boolean} overwrite - Flag indicating whether to overwrite existing files.
  * @returns {Promise<void>}
  */
-async function rangedDownloadVCF(url, range, outputFile, logger) {
+async function rangedDownloadVCF(url, range, outputFile, logger, overwrite = false) {
   try {
+    // Check if the output VCF file already exists and skip if overwrite is false
+    if (fs.existsSync(outputFile) && !overwrite) {
+      logger.info(`VCF file already exists: ${outputFile}, skipping download.`);
+      return;
+    }
+
     const tempOutputFile = outputFile.replace('.gz', ''); // Temporary file for tabix output
     const cmdTabix = `tabix ${url} ${range} > ${tempOutputFile}`;
     logger.info(`Running command: ${cmdTabix}`);
@@ -107,9 +119,16 @@ async function rangedDownloadVCF(url, range, outputFile, logger) {
  * Indexes a BAM file using samtools.
  * @param {string} bamFile - The path to the BAM file.
  * @param {Object} logger - The logger instance.
+ * @param {boolean} overwrite - Flag indicating whether to overwrite existing index files.
  * @returns {Promise<void>}
  */
-async function indexBAM(bamFile, logger) {
+async function indexBAM(bamFile, logger, overwrite = false) {
+  const indexFile = `${bamFile}.bai`;
+  if (fs.existsSync(indexFile) && !overwrite) {
+    logger.info(`Index file already exists: ${indexFile}, skipping indexing.`);
+    return;
+  }
+
   try {
     const cmd = `samtools index ${bamFile}`;
     logger.info(`Indexing BAM file: ${bamFile}`);
@@ -125,9 +144,16 @@ async function indexBAM(bamFile, logger) {
  * Indexes a VCF.gz file using tabix.
  * @param {string} vcfGzFile - The path to the VCF.gz file.
  * @param {Object} logger - The logger instance.
+ * @param {boolean} overwrite - Flag indicating whether to overwrite existing index files.
  * @returns {Promise<void>}
  */
-async function indexVCF(vcfGzFile, logger) {
+async function indexVCF(vcfGzFile, logger, overwrite = false) {
+  const indexFile = `${vcfGzFile}.tbi`;
+  if (fs.existsSync(indexFile) && !overwrite) {
+    logger.info(`Index file already exists: ${indexFile}, skipping indexing.`);
+    return;
+  }
+
   try {
     const cmd = `tabix -p vcf ${vcfGzFile}`;
     logger.info(`Indexing VCF.gz file: ${vcfGzFile}`);
