@@ -14,6 +14,7 @@ const createLogger = require('./js/logger');
 const AuthService = require('./js/authService');
 const { fetchAnalysisIds, getDownloadLinks, listAvailableFiles, generateReport, metrics } = require('./js/fetchUtils');
 const { downloadFile } = require('./js/fileUtils');
+const { checkToolAvailability, ensureIndexFile, rangedDownloadBAM, indexBAM, generateOutputFileName } = require('./js/rangedUtils');
 
 // Command line arguments setup
 const argv = yargs
@@ -115,6 +116,11 @@ const argv = yargs
     type: 'array',
     default: []
   })
+  .option('range', {
+    alias: 'g',
+    describe: 'Genomic range for ranged download (e.g., chr1:1-100000)',
+    type: 'string',
+  })
   .option('version', {
     alias: 'v',
     type: 'boolean',
@@ -137,10 +143,6 @@ if (argv.version) {
   console.log(`Author: ${author}`);
   console.log(`Repository: ${repository.url}`);
   console.log(`License: ${license}`);
-  console.log("VarVis Download CLI Copyright (C) 2024 Bernt Popp\n",
-    "This program comes with ABSOLUTELY NO WARRANTY; for details type `cat LICENSE'.\n",
-    "This is free software, and you are welcome to redistribute it\n",
-    "under certain conditions; type `cat LICENSE' for details.");
   process.exit(0);
 }
 
@@ -216,10 +218,7 @@ const rl = readline.createInterface({
   output: process.stdout
 });
 
-/**
- * Main function to orchestrate the login and download process.
- * @returns {Promise<void>}
- */
+// Main function to orchestrate the login and download process
 async function main() {
   try {
     logger.debug('Starting main function');
@@ -237,8 +236,8 @@ async function main() {
     logger.debug('filters:', filters);
 
     const ids = analysisIds.length > 0 
-    ? analysisIds 
-    : await fetchAnalysisIds(target, authService.token, agent, sampleIds, limsIds, filters, logger);
+      ? analysisIds 
+      : await fetchAnalysisIds(target, authService.token, agent, sampleIds, limsIds, filters, logger);
 
     if (argv.list) {
       for (const analysisId of ids) {
@@ -252,7 +251,49 @@ async function main() {
         for (const [fileName, file] of Object.entries(fileDict)) {
           const downloadLink = file.downloadLink;
           logger.info(`Downloading ${fileName} file for analysis ID ${analysisId}...`);
-          await downloadFile(downloadLink, path.join(destination, fileName), overwrite, agent, rl, logger, metrics);
+
+          const filePath = path.join(destination, fileName);
+
+          // Skip downloading .bai files in ranged download mode
+          if (fileName.endsWith('.bai') && argv.range) {
+            logger.info(`Skipping .bai file for ranged download: ${fileName}`);
+            continue;
+          }
+
+          if (fileName.endsWith('.bam') && argv.range) {
+            // Ensure BAM index file is downloaded before ranged download
+            const indexFileUrl = fileDict[`${fileName}.bai`]?.downloadLink;
+            const indexFilePath = path.join(destination, `${fileName}.bai`);
+
+            if (!indexFileUrl) {
+              logger.error(`Index file for BAM (${fileName}) not found.`);
+              continue;
+            }
+
+            // Check if the .bai file exists and skip downloading if not overwriting
+            if (!fs.existsSync(indexFilePath) || overwrite) {
+              await ensureIndexFile(downloadLink, indexFileUrl, indexFilePath, agent, rl, logger, metrics, overwrite);
+            } else {
+              logger.info(`Index file already exists: ${indexFilePath}`);
+            }
+
+            // Perform the ranged BAM download
+            logger.info(`Performing ranged download for BAM file: ${filePath}`);
+            logger.info(`Genomic range: ${argv.range}`);
+            const outputFile = path.join(destination, generateOutputFileName(fileName, argv.range, logger));
+            logger.info(`Output file: ${outputFile}`);
+
+            try {
+              await rangedDownloadBAM(downloadLink, argv.range, outputFile, indexFilePath, logger);
+              await indexBAM(outputFile, logger);  // Optionally index the newly downloaded BAM file
+            } catch (error) {
+              logger.error(`Error during ranged download and indexing for BAM file: ${fileName}`);
+              logger.error(`Detailed error: ${error.message}`);
+            }
+          } else {
+            // Normal download for non-BAM or no-range files
+            await downloadFile(downloadLink, filePath, overwrite, agent, rl, logger, metrics);
+          }
         }
       }
 

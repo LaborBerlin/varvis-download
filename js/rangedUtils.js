@@ -1,0 +1,198 @@
+// rangeUtils.js
+
+const { exec } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const { promisify } = require('util');
+const execPromise = promisify(exec);
+const { downloadFile } = require('./fileUtils');
+
+// Define minimum required versions for external tools
+const SAMTOOLS_MIN_VERSION = '1.17';
+const TABIX_MIN_VERSION = '1.20';
+const BGZIP_MIN_VERSION = '1.20';
+
+/**
+ * Checks if a tool is available and meets the minimum version.
+ * @param {string} tool - The name of the tool (samtools, tabix, or bgzip).
+ * @param {string} versionCommand - Command to check the tool version.
+ * @param {string} minVersion - The minimal required version.
+ * @param {Object} logger - The logger instance.
+ * @returns {Promise<boolean>} - Resolves to true if the tool is available and meets the version requirement.
+ */
+async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
+  try {
+    const { stdout } = await execPromise(versionCommand);
+    const toolVersion = stdout.split(' ')[1].trim(); // Assumes the second word is the version number
+    if (compareVersions(toolVersion, minVersion)) {
+      logger.info(`${tool} version ${toolVersion} is available.`);
+      return true;
+    } else {
+      logger.error(`${tool} version ${toolVersion} is less than the required version ${minVersion}.`);
+      return false;
+    }
+  } catch (error) {
+    logger.error(`Error checking ${tool} version: ${error.message}`);
+    return false;
+  }
+}
+
+/**
+ * Compares two versions (e.g., '1.10' vs '1.9').
+ * @param {string} version - The current version.
+ * @param {string} minVersion - The minimum required version.
+ * @returns {boolean} - True if the current version is >= the minimum version.
+ */
+function compareVersions(version, minVersion) {
+  const [major, minor] = version.split('.').map(Number);
+  const [minMajor, minMinor] = minVersion.split('.').map(Number);
+  return major > minMajor || (major === minMajor && minor >= minMinor);
+}
+
+/**
+ * Performs a ranged download for a BAM file using samtools.
+ * @param {string} url - The URL of the BAM file.
+ * @param {string} range - The genomic range (e.g., 'chr1:1-100000').
+ * @param {string} outputFile - The output file name.
+ * @param {string} indexFile - The path to the downloaded .bai index file.
+ * @param {Object} logger - The logger instance.
+ * @returns {Promise<void>}
+ */
+async function rangedDownloadBAM(url, range, outputFile, indexFile, logger) {
+  try {
+    logger.debug(`Preparing to download BAM for URL: ${url}, range: ${range}, using index: ${indexFile}`);
+    
+    // Add the '-X' option to specify the index file location
+    const cmd = `samtools view -b -X '${url}' ${indexFile} ${range} -o ${outputFile}`;
+    logger.info(`Running command: ${cmd}`);
+    
+    await execPromise(cmd);
+    logger.info(`Downloaded BAM file range to ${outputFile}`);
+  } catch (error) {
+    logger.error(`Error performing ranged download for BAM: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Performs a ranged download for a VCF file using tabix, and compresses it using bgzip.
+ * @param {string} url - The URL of the VCF file.
+ * @param {string} range - The genomic range (e.g., 'chr1:1-100000').
+ * @param {string} outputFile - The output file name (compressed as .vcf.gz).
+ * @param {Object} logger - The logger instance.
+ * @returns {Promise<void>}
+ */
+async function rangedDownloadVCF(url, range, outputFile, logger) {
+  try {
+    const tempOutputFile = outputFile.replace('.gz', ''); // Temporary file for tabix output
+    const cmdTabix = `tabix ${url} ${range} > ${tempOutputFile}`;
+    logger.info(`Running command: ${cmdTabix}`);
+    await execPromise(cmdTabix);
+    logger.info(`Downloaded VCF file range to ${tempOutputFile}`);
+
+    const cmdBgzip = `bgzip -c ${tempOutputFile} > ${outputFile}`;
+    logger.info(`Running command to compress the VCF: ${cmdBgzip}`);
+    await execPromise(cmdBgzip);
+    logger.info(`Compressed VCF to ${outputFile}`);
+
+    // Clean up the temporary uncompressed file
+    fs.unlinkSync(tempOutputFile);
+  } catch (error) {
+    logger.error(`Error performing ranged download for VCF: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Indexes a BAM file using samtools.
+ * @param {string} bamFile - The path to the BAM file.
+ * @param {Object} logger - The logger instance.
+ * @returns {Promise<void>}
+ */
+async function indexBAM(bamFile, logger) {
+  try {
+    const cmd = `samtools index ${bamFile}`;
+    logger.info(`Indexing BAM file: ${bamFile}`);
+    await execPromise(cmd);
+    logger.info(`Indexed BAM file: ${bamFile}`);
+  } catch (error) {
+    logger.error(`Error indexing BAM file: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Indexes a VCF.gz file using tabix.
+ * @param {string} vcfGzFile - The path to the VCF.gz file.
+ * @param {Object} logger - The logger instance.
+ * @returns {Promise<void>}
+ */
+async function indexVCF(vcfGzFile, logger) {
+  try {
+    const cmd = `tabix -p vcf ${vcfGzFile}`;
+    logger.info(`Indexing VCF.gz file: ${vcfGzFile}`);
+    await execPromise(cmd);
+    logger.info(`Indexed VCF.gz file: ${vcfGzFile}`);
+  } catch (error) {
+    logger.error(`Error indexing VCF.gz file: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Ensures that the required index file is downloaded for a BAM or VCF file.
+ * @param {string} fileUrl - The URL of the BAM or VCF file.
+ * @param {string} indexUrl - The URL of the index file (.bai or .tbi).
+ * @param {string} indexFilePath - The local path to the index file.
+ * @param {Object} agent - The HTTP agent instance.
+ * @param {Object} rl - The readline interface instance.
+ * @param {Object} logger - The logger instance.
+ * @param {Object} metrics - The metrics object for tracking download stats.
+ * @param {boolean} overwrite - Flag indicating whether to overwrite existing files.
+ * @returns {Promise<void>}
+ */
+async function ensureIndexFile(fileUrl, indexUrl, indexFilePath, agent, rl, logger, metrics, overwrite = false) {
+  if (fs.existsSync(indexFilePath) && !overwrite) {
+    logger.info(`Index file already exists: ${indexFilePath}`);
+    return;
+  }
+
+  try {
+    logger.info(`Downloading index file from ${indexUrl} to ${indexFilePath}`);
+    await downloadFile(indexUrl, indexFilePath, overwrite, agent, rl, logger, metrics);
+    logger.info(`Downloaded index file to ${indexFilePath}`);
+  } catch (error) {
+    logger.error(`Error downloading index file: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Generates an output file name by appending the genomic range.
+ * @param {string} fileName - The original file name.
+ * @param {string} range - The genomic range (e.g., 'chr1:1-100000').
+ * @param {Object} logger - The logger instance.
+ * @returns {string} - The new file name with the range appended.
+ */
+function generateOutputFileName(fileName, range, logger) {
+  logger.debug(`Generating output file name for file: ${fileName} with range: ${range}`);
+  
+  const extension = path.extname(fileName);
+  const baseName = path.basename(fileName, extension);
+  const rangeNormalized = range.replace(':', '_').replace('-', '_');
+  const newFileName = `${baseName}.${rangeNormalized}${extension}`;
+  
+  logger.debug(`Generated output file name: ${newFileName}`);
+  
+  return newFileName;
+}
+
+module.exports = {
+  checkToolAvailability,
+  rangedDownloadBAM,
+  rangedDownloadVCF,
+  ensureIndexFile,
+  generateOutputFileName,
+  indexBAM,
+  indexVCF,
+};
