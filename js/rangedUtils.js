@@ -57,7 +57,7 @@ function compareVersions(version, minVersion) {
  * @param {boolean} overwrite - Flag indicating whether to overwrite existing files.
  * @returns {Promise<void>}
  */
-async function rangedDownloadBAM(url, range, outputFile, indexFile, logger, overwrite = false) {
+async function rangedDownloadBAM(url, bedFile, outputFile, indexFile, logger, overwrite = false) {
   try {
     // Check if the output BAM file already exists and skip download if overwrite is false
     if (fs.existsSync(outputFile) && !overwrite) {
@@ -65,14 +65,12 @@ async function rangedDownloadBAM(url, range, outputFile, indexFile, logger, over
       return;
     }
 
-    logger.debug(`Preparing to download BAM for URL: ${url}, range: ${range}, using index: ${indexFile}`);
-
-    // Add the '-X' option to specify the index file location
-    const cmd = `samtools view -b -X '${url}' ${indexFile} ${range} -o ${outputFile}`;
+    logger.debug(`Downloading BAM for regions in BED file: ${bedFile}`);
+    const cmd = `samtools view -b -X '${url}' ${indexFile} -L ${bedFile} -M -o ${outputFile}`;
     logger.info(`Running command: ${cmd}`);
     
     await execPromise(cmd);
-    logger.info(`Downloaded BAM file range to ${outputFile}`);
+    logger.info(`Downloaded BAM file for regions in BED file to ${outputFile}`);
   } catch (error) {
     logger.error(`Error performing ranged download for BAM: ${error.message}`);
     throw error;
@@ -194,22 +192,29 @@ async function ensureIndexFile(fileUrl, indexUrl, indexFilePath, agent, rl, logg
 }
 
 /**
- * Generates an output file name by appending the genomic range.
+ * Generates an output file name by appending the genomic range or "multiple-regions" if more than one range is provided.
  * @param {string} fileName - The original file name.
- * @param {string} range - The genomic range (e.g., 'chr1:1-100000').
+ * @param {string | string[]} regions - A string representing a single genomic range (e.g., 'chr1:1-100000') or an array of multiple regions.
  * @param {Object} logger - The logger instance.
- * @returns {string} - The new file name with the range appended.
+ * @returns {string} - The new file name with the range or "multiple-regions" appended.
  */
-function generateOutputFileName(fileName, range, logger) {
-  logger.debug(`Generating output file name for file: ${fileName} with range: ${range}`);
-  
+function generateOutputFileName(fileName, regions, logger) {
+  logger.debug(`Generating output file name for file: ${fileName} with regions: ${regions}`);
+
   const extension = path.extname(fileName);
   const baseName = path.basename(fileName, extension);
-  const rangeNormalized = range.replace(':', '_').replace('-', '_');
-  const newFileName = `${baseName}.${rangeNormalized}${extension}`;
-  
+
+  let suffix;
+  if (Array.isArray(regions) && regions.length > 1) {
+    suffix = 'multiple-regions';
+  } else {
+    const sanitizedRegion = regions.toString().replace(/[:\-]/g, '_');  // Replace colon and dash with underscores
+    suffix = sanitizedRegion;
+  }
+
+  const newFileName = `${baseName}.${suffix}${extension}`;
   logger.debug(`Generated output file name: ${newFileName}`);
-  
+
   return newFileName;
 }
 

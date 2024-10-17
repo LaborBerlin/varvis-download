@@ -31,8 +31,6 @@ npm link
 
 ### Parameters
 
-### Parameters
-
 - `--config`, `-c`: Path to a configuration file (default: .config.json in the current directory)
 - `--username`, `-u`: Varvis API username (required)
 - `--password`, `-p`: Varvis API password (required)
@@ -49,6 +47,8 @@ npm link
 - `--loglevel`, `-ll`: Logging level (info, warn, error, debug, default: 'info')
 - `--logfile`, `-lf`: Path to the log file (optional)
 - `--reportfile`, `-r`: Path to the report file (optional)
+- `--range`, `-g`: A genomic range for ranged download (e.g., 'chr1:1-100000'). Now supports multiple ranges separated by spaces (e.g., 'chr1:1-100000 chr2:1-100000') (optional)
+- `--bed`, `-b`: A BED file containing genomic ranges for ranged download (optional)
 - `--version`, `-v`: Show version information
 - `--help`, `-h`: Show help message
 
@@ -81,6 +81,28 @@ To use a configuration file, specify the --config or -c parameter followed by th
 ```sh
 ./varvis-download.js -u your_username -p your_password -t laborberlin -a 12345 -d /path/to/save -x http://proxy.example.com:8080 -o
 ```
+
+#### Single Genomic Range:
+```sh
+./varvis-download.js -u your_username -p your_password -t laborberlin -a 12345 -g chr1:1-100000 -d /path/to/save
+```
+
+#### Multiple Genomic Ranges:
+```sh
+./varvis-download.js -u your_username -p your_password -t laborberlin -a 12345 -g "chr1:1-100000 chr2:200000-300000" -d /path/to/save
+```
+
+#### Using a BED file:
+```sh
+./varvis-download.js -u your_username -p your_password -t laborberlin -a 12345 --bed /path/to/regions.bed -d /path/to/save
+```
+
+### Output File Naming
+
+When using the `--range` or `--bed` options, the output filename is generated dynamically:
+
+- **Single range**: The filename will include the genomic range (e.g., `sample.chr1_1_100000.bam`).
+- **Multiple ranges**: The filename will include `"multiple-regions"` (e.g., `sample.multiple-regions.bam`).
 
 ## Diagrams
 

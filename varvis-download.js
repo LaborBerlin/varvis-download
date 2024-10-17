@@ -121,6 +121,11 @@ const argv = yargs
     describe: 'Genomic range for ranged download (e.g., chr1:1-100000)',
     type: 'string',
   })
+  .option('bed', {
+    alias: 'b',
+    describe: 'Path to BED file containing multiple regions',
+    type: 'string'
+  })
   .option('version', {
     alias: 'v',
     type: 'boolean',
@@ -221,6 +226,9 @@ const rl = readline.createInterface({
 });
 
 // Main function to orchestrate the login and download process
+const os = require('os'); // Import for generating temp file paths
+
+// Main function to orchestrate the login and download process
 async function main() {
   try {
     logger.debug('Starting main function');
@@ -235,73 +243,94 @@ async function main() {
     await authService.login({ username: userName, password: password }, target);
     logger.debug('Login successful');
 
-    logger.debug('filters:', filters);
+    // Handle regions from command line or BED file
+    let regions = [];
+    if (argv.range) {
+      regions = argv.range.split(' ');
+      logger.info(`Using regions from command line: ${regions}`);
+    } else if (argv.bed) {
+      try {
+        const bedFileContent = fs.readFileSync(argv.bed, 'utf8');
+        regions = bedFileContent
+          .split('\n')
+          .filter(line => line && !line.startsWith('#')) // Filter out comments and empty lines
+          .map(line => {
+            const [chr, start, end] = line.split('\t');
+            return `${chr}:${start}-${end}`;
+          });
+        logger.info(`Using regions from BED file: ${regions}`);
+      } catch (error) {
+        logger.error(`Error reading BED file: ${error.message}`);
+        process.exit(1);
+      }
+    }
 
+    // Check if regions are specified
+    if (regions.length === 0) {
+      logger.error('No regions provided for ranged download. Use -g or --bed to specify regions.');
+      process.exit(1);
+    }
+
+    // Create a temporary BED file for samtools to read
+    const tempBedPath = path.join(os.tmpdir(), 'regions.bed');
+    const bedContent = regions.map(region => {
+      const [chr, pos] = region.split(':');
+      const [start, end] = pos.split('-');
+      return `${chr}\t${start}\t${end}`;
+    }).join('\n');
+    
+    fs.writeFileSync(tempBedPath, bedContent);
+    logger.info(`Generated temporary BED file: ${tempBedPath}`);
+
+    // Generate output file name using the function based on regions
+    const outputFile = path.join(destination, generateOutputFileName('download.bam', regions, logger));
+    logger.info(`Output file: ${outputFile}`);
+
+    // Fetch analysis IDs based on filters or sample IDs
     const ids = analysisIds.length > 0 
       ? analysisIds 
       : await fetchAnalysisIds(target, authService.token, agent, sampleIds, limsIds, filters, logger);
+    logger.info(`Fetched analysis IDs: ${ids}`);
 
-    if (argv.list) {
-      for (const analysisId of ids) {
-        await listAvailableFiles(analysisId, target, authService.token, agent, logger);
-      }
-    } else {
-      for (const analysisId of ids) {
-        const fileDict = await getDownloadLinks(analysisId, filetypes, target, authService.token, agent, logger);
-        logger.debug(`Fetched download links for analysis ID ${analysisId}`);
+    for (const analysisId of ids) {
+      logger.info(`Processing analysis ID: ${analysisId}`);
+      const fileDict = await getDownloadLinks(analysisId, filetypes, target, authService.token, agent, logger);
+      logger.debug(`Fetched download links for analysis ID ${analysisId}`);
 
-        for (const [fileName, file] of Object.entries(fileDict)) {
-          const downloadLink = file.downloadLink;
-          logger.info(`Downloading ${fileName} file for analysis ID ${analysisId}...`);
+      for (const [fileName, file] of Object.entries(fileDict)) {
+        const downloadLink = file.downloadLink;
+        const indexFileUrl = fileDict[`${fileName}.bai`]?.downloadLink;
+        const indexFilePath = path.join(destination, `${fileName}.bai`);
 
-          const filePath = path.join(destination, fileName);
+        if (!indexFileUrl) {
+          logger.error(`Index file for BAM (${fileName}) not found.`);
+          continue;
+        }
 
-          // Skip downloading .bai files in ranged download mode
-          if (fileName.endsWith('.bai') && argv.range) {
-            logger.info(`Skipping .bai file for ranged download: ${fileName}`);
-            continue;
-          }
+        // Ensure index file is downloaded
+        await ensureIndexFile(downloadLink, indexFileUrl, indexFilePath, agent, rl, logger, metrics, overwrite);
 
-          if (fileName.endsWith('.bam') && argv.range) {
-            // Ensure BAM index file is downloaded before ranged download
-            const indexFileUrl = fileDict[`${fileName}.bai`]?.downloadLink;
-            const indexFilePath = path.join(destination, `${fileName}.bai`);
+        // Now pass the actual fileName instead of hardcoded 'download.bam'
+        const outputFile = path.join(destination, generateOutputFileName(fileName, regions, logger));
 
-            if (!indexFileUrl) {
-              logger.error(`Index file for BAM (${fileName}) not found.`);
-              continue;
-            }
-
-            // Check if the .bai file exists and skip downloading if not overwriting
-            if (!fs.existsSync(indexFilePath) || overwrite) {
-              await ensureIndexFile(downloadLink, indexFileUrl, indexFilePath, agent, rl, logger, metrics, overwrite);
-            } else {
-              logger.info(`Index file already exists: ${indexFilePath}`);
-            }
-
-            // Perform the ranged BAM download
-            logger.info(`Performing ranged download for BAM file: ${filePath}`);
-            logger.info(`Genomic range: ${argv.range}`);
-            const outputFile = path.join(destination, generateOutputFileName(fileName, argv.range, logger));
-            logger.info(`Output file: ${outputFile}`);
-
-            try {
-              await rangedDownloadBAM(downloadLink, argv.range, outputFile, indexFilePath, logger, overwrite);
-              await indexBAM(outputFile, logger, overwrite);  // Optionally index the newly downloaded BAM file
-            } catch (error) {
-              logger.error(`Error during ranged download and indexing for BAM file: ${fileName}`);
-              logger.error(`Detailed error: ${error.message}`);
-            }
-          } else {
-            // Normal download for non-BAM or no-range files
-            await downloadFile(downloadLink, filePath, overwrite, agent, rl, logger, metrics);
-          }
+        // Perform ranged download using the temporary BED file
+        try {
+          logger.info(`Performing ranged download for file: ${fileName}`);
+          await rangedDownloadBAM(downloadLink, tempBedPath, outputFile, indexFilePath, logger, overwrite);
+          await indexBAM(outputFile, logger, overwrite);
+        } catch (error) {
+          logger.error(`Error during ranged download for ${fileName}: ${error.message}`);
         }
       }
+  }
 
-      logger.info('Download complete.');
-      generateReport(reportfile, logger);
-    }
+    logger.info('Download complete.');
+    generateReport(reportfile, logger);
+
+    // Clean up the temporary BED file
+    fs.unlinkSync(tempBedPath);
+    logger.info(`Deleted temporary BED file: ${tempBedPath}`);
+    
   } catch (error) {
     logger.error('An error occurred:', error.message);
     logger.debug(error.stack);
