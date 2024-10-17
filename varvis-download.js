@@ -157,7 +157,9 @@ const finalConfig = {
   filetypes: (argv.filetypes || config.filetypes || 'bam,bam.bai').split(',').map(ft => ft.trim()),
   analysisIds: (argv.analysisIds || config.analysisIds || '').split(',').map(id => id.trim()).filter(id => id),
   sampleIds: (argv.sampleIds || config.sampleIds || '').split(',').map(id => id.trim()).filter(id => id),
-  limsIds: (argv.limsIds || config.limsIds || '').split(',').map(id => id.trim()).filter(id => id),
+  limsIds: (
+    (typeof argv.limsIds === 'string' ? argv.limsIds : config.limsIds || '')
+  ).split(',').map(id => id.trim()).filter(id => id),
   filters: (argv.filter || config.filter || []).map(filter => filter.trim()),
   destination: argv.destination !== '.' ? argv.destination : (config.destination || '.')
 };
