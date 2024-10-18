@@ -245,9 +245,22 @@ async function main() {
 
     // Handle regions from command line or BED file
     let regions = [];
+    let tempBedPath; // Initialize tempBedPath
+
     if (argv.range) {
       regions = argv.range.split(' ');
       logger.info(`Using regions from command line: ${regions}`);
+
+      // Create a temporary BED file for samtools to read
+      tempBedPath = path.join(os.tmpdir(), 'regions.bed');
+      const bedContent = regions.map(region => {
+        const [chr, pos] = region.split(':');
+        const [start, end] = pos.split('-');
+        return `${chr}\t${start}\t${end}`;
+      }).join('\n');
+      
+      fs.writeFileSync(tempBedPath, bedContent);
+      logger.info(`Generated temporary BED file: ${tempBedPath}`);
     } else if (argv.bed) {
       try {
         const bedFileContent = fs.readFileSync(argv.bed, 'utf8');
@@ -259,28 +272,18 @@ async function main() {
             return `${chr}:${start}-${end}`;
           });
         logger.info(`Using regions from BED file: ${regions}`);
+
+        // Create a temporary BED file for samtools to read
+        tempBedPath = path.join(os.tmpdir(), 'regions.bed');
+        fs.writeFileSync(tempBedPath, bedFileContent);
+        logger.info(`Generated temporary BED file: ${tempBedPath}`);
       } catch (error) {
         logger.error(`Error reading BED file: ${error.message}`);
         process.exit(1);
       }
+    } else {
+      logger.info('No regions provided. Proceeding with full file download.');
     }
-
-    // Check if regions are specified
-    if (regions.length === 0) {
-      logger.error('No regions provided for ranged download. Use -g or --bed to specify regions.');
-      process.exit(1);
-    }
-
-    // Create a temporary BED file for samtools to read
-    const tempBedPath = path.join(os.tmpdir(), 'regions.bed');
-    const bedContent = regions.map(region => {
-      const [chr, pos] = region.split(':');
-      const [start, end] = pos.split('-');
-      return `${chr}\t${start}\t${end}`;
-    }).join('\n');
-    
-    fs.writeFileSync(tempBedPath, bedContent);
-    logger.info(`Generated temporary BED file: ${tempBedPath}`);
 
     // Generate output file name using the function based on regions
     const outputFile = path.join(destination, generateOutputFileName('download.bam', regions, logger));
@@ -296,41 +299,54 @@ async function main() {
       logger.info(`Processing analysis ID: ${analysisId}`);
       const fileDict = await getDownloadLinks(analysisId, filetypes, target, authService.token, agent, logger);
       logger.debug(`Fetched download links for analysis ID ${analysisId}`);
-
+    
       for (const [fileName, file] of Object.entries(fileDict)) {
         const downloadLink = file.downloadLink;
         const indexFileUrl = fileDict[`${fileName}.bai`]?.downloadLink;
         const indexFilePath = path.join(destination, `${fileName}.bai`);
-
+    
         if (!indexFileUrl) {
           logger.error(`Index file for BAM (${fileName}) not found.`);
           continue;
         }
-
+    
         // Ensure index file is downloaded
         await ensureIndexFile(downloadLink, indexFileUrl, indexFilePath, agent, rl, logger, metrics, overwrite);
-
+    
         // Now pass the actual fileName instead of hardcoded 'download.bam'
         const outputFile = path.join(destination, generateOutputFileName(fileName, regions, logger));
-
-        // Perform ranged download using the temporary BED file
-        try {
-          logger.info(`Performing ranged download for file: ${fileName}`);
-          await rangedDownloadBAM(downloadLink, tempBedPath, outputFile, indexFilePath, logger, overwrite);
-          await indexBAM(outputFile, logger, overwrite);
-        } catch (error) {
-          logger.error(`Error during ranged download for ${fileName}: ${error.message}`);
+    
+        if (regions.length > 0) {
+          // Perform ranged download using the temporary BED file
+          try {
+            logger.info(`Performing ranged download for file: ${fileName}`);
+            await rangedDownloadBAM(downloadLink, tempBedPath, outputFile, indexFilePath, logger, overwrite);
+            await indexBAM(outputFile, logger, overwrite);
+          } catch (error) {
+            logger.error(`Error during ranged download for ${fileName}: ${error.message}`);
+          }
+        } else {
+          // Perform full download
+          try {
+            logger.info(`Performing full download for file: ${fileName}`);
+            await downloadFile(downloadLink, outputFile, overwrite, agent, rl, logger, metrics);
+            await indexBAM(outputFile, logger, overwrite);
+          } catch (error) {
+            logger.error(`Error during full download for ${fileName}: ${error.message}`);
+          }
         }
       }
-  }
+    }    
 
     logger.info('Download complete.');
     generateReport(reportfile, logger);
 
-    // Clean up the temporary BED file
-    fs.unlinkSync(tempBedPath);
-    logger.info(`Deleted temporary BED file: ${tempBedPath}`);
-    
+    // Clean up the temporary BED file if it was created
+    if (tempBedPath) {
+      fs.unlinkSync(tempBedPath);
+      logger.info(`Deleted temporary BED file: ${tempBedPath}`);
+    }
+
   } catch (error) {
     logger.error('An error occurred:', error.message);
     logger.debug(error.stack);
