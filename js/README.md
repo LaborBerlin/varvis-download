@@ -11,6 +11,7 @@ Handles authentication with the Varvis API.
 #### Functions:
 
 - **getCsrfToken()**
+
   - Fetches the CSRF token required for login.
   - Returns: `Promise<string>`
 
@@ -30,12 +31,14 @@ Provides utility functions for loading configurations and assets.
 #### Functions:
 
 - **loadConfig(configFilePath)**
+
   - Loads configuration from a file.
   - Parameters:
     - `configFilePath`: Path to the configuration file.
   - Returns: `Object`
 
 - **loadLogo()**
+
   - Reads the ASCII logo from the logo.txt file.
   - Returns: `string`
 
@@ -52,6 +55,7 @@ Contains functions for making HTTP requests and fetching data from the Varvis AP
 #### Functions:
 
 - **fetchWithRetry(url, options, retries = 3, logger)**
+
   - Retries a fetch operation with a specified number of attempts.
   - Parameters:
     - `url`: The URL to fetch.
@@ -61,6 +65,7 @@ Contains functions for making HTTP requests and fetching data from the Varvis AP
   - Returns: `Promise<Response>`
 
 - **fetchAnalysisIds(target, token, agent, sampleIds, limsIds, logger)**
+
   - Fetches analysis IDs based on sample IDs or LIMS IDs.
   - Parameters:
     - `target`: The Varvis API target.
@@ -72,6 +77,7 @@ Contains functions for making HTTP requests and fetching data from the Varvis AP
   - Returns: `Promise<string[]>`
 
 - **getDownloadLinks(analysisId, filter, target, token, agent, logger)**
+
   - Fetches the download links for specified file types from the Varvis API for a given analysis ID.
   - Parameters:
     - `analysisId`: The analysis ID to get download links for.
@@ -83,6 +89,7 @@ Contains functions for making HTTP requests and fetching data from the Varvis AP
   - Returns: `Promise<Object>`
 
 - **listAvailableFiles(analysisId, target, token, agent, logger)**
+
   - Lists available files for the specified analysis IDs.
   - Parameters:
     - `analysisId`: The analysis ID to list files for.
@@ -106,6 +113,7 @@ Contains functions for file operations, including downloading files and confirmi
 #### Functions:
 
 - **confirmOverwrite(file, rl, logger)**
+
   - Prompts the user to confirm file overwrite if the file already exists.
   - Parameters:
     - `file`: The file path.
@@ -143,19 +151,21 @@ Each of these modules is used in the main script (`varvis-download.js`) to provi
 
 ```javascript
 // Example of importing and using a function from configUtils.js
-const { loadConfig } = require('./js/configUtils');
-const config = loadConfig('./config.json');
+const { loadConfig } = require("./js/configUtils");
+const config = loadConfig("./config.json");
 
 // Example of using the logger
-const logger = require('./js/logger')(argv);
-logger.info('This is an info message');
+const logger = require("./js/logger")(argv);
+logger.info("This is an info message");
 
 // Example of using AuthService for authentication
 const authService = new AuthService(logger, agent);
-authService.login({ username, password }, target)
+authService
+  .login({ username, password }, target)
   .then(() => {
-    logger.info('Login successful');
+    logger.info("Login successful");
   })
-  .catch(err => {
-    logger.error('Login failed', err);
+  .catch((err) => {
+    logger.error("Login failed", err);
   });
+```

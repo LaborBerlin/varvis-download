@@ -1,140 +1,162 @@
 #!/usr/bin/env node
 
-const { CookieJar } = require('tough-cookie');
-const { CookieClient } = require('http-cookie-agent/undici');
-const yargs = require('yargs');
-const fs = require('fs'); // Import the fs module
-const path = require('path');
-const readline = require('readline');
-const { ProxyAgent, Agent } = require('undici');
-const { version, name, author, license, repository } = require('./package.json');
+const { CookieJar } = require("tough-cookie");
+const { CookieClient } = require("http-cookie-agent/undici");
+const yargs = require("yargs");
+const fs = require("fs"); // Import the fs module
+const path = require("path");
+const readline = require("readline");
+const { ProxyAgent, Agent } = require("undici");
+const {
+  version,
+  name,
+  author,
+  license,
+  repository,
+} = require("./package.json");
 
-const { loadConfig, loadLogo, getLastModifiedDate } = require('./js/configUtils');
-const createLogger = require('./js/logger');
-const AuthService = require('./js/authService');
-const { fetchAnalysisIds, getDownloadLinks, listAvailableFiles, generateReport, metrics } = require('./js/fetchUtils');
-const { downloadFile } = require('./js/fileUtils');
-const { checkToolAvailability, ensureIndexFile, rangedDownloadBAM, indexBAM, generateOutputFileName } = require('./js/rangedUtils');
+const {
+  loadConfig,
+  loadLogo,
+  getLastModifiedDate,
+} = require("./js/configUtils");
+const createLogger = require("./js/logger");
+const AuthService = require("./js/authService");
+const {
+  fetchAnalysisIds,
+  getDownloadLinks,
+  listAvailableFiles,
+  generateReport,
+  metrics,
+} = require("./js/fetchUtils");
+const { downloadFile } = require("./js/fileUtils");
+const {
+  checkToolAvailability,
+  ensureIndexFile,
+  rangedDownloadBAM,
+  indexBAM,
+  generateOutputFileName,
+} = require("./js/rangedUtils");
 
 // Command line arguments setup
 const argv = yargs
-  .usage('$0 <command> [args]')
+  .usage("$0 <command> [args]")
   .version(false)
-  .option('config', {
-    alias: 'c',
-    describe: 'Path to the configuration file',
-    type: 'string',
-    default: '.config.json'
+  .option("config", {
+    alias: "c",
+    describe: "Path to the configuration file",
+    type: "string",
+    default: ".config.json",
   })
-  .option('username', {
-    alias: 'u',
-    describe: 'Varvis API username',
-    type: 'string'
+  .option("username", {
+    alias: "u",
+    describe: "Varvis API username",
+    type: "string",
   })
-  .option('password', {
-    alias: 'p',
-    describe: 'Varvis API password',
-    type: 'string'
+  .option("password", {
+    alias: "p",
+    describe: "Varvis API password",
+    type: "string",
   })
-  .option('target', {
-    alias: 't',
-    describe: 'Target for the Varvis API',
-    type: 'string'
+  .option("target", {
+    alias: "t",
+    describe: "Target for the Varvis API",
+    type: "string",
   })
-  .option('analysisIds', {
-    alias: 'a',
-    describe: 'Analysis IDs to download files for (comma-separated)',
-    type: 'string'
+  .option("analysisIds", {
+    alias: "a",
+    describe: "Analysis IDs to download files for (comma-separated)",
+    type: "string",
   })
-  .option('sampleIds', {
-    alias: 's',
-    describe: 'Sample IDs to filter analyses (comma-separated)',
-    type: 'string'
+  .option("sampleIds", {
+    alias: "s",
+    describe: "Sample IDs to filter analyses (comma-separated)",
+    type: "string",
   })
-  .option('limsIds', {
-    alias: 'l',
-    describe: 'LIMS IDs to filter analyses (comma-separated)',
-    type: 'string'
+  .option("limsIds", {
+    alias: "l",
+    describe: "LIMS IDs to filter analyses (comma-separated)",
+    type: "string",
   })
-  .option('list', {
-    alias: 'L',
-    describe: 'List available files for the specified analysis IDs',
-    type: 'boolean'
+  .option("list", {
+    alias: "L",
+    describe: "List available files for the specified analysis IDs",
+    type: "boolean",
   })
-  .option('destination', {
-    alias: 'd',
-    describe: 'Destination folder for the downloaded files',
-    type: 'string',
-    default: '.'
+  .option("destination", {
+    alias: "d",
+    describe: "Destination folder for the downloaded files",
+    type: "string",
+    default: ".",
   })
-  .option('proxy', {
-    alias: 'x',
-    describe: 'Proxy URL',
-    type: 'string'
+  .option("proxy", {
+    alias: "x",
+    describe: "Proxy URL",
+    type: "string",
   })
-  .option('proxyUsername', {
-    alias: 'pxu',
-    describe: 'Proxy username',
-    type: 'string'
+  .option("proxyUsername", {
+    alias: "pxu",
+    describe: "Proxy username",
+    type: "string",
   })
-  .option('proxyPassword', {
-    alias: 'pxp',
-    describe: 'Proxy password',
-    type: 'string'
+  .option("proxyPassword", {
+    alias: "pxp",
+    describe: "Proxy password",
+    type: "string",
   })
-  .option('overwrite', {
-    alias: 'o',
-    describe: 'Overwrite existing files',
-    type: 'boolean',
-    default: false
+  .option("overwrite", {
+    alias: "o",
+    describe: "Overwrite existing files",
+    type: "boolean",
+    default: false,
   })
-  .option('filetypes', {
-    alias: 'f',
-    describe: 'File types to download (comma-separated)',
-    type: 'string',
-    default: 'bam,bam.bai'
+  .option("filetypes", {
+    alias: "f",
+    describe: "File types to download (comma-separated)",
+    type: "string",
+    default: "bam,bam.bai",
   })
-  .option('loglevel', {
-    alias: 'll',
-    describe: 'Logging level (info, warn, error, debug)',
-    type: 'string',
-    default: 'info'
+  .option("loglevel", {
+    alias: "ll",
+    describe: "Logging level (info, warn, error, debug)",
+    type: "string",
+    default: "info",
   })
-  .option('logfile', {
-    alias: 'lf',
-    describe: 'Path to the log file',
-    type: 'string'
+  .option("logfile", {
+    alias: "lf",
+    describe: "Path to the log file",
+    type: "string",
   })
-  .option('reportfile', {
-    alias: 'r',
-    describe: 'Path to the report file',
-    type: 'string'
+  .option("reportfile", {
+    alias: "r",
+    describe: "Path to the report file",
+    type: "string",
   })
-  .option('filter', {
-    alias: 'F',
-    describe: 'Filter expressions (e.g., "analysisType=SNV", "sampleId>LB24-0001")',
-    type: 'array',
-    default: []
+  .option("filter", {
+    alias: "F",
+    describe:
+      'Filter expressions (e.g., "analysisType=SNV", "sampleId>LB24-0001")',
+    type: "array",
+    default: [],
   })
-  .option('range', {
-    alias: 'g',
-    describe: 'Genomic range for ranged download (e.g., chr1:1-100000)',
-    type: 'string',
+  .option("range", {
+    alias: "g",
+    describe: "Genomic range for ranged download (e.g., chr1:1-100000)",
+    type: "string",
   })
-  .option('bed', {
-    alias: 'b',
-    describe: 'Path to BED file containing multiple regions',
-    type: 'string'
+  .option("bed", {
+    alias: "b",
+    describe: "Path to BED file containing multiple regions",
+    type: "string",
   })
-  .option('version', {
-    alias: 'v',
-    type: 'boolean',
-    description: 'Show version information',
-    default: false
+  .option("version", {
+    alias: "v",
+    type: "boolean",
+    description: "Show version information",
+    default: false,
   })
   .help()
-  .alias('help', 'h')
-  .argv;
+  .alias("help", "h").argv;
 
 // Create logger instance
 const logger = createLogger(argv);
@@ -159,18 +181,31 @@ const config = loadConfig(configFilePath);
 const finalConfig = {
   ...config,
   ...argv,
-  filetypes: (argv.filetypes || config.filetypes || 'bam,bam.bai').split(',').map(ft => ft.trim()),
-  analysisIds: (argv.analysisIds || config.analysisIds || '').split(',').map(id => id.trim()).filter(id => id),
-  sampleIds: (argv.sampleIds || config.sampleIds || '').split(',').map(id => id.trim()).filter(id => id),
-  limsIds: (
-    (typeof argv.limsIds === 'string' ? argv.limsIds : config.limsIds || '')
-  ).split(',').map(id => id.trim()).filter(id => id),
-  filters: (argv.filter || config.filter || []).map(filter => filter.trim()),
-  destination: argv.destination !== '.' ? argv.destination : (config.destination || '.')
+  filetypes: (argv.filetypes || config.filetypes || "bam,bam.bai")
+    .split(",")
+    .map((ft) => ft.trim()),
+  analysisIds: (argv.analysisIds || config.analysisIds || "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => id),
+  sampleIds: (argv.sampleIds || config.sampleIds || "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => id),
+  limsIds: (typeof argv.limsIds === "string"
+    ? argv.limsIds
+    : config.limsIds || ""
+  )
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => id),
+  filters: (argv.filter || config.filter || []).map((filter) => filter.trim()),
+  destination:
+    argv.destination !== "." ? argv.destination : config.destination || ".",
 };
 
 // Validate the final configuration
-const requiredFields = ['username', 'password', 'target'];
+const requiredFields = ["username", "password", "target"];
 for (const field of requiredFields) {
   if (!finalConfig[field]) {
     logger.error(`Error: Missing required argument --${field}`);
@@ -204,16 +239,18 @@ if (proxyUsername && proxyPassword) {
 const agent = proxy
   ? new ProxyAgent({
       ...agentOptions,
-      factory: (origin, opts) => new CookieClient(origin, {
-        ...opts,
-        cookies: { jar },
-      }),
+      factory: (origin, opts) =>
+        new CookieClient(origin, {
+          ...opts,
+          cookies: { jar },
+        }),
     })
   : new Agent({
-      factory: (origin, opts) => new CookieClient(origin, {
-        ...opts,
-        cookies: { jar },
-      }),
+      factory: (origin, opts) =>
+        new CookieClient(origin, {
+          ...opts,
+          cookies: { jar },
+        }),
     });
 
 // Initialize AuthService instance
@@ -222,59 +259,61 @@ const authService = new AuthService(logger, agent);
 // Initialize readline interface for user prompts
 const rl = readline.createInterface({
   input: process.stdin,
-  output: process.stdout
+  output: process.stdout,
 });
 
 // Main function to orchestrate the login and download process
-const os = require('os'); // Import for generating temp file paths
+const os = require("os"); // Import for generating temp file paths
 
 // Main function to orchestrate the login and download process
 async function main() {
   try {
-    logger.debug('Starting main function');
-    
+    logger.debug("Starting main function");
+
     // Ensure the destination directory exists
     if (!fs.existsSync(destination)) {
       logger.debug(`Creating destination directory: ${destination}`);
       fs.mkdirSync(destination, { recursive: true });
     }
 
-    logger.debug('Attempting to log in');
+    logger.debug("Attempting to log in");
     await authService.login({ username: userName, password: password }, target);
-    logger.debug('Login successful');
+    logger.debug("Login successful");
 
     // Handle regions from command line or BED file
     let regions = [];
     let tempBedPath; // Initialize tempBedPath
 
     if (argv.range) {
-      regions = argv.range.split(' ');
+      regions = argv.range.split(" ");
       logger.info(`Using regions from command line: ${regions}`);
 
       // Create a temporary BED file for samtools to read
-      tempBedPath = path.join(os.tmpdir(), 'regions.bed');
-      const bedContent = regions.map(region => {
-        const [chr, pos] = region.split(':');
-        const [start, end] = pos.split('-');
-        return `${chr}\t${start}\t${end}`;
-      }).join('\n');
-      
+      tempBedPath = path.join(os.tmpdir(), "regions.bed");
+      const bedContent = regions
+        .map((region) => {
+          const [chr, pos] = region.split(":");
+          const [start, end] = pos.split("-");
+          return `${chr}\t${start}\t${end}`;
+        })
+        .join("\n");
+
       fs.writeFileSync(tempBedPath, bedContent);
       logger.info(`Generated temporary BED file: ${tempBedPath}`);
     } else if (argv.bed) {
       try {
-        const bedFileContent = fs.readFileSync(argv.bed, 'utf8');
+        const bedFileContent = fs.readFileSync(argv.bed, "utf8");
         regions = bedFileContent
-          .split('\n')
-          .filter(line => line && !line.startsWith('#')) // Filter out comments and empty lines
-          .map(line => {
-            const [chr, start, end] = line.split('\t');
+          .split("\n")
+          .filter((line) => line && !line.startsWith("#")) // Filter out comments and empty lines
+          .map((line) => {
+            const [chr, start, end] = line.split("\t");
             return `${chr}:${start}-${end}`;
           });
         logger.info(`Using regions from BED file: ${regions}`);
 
         // Create a temporary BED file for samtools to read
-        tempBedPath = path.join(os.tmpdir(), 'regions.bed');
+        tempBedPath = path.join(os.tmpdir(), "regions.bed");
         fs.writeFileSync(tempBedPath, bedFileContent);
         logger.info(`Generated temporary BED file: ${tempBedPath}`);
       } catch (error) {
@@ -282,63 +321,113 @@ async function main() {
         process.exit(1);
       }
     } else {
-      logger.info('No regions provided. Proceeding with full file download.');
+      logger.info("No regions provided. Proceeding with full file download.");
     }
 
     // Generate output file name using the function based on regions
-    const outputFile = path.join(destination, generateOutputFileName('download.bam', regions, logger));
+    const outputFile = path.join(
+      destination,
+      generateOutputFileName("download.bam", regions, logger),
+    );
     logger.info(`Output file: ${outputFile}`);
 
     // Fetch analysis IDs based on filters or sample IDs
-    const ids = analysisIds.length > 0 
-      ? analysisIds 
-      : await fetchAnalysisIds(target, authService.token, agent, sampleIds, limsIds, filters, logger);
+    const ids =
+      analysisIds.length > 0
+        ? analysisIds
+        : await fetchAnalysisIds(
+            target,
+            authService.token,
+            agent,
+            sampleIds,
+            limsIds,
+            filters,
+            logger,
+          );
     logger.info(`Fetched analysis IDs: ${ids}`);
 
     for (const analysisId of ids) {
       logger.info(`Processing analysis ID: ${analysisId}`);
-      const fileDict = await getDownloadLinks(analysisId, filetypes, target, authService.token, agent, logger);
+      const fileDict = await getDownloadLinks(
+        analysisId,
+        filetypes,
+        target,
+        authService.token,
+        agent,
+        logger,
+      );
       logger.debug(`Fetched download links for analysis ID ${analysisId}`);
-    
+
       for (const [fileName, file] of Object.entries(fileDict)) {
         const downloadLink = file.downloadLink;
         const indexFileUrl = fileDict[`${fileName}.bai`]?.downloadLink;
         const indexFilePath = path.join(destination, `${fileName}.bai`);
-    
+
         if (!indexFileUrl) {
           logger.error(`Index file for BAM (${fileName}) not found.`);
           continue;
         }
-    
+
         // Ensure index file is downloaded
-        await ensureIndexFile(downloadLink, indexFileUrl, indexFilePath, agent, rl, logger, metrics, overwrite);
-    
+        await ensureIndexFile(
+          downloadLink,
+          indexFileUrl,
+          indexFilePath,
+          agent,
+          rl,
+          logger,
+          metrics,
+          overwrite,
+        );
+
         // Now pass the actual fileName instead of hardcoded 'download.bam'
-        const outputFile = path.join(destination, generateOutputFileName(fileName, regions, logger));
-    
+        const outputFile = path.join(
+          destination,
+          generateOutputFileName(fileName, regions, logger),
+        );
+
         if (regions.length > 0) {
           // Perform ranged download using the temporary BED file
           try {
             logger.info(`Performing ranged download for file: ${fileName}`);
-            await rangedDownloadBAM(downloadLink, tempBedPath, outputFile, indexFilePath, logger, overwrite);
+            await rangedDownloadBAM(
+              downloadLink,
+              tempBedPath,
+              outputFile,
+              indexFilePath,
+              logger,
+              overwrite,
+            );
             await indexBAM(outputFile, logger, overwrite);
           } catch (error) {
-            logger.error(`Error during ranged download for ${fileName}: ${error.message}`);
+            logger.error(
+              `Error during ranged download for ${fileName}: ${error.message}`,
+            );
           }
         } else {
           // Perform full download
           try {
             logger.info(`Performing full download for file: ${fileName}`);
-            await downloadFile(downloadLink, outputFile, overwrite, agent, rl, logger, metrics);
+            await downloadFile(
+              downloadLink,
+              outputFile,
+              overwrite,
+              agent,
+              rl,
+              logger,
+              metrics,
+            );
             await indexBAM(outputFile, logger, overwrite);
           } catch (error) {
-            logger.error(`Error during full download for ${fileName}: ${error.message}`);
+            logger.error(
+              `Error during full download for ${fileName}: ${error.message}`,
+            );
           }
         }
       }
-    }    
+    }
 
-    logger.info('Download complete.');
+    logger.info("Download complete.");
     generateReport(reportfile, logger);
 
     // Clean up the temporary BED file if it was created
@@ -346,9 +435,8 @@ async function main() {
       fs.unlinkSync(tempBedPath);
       logger.info(`Deleted temporary BED file: ${tempBedPath}`);
     }
-
   } catch (error) {
-    logger.error('An error occurred:', error.message);
+    logger.error("An error occurred:", error.message);
     logger.debug(error.stack);
   } finally {
     rl.close();
@@ -356,8 +444,8 @@ async function main() {
   }
 }
 
-main().catch(error => {
-  logger.error('An unexpected error occurred:', error.message);
+main().catch((error) => {
+  logger.error("An unexpected error occurred:", error.message);
   logger.debug(error.stack);
   rl.close();
   process.exit(1);

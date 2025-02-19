@@ -1,4 +1,4 @@
-const { fetch } = require('undici');
+const { fetch } = require("undici");
 
 /**
  * AuthService class handles authentication with the Varvis API.
@@ -12,7 +12,7 @@ class AuthService {
   constructor(logger, agent) {
     this.logger = logger;
     this.agent = agent;
-    this.token = '';
+    this.token = "";
   }
 
   /**
@@ -22,16 +22,21 @@ class AuthService {
    */
   async getCsrfToken(target) {
     try {
-      this.logger.debug(`Fetching CSRF token from https://${target}.varvis.com/authenticate`);
-      const response = await fetch(`https://${target}.varvis.com/authenticate`, {
-        method: 'HEAD',
-        dispatcher: this.agent
-      });
-      const csrfToken = response.headers.get('x-csrf-token');
+      this.logger.debug(
+        `Fetching CSRF token from https://${target}.varvis.com/authenticate`,
+      );
+      const response = await fetch(
+        `https://${target}.varvis.com/authenticate`,
+        {
+          method: "HEAD",
+          dispatcher: this.agent,
+        },
+      );
+      const csrfToken = response.headers.get("x-csrf-token");
       this.logger.debug(`Received CSRF token: ${csrfToken}`);
       return csrfToken;
     } catch (error) {
-      this.logger.error('Error fetching initial CSRF token:', error);
+      this.logger.error("Error fetching initial CSRF token:", error);
       throw error;
     }
   }
@@ -49,35 +54,40 @@ class AuthService {
       const csrfToken1 = await this.getCsrfToken(target);
 
       const params = new URLSearchParams();
-      params.append('_csrf', csrfToken1);
-      params.append('username', user.username);
-      params.append('password', user.password);
+      params.append("_csrf", csrfToken1);
+      params.append("username", user.username);
+      params.append("password", user.password);
 
-      this.logger.debug(`Logging in to https://${target}.varvis.com/login with username: ${user.username}`);
+      this.logger.debug(
+        `Logging in to https://${target}.varvis.com/login with username: ${user.username}`,
+      );
       const loginResponse = await fetch(`https://${target}.varvis.com/login`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          "Content-Type": "application/x-www-form-urlencoded",
         },
         body: params,
-        dispatcher: this.agent
+        dispatcher: this.agent,
       });
 
       if (loginResponse.status !== 200) {
-        throw new Error('Login failed');
+        throw new Error("Login failed");
       }
 
-      const csrfToken2Response = await fetch(`https://${target}.varvis.com/authenticate`, {
-        method: 'HEAD',
-        dispatcher: this.agent
-      });
+      const csrfToken2Response = await fetch(
+        `https://${target}.varvis.com/authenticate`,
+        {
+          method: "HEAD",
+          dispatcher: this.agent,
+        },
+      );
 
-      this.token = csrfToken2Response.headers.get('x-csrf-token');
+      this.token = csrfToken2Response.headers.get("x-csrf-token");
 
-      this.logger.info('Login successful');
+      this.logger.info("Login successful");
       return { csrfToken: this.token };
     } catch (error) {
-      this.logger.error('Login error:', error);
+      this.logger.error("Login error:", error);
       throw error;
     }
   }

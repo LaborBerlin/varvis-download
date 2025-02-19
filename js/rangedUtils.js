@@ -1,14 +1,14 @@
-const { exec } = require('child_process');
-const fs = require('fs');
-const path = require('path');
-const { promisify } = require('util');
+const { exec } = require("child_process");
+const fs = require("fs");
+const path = require("path");
+const { promisify } = require("util");
 const execPromise = promisify(exec);
-const { downloadFile } = require('./fileUtils');
+const { downloadFile } = require("./fileUtils");
 
 // Define minimum required versions for external tools
-const SAMTOOLS_MIN_VERSION = '1.17';
-const TABIX_MIN_VERSION = '1.20';
-const BGZIP_MIN_VERSION = '1.20';
+const SAMTOOLS_MIN_VERSION = "1.17";
+const TABIX_MIN_VERSION = "1.20";
+const BGZIP_MIN_VERSION = "1.20";
 
 /**
  * Checks if a tool is available and meets the minimum version.
@@ -21,12 +21,14 @@ const BGZIP_MIN_VERSION = '1.20';
 async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
   try {
     const { stdout } = await execPromise(versionCommand);
-    const toolVersion = stdout.split(' ')[1].trim(); // Assumes the second word is the version number
+    const toolVersion = stdout.split(" ")[1].trim(); // Assumes the second word is the version number
     if (compareVersions(toolVersion, minVersion)) {
       logger.info(`${tool} version ${toolVersion} is available.`);
       return true;
     } else {
-      logger.error(`${tool} version ${toolVersion} is less than the required version ${minVersion}.`);
+      logger.error(
+        `${tool} version ${toolVersion} is less than the required version ${minVersion}.`,
+      );
       return false;
     }
   } catch (error) {
@@ -42,8 +44,8 @@ async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
  * @returns {boolean} - True if the current version is >= the minimum version.
  */
 function compareVersions(version, minVersion) {
-  const [major, minor] = version.split('.').map(Number);
-  const [minMajor, minMinor] = minVersion.split('.').map(Number);
+  const [major, minor] = version.split(".").map(Number);
+  const [minMajor, minMinor] = minVersion.split(".").map(Number);
   return major > minMajor || (major === minMajor && minor >= minMinor);
 }
 
@@ -57,7 +59,14 @@ function compareVersions(version, minVersion) {
  * @param {boolean} overwrite - Flag indicating whether to overwrite existing files.
  * @returns {Promise<void>}
  */
-async function rangedDownloadBAM(url, bedFile, outputFile, indexFile, logger, overwrite = false) {
+async function rangedDownloadBAM(
+  url,
+  bedFile,
+  outputFile,
+  indexFile,
+  logger,
+  overwrite = false,
+) {
   try {
     // Check if the output BAM file already exists and skip download if overwrite is false
     if (fs.existsSync(outputFile) && !overwrite) {
@@ -68,7 +77,7 @@ async function rangedDownloadBAM(url, bedFile, outputFile, indexFile, logger, ov
     logger.debug(`Downloading BAM for regions in BED file: ${bedFile}`);
     const cmd = `samtools view -b -X '${url}' ${indexFile} -L ${bedFile} -M -o ${outputFile}`;
     logger.info(`Running command: ${cmd}`);
-    
+
     await execPromise(cmd);
     logger.info(`Downloaded BAM file for regions in BED file to ${outputFile}`);
   } catch (error) {
@@ -86,7 +95,13 @@ async function rangedDownloadBAM(url, bedFile, outputFile, indexFile, logger, ov
  * @param {boolean} overwrite - Flag indicating whether to overwrite existing files.
  * @returns {Promise<void>}
  */
-async function rangedDownloadVCF(url, range, outputFile, logger, overwrite = false) {
+async function rangedDownloadVCF(
+  url,
+  range,
+  outputFile,
+  logger,
+  overwrite = false,
+) {
   try {
     // Check if the output VCF file already exists and skip if overwrite is false
     if (fs.existsSync(outputFile) && !overwrite) {
@@ -94,7 +109,7 @@ async function rangedDownloadVCF(url, range, outputFile, logger, overwrite = fal
       return;
     }
 
-    const tempOutputFile = outputFile.replace('.gz', ''); // Temporary file for tabix output
+    const tempOutputFile = outputFile.replace(".gz", ""); // Temporary file for tabix output
     const cmdTabix = `tabix ${url} ${range} > ${tempOutputFile}`;
     logger.info(`Running command: ${cmdTabix}`);
     await execPromise(cmdTabix);
@@ -175,7 +190,16 @@ async function indexVCF(vcfGzFile, logger, overwrite = false) {
  * @param {boolean} overwrite - Flag indicating whether to overwrite existing files.
  * @returns {Promise<void>}
  */
-async function ensureIndexFile(fileUrl, indexUrl, indexFilePath, agent, rl, logger, metrics, overwrite = false) {
+async function ensureIndexFile(
+  fileUrl,
+  indexUrl,
+  indexFilePath,
+  agent,
+  rl,
+  logger,
+  metrics,
+  overwrite = false,
+) {
   if (fs.existsSync(indexFilePath) && !overwrite) {
     logger.info(`Index file already exists: ${indexFilePath}`);
     return;
@@ -183,7 +207,15 @@ async function ensureIndexFile(fileUrl, indexUrl, indexFilePath, agent, rl, logg
 
   try {
     logger.info(`Downloading index file from ${indexUrl} to ${indexFilePath}`);
-    await downloadFile(indexUrl, indexFilePath, overwrite, agent, rl, logger, metrics);
+    await downloadFile(
+      indexUrl,
+      indexFilePath,
+      overwrite,
+      agent,
+      rl,
+      logger,
+      metrics,
+    );
     logger.info(`Downloaded index file to ${indexFilePath}`);
   } catch (error) {
     logger.error(`Error downloading index file: ${error.message}`);
@@ -199,16 +231,18 @@ async function ensureIndexFile(fileUrl, indexUrl, indexFilePath, agent, rl, logg
  * @returns {string} - The new file name with the range or "multiple-regions" appended.
  */
 function generateOutputFileName(fileName, regions, logger) {
-  logger.debug(`Generating output file name for file: ${fileName} with regions: ${regions}`);
+  logger.debug(
+    `Generating output file name for file: ${fileName} with regions: ${regions}`,
+  );
 
   const extension = path.extname(fileName);
   const baseName = path.basename(fileName, extension);
 
   let suffix;
   if (Array.isArray(regions) && regions.length > 1) {
-    suffix = 'multiple-regions';
+    suffix = "multiple-regions";
   } else {
-    const sanitizedRegion = regions.toString().replace(/[:\-]/g, '_');  // Replace colon and dash with underscores
+    const sanitizedRegion = regions.toString().replace(/[:\-]/g, "_"); // Replace colon and dash with underscores
     suffix = sanitizedRegion;
   }
 

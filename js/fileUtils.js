@@ -1,6 +1,6 @@
-const fs = require('fs');
-const ProgressBar = require('progress');
-const { fetchWithRetry } = require('./fetchUtils');
+const fs = require("fs");
+const ProgressBar = require("progress");
+const { fetchWithRetry } = require("./fetchUtils");
 
 /**
  * Prompts the user to confirm file overwrite if the file already exists.
@@ -12,7 +12,7 @@ const { fetchWithRetry } = require('./fetchUtils');
 async function confirmOverwrite(file, rl, logger) {
   return new Promise((resolve) => {
     rl.question(`File ${file} already exists. Overwrite? (y/n): `, (answer) => {
-      resolve(answer.toLowerCase() === 'y');
+      resolve(answer.toLowerCase() === "y");
     });
   });
 }
@@ -28,7 +28,15 @@ async function confirmOverwrite(file, rl, logger) {
  * @param {Object} metrics - The metrics object for tracking download stats.
  * @returns {Promise<void>}
  */
-async function downloadFile(url, outputPath, overwrite, agent, rl, logger, metrics) {
+async function downloadFile(
+  url,
+  outputPath,
+  overwrite,
+  agent,
+  rl,
+  logger,
+  metrics,
+) {
   logger.debug(`Starting download for: ${url}`);
   if (fs.existsSync(outputPath) && !overwrite) {
     const confirm = await confirmOverwrite(outputPath, rl, logger);
@@ -39,19 +47,27 @@ async function downloadFile(url, outputPath, overwrite, agent, rl, logger, metri
   }
 
   const writer = fs.createWriteStream(outputPath);
-  const response = await fetchWithRetry(url, { method: 'GET', dispatcher: agent }, 3, logger);
+  const response = await fetchWithRetry(
+    url,
+    { method: "GET", dispatcher: agent },
+    3,
+    logger,
+  );
 
   const startTime = Date.now();
   let totalBytes = 0;
 
   // Get the total size of the file for progress reporting
-  const totalSize = parseInt(response.headers.get('content-length'), 10);
-  const progressBar = new ProgressBar('  downloading [:bar] :rate/bps :percent :etas', {
-    complete: '=',
-    incomplete: ' ',
-    width: 20,
-    total: totalSize
-  });
+  const totalSize = parseInt(response.headers.get("content-length"), 10);
+  const progressBar = new ProgressBar(
+    "  downloading [:bar] :rate/bps :percent :etas",
+    {
+      complete: "=",
+      incomplete: " ",
+      width: 20,
+      total: totalSize,
+    },
+  );
 
   try {
     for await (const chunk of response.body) {
@@ -66,14 +82,14 @@ async function downloadFile(url, outputPath, overwrite, agent, rl, logger, metri
     const speed = totalBytes / duration; // bytes per second
 
     await new Promise((resolve, reject) => {
-      writer.on('finish', () => {
+      writer.on("finish", () => {
         logger.info(`Successfully downloaded ${outputPath}`);
         metrics.totalFilesDownloaded += 1;
         metrics.totalBytesDownloaded += totalBytes;
         metrics.downloadSpeeds.push(speed);
         resolve();
       });
-      writer.on('error', (error) => {
+      writer.on("error", (error) => {
         logger.error(`Failed to download ${outputPath}: ${error.message}`);
         reject(error);
       });
@@ -87,5 +103,5 @@ async function downloadFile(url, outputPath, overwrite, agent, rl, logger, metri
 
 module.exports = {
   confirmOverwrite,
-  downloadFile
+  downloadFile,
 };

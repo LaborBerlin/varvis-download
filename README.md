@@ -58,20 +58,20 @@ You can use a configuration file to specify default values for the parameters. T
 
 ```json
 {
-    "username": "your_username",
-    "password": "your_password",
-    "target": "your_target",
-    "destination": "download",
-    "proxy": "http://your_proxy:8080",
-    "proxyUsername": "proxy_user",
-    "proxyPassword": "proxy_pass",
-    "overwrite": false,
-    "filetypes": "bam,bam.bai"
+  "username": "your_username",
+  "password": "your_password",
+  "target": "your_target",
+  "destination": "download",
+  "proxy": "http://your_proxy:8080",
+  "proxyUsername": "proxy_user",
+  "proxyPassword": "proxy_pass",
+  "overwrite": false,
+  "filetypes": "bam,bam.bai"
 }
 ```
 
 To use a configuration file, specify the --config or -c parameter followed by the path to the config file:
-  
+
 ```sh
 ./varvis-download.js -a '12345,67890' -c ./your_config.json
 ```
@@ -83,16 +83,19 @@ To use a configuration file, specify the --config or -c parameter followed by th
 ```
 
 #### Single Genomic Range:
+
 ```sh
 ./varvis-download.js -u your_username -p your_password -t laborberlin -a 12345 -g chr1:1-100000 -d /path/to/save
 ```
 
 #### Multiple Genomic Ranges:
+
 ```sh
 ./varvis-download.js -u your_username -p your_password -t laborberlin -a 12345 -g "chr1:1-100000 chr2:200000-300000" -d /path/to/save
 ```
 
 #### Using a BED file:
+
 ```sh
 ./varvis-download.js -u your_username -p your_password -t laborberlin -a 12345 --bed /path/to/regions.bed -d /path/to/save
 ```

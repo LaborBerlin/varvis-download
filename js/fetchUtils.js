@@ -1,13 +1,13 @@
-const { fetch } = require('undici');
-const ProgressBar = require('progress');
-const fs = require('fs');
-const { applyFilters } = require('./filterUtils');
+const { fetch } = require("undici");
+const ProgressBar = require("progress");
+const fs = require("fs");
+const { applyFilters } = require("./filterUtils");
 
 const metrics = {
   startTime: Date.now(),
   totalFilesDownloaded: 0,
   totalBytesDownloaded: 0,
-  downloadSpeeds: []
+  downloadSpeeds: [],
 };
 
 /**
@@ -22,14 +22,17 @@ async function fetchWithRetry(url, options, retries = 3, logger) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const response = await fetch(url, options);
-      if (!response.ok) throw new Error(`Fetch failed with status: ${response.status}`);
+      if (!response.ok)
+        throw new Error(`Fetch failed with status: ${response.status}`);
       return response;
     } catch (error) {
       if (attempt < retries) {
         logger.warn(`Fetch attempt ${attempt} failed. Retrying...`);
-        await new Promise(res => setTimeout(res, attempt * 1000)); // Exponential backoff
+        await new Promise((res) => setTimeout(res, attempt * 1000)); // Exponential backoff
       } else {
-        logger.error(`Fetch failed after ${retries} attempts: ${error.message}`);
+        logger.error(
+          `Fetch failed after ${retries} attempts: ${error.message}`,
+        );
         throw error;
       }
     }
@@ -47,48 +50,67 @@ async function fetchWithRetry(url, options, retries = 3, logger) {
  * @param {Object} logger - The logger instance.
  * @returns {Promise<string[]>} - An array of analysis IDs.
  */
-async function fetchAnalysisIds(target, token, agent, sampleIds, limsIds, filters, logger) {
+async function fetchAnalysisIds(
+  target,
+  token,
+  agent,
+  sampleIds,
+  limsIds,
+  filters,
+  logger,
+) {
   try {
-    logger.debug('Fetching all analysis IDs');
-    const response = await fetchWithRetry(`https://${target}.varvis.com/api/analyses`, {
-      method: 'GET',
-      headers: { 'x-csrf-token': token },
-      dispatcher: agent
-    }, 3, logger);
-    
+    logger.debug("Fetching all analysis IDs");
+    const response = await fetchWithRetry(
+      `https://${target}.varvis.com/api/analyses`,
+      {
+        method: "GET",
+        headers: { "x-csrf-token": token },
+        dispatcher: agent,
+      },
+      3,
+      logger,
+    );
+
     let analyses = await response.json();
     analyses = analyses.response;
 
     // Filter out analyses of type "CNV"
-    let filteredAnalyses = analyses.filter(analysis => analysis.analysisType !== 'CNV');
-    
+    let filteredAnalyses = analyses.filter(
+      (analysis) => analysis.analysisType !== "CNV",
+    );
+
     if (sampleIds.length > 0) {
-      logger.debug(`Filtering analyses by sampleIds: ${sampleIds.join(', ')}`);
-      filteredAnalyses = filteredAnalyses.filter(analysis => sampleIds.includes(analysis.sampleId));
+      logger.debug(`Filtering analyses by sampleIds: ${sampleIds.join(", ")}`);
+      filteredAnalyses = filteredAnalyses.filter((analysis) =>
+        sampleIds.includes(analysis.sampleId),
+      );
     }
 
     if (limsIds.length > 0) {
-      logger.debug(`Filtering analyses by limsIds: ${limsIds.join(', ')}`);
-      filteredAnalyses = filteredAnalyses.filter(analysis => limsIds.includes(analysis.personLimsId));
+      logger.debug(`Filtering analyses by limsIds: ${limsIds.join(", ")}`);
+      filteredAnalyses = filteredAnalyses.filter((analysis) =>
+        limsIds.includes(analysis.personLimsId),
+      );
     }
 
     if (filters.length > 0) {
-      logger.debug(`Applying custom filters: ${filters.join(', ')}`);
+      logger.debug(`Applying custom filters: ${filters.join(", ")}`);
       filteredAnalyses = applyFilters(filteredAnalyses, filters);
     }
 
-    const ids = filteredAnalyses.map(analysis => analysis.id.toString());
+    const ids = filteredAnalyses.map((analysis) => analysis.id.toString());
 
     if (ids.length === 0) {
-      logger.info('No analysis IDs found after applying filters.');
+      logger.info("No analysis IDs found after applying filters.");
     } else {
       logger.info(`Found ${ids.length} analysis IDs after filtering.`);
-      logger.debug(`Filtered analysis IDs: ${ids.join(', ')}`);
+      logger.debug(`Filtered analysis IDs: ${ids.join(", ")}`);
     }
 
     return ids;
   } catch (error) {
-    logger.error('Error fetching analysis IDs:', error);
+    logger.error("Error fetching analysis IDs:", error);
     throw error;
   }
 }
@@ -103,21 +125,36 @@ async function fetchAnalysisIds(target, token, agent, sampleIds, limsIds, filter
  * @param {Object} logger - The logger instance.
  * @returns {Promise<Object>} - An object containing the download links for the specified file types.
  */
-async function getDownloadLinks(analysisId, filter, target, token, agent, logger) {
+async function getDownloadLinks(
+  analysisId,
+  filter,
+  target,
+  token,
+  agent,
+  logger,
+) {
   try {
     logger.debug(`Fetching download links for analysis ID: ${analysisId}`);
-    const response = await fetchWithRetry(`https://${target}.varvis.com/api/analysis/${analysisId}/get-file-download-links`, {
-      method: 'GET',
-      headers: { 'x-csrf-token': token },
-      dispatcher: agent
-    }, 3, logger);
+    const response = await fetchWithRetry(
+      `https://${target}.varvis.com/api/analysis/${analysisId}/get-file-download-links`,
+      {
+        method: "GET",
+        headers: { "x-csrf-token": token },
+        dispatcher: agent,
+      },
+      3,
+      logger,
+    );
     const data = await response.json();
     const apiFileLinks = data.response.apiFileLinks;
 
     const fileDict = {};
     for (const file of apiFileLinks) {
-      const fileNameParts = file.fileName.split('.');
-      const fileType = fileNameParts.length > 2 ? fileNameParts.slice(-2).join('.') : fileNameParts.pop();
+      const fileNameParts = file.fileName.split(".");
+      const fileType =
+        fileNameParts.length > 2
+          ? fileNameParts.slice(-2).join(".")
+          : fileNameParts.pop();
       logger.debug(`Checking file type: ${fileType}`);
       if (!filter || filter.includes(fileType)) {
         fileDict[file.fileName] = file;
@@ -127,27 +164,36 @@ async function getDownloadLinks(analysisId, filter, target, token, agent, logger
     const totalFiles = Object.keys(fileDict).length;
 
     if (totalFiles === 0) {
-      logger.info(`No files found for analysis ID: ${analysisId} after applying file type filters.`);
+      logger.info(
+        `No files found for analysis ID: ${analysisId} after applying file type filters.`,
+      );
     } else {
       logger.info(`Found ${totalFiles} files for analysis ID: ${analysisId}`);
     }
 
     // Warn if requested file types are not available
     if (filter) {
-      const availableFileTypes = Object.keys(fileDict).map(fileName => {
-        const parts = fileName.split('.');
-        return parts.length > 2 ? parts.slice(-2).join('.') : parts.pop();
+      const availableFileTypes = Object.keys(fileDict).map((fileName) => {
+        const parts = fileName.split(".");
+        return parts.length > 2 ? parts.slice(-2).join(".") : parts.pop();
       });
-      logger.debug(`Available file types: ${availableFileTypes.join(', ')}`);
-      const missingFileTypes = filter.filter(ft => !availableFileTypes.includes(ft));
+      logger.debug(`Available file types: ${availableFileTypes.join(", ")}`);
+      const missingFileTypes = filter.filter(
+        (ft) => !availableFileTypes.includes(ft),
+      );
       if (missingFileTypes.length > 0) {
-        logger.warn(`Warning: The following requested file types are not available for the analysis ${analysisId}: ${missingFileTypes.join(', ')}`);
+        logger.warn(
+          `Warning: The following requested file types are not available for the analysis ${analysisId}: ${missingFileTypes.join(", ")}`,
+        );
       }
     }
 
     return fileDict;
   } catch (error) {
-    logger.error(`Failed to get download links for analysis ID ${analysisId}:`, error.message);
+    logger.error(
+      `Failed to get download links for analysis ID ${analysisId}:`,
+      error.message,
+    );
     throw error;
   }
 }
@@ -164,16 +210,25 @@ async function getDownloadLinks(analysisId, filter, target, token, agent, logger
 async function listAvailableFiles(analysisId, target, token, agent, logger) {
   try {
     logger.info(`Listing available files for analysis ID: ${analysisId}`);
-    const fileDict = await getDownloadLinks(analysisId, null, target, token, agent, logger);
+    const fileDict = await getDownloadLinks(
+      analysisId,
+      null,
+      target,
+      token,
+      agent,
+      logger,
+    );
 
     const totalFiles = Object.keys(fileDict).length;
 
     for (const fileName of Object.keys(fileDict)) {
       logger.info(`- ${fileName}`);
     }
-
   } catch (error) {
-    logger.error(`Failed to list available files for analysis ID ${analysisId}:`, error.message);
+    logger.error(
+      `Failed to list available files for analysis ID ${analysisId}:`,
+      error.message,
+    );
   }
 }
 
@@ -184,7 +239,9 @@ async function listAvailableFiles(analysisId, target, token, agent, logger) {
  */
 function generateReport(reportfile, logger) {
   const totalTime = (Date.now() - metrics.startTime) / 1000; // in seconds
-  const averageSpeed = metrics.downloadSpeeds.reduce((a, b) => a + b, 0) / metrics.downloadSpeeds.length;
+  const averageSpeed =
+    metrics.downloadSpeeds.reduce((a, b) => a + b, 0) /
+    metrics.downloadSpeeds.length;
 
   const report = `
     Download Summary Report:
@@ -209,5 +266,5 @@ module.exports = {
   getDownloadLinks,
   listAvailableFiles,
   generateReport,
-  metrics
+  metrics,
 };
