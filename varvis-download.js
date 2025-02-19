@@ -156,7 +156,7 @@ const argv = yargs
   .option("restoreArchived", {
     alias: "ra",
     describe:
-      'Restore archived files. Accepts "ask" (default) to prompt for each file or "all" to restore all archived files automatically.',
+      'Restore archived files. Accepts "no", "ask" (default), "all", or "force".',
     type: "string",
     default: "ask",
   })
@@ -341,6 +341,37 @@ async function main() {
     logger.debug("Attempting to log in");
     await authService.login({ username: userName, password: password }, target);
     logger.debug("Login successful");
+
+    // If subsetting is needed, check that external tools are available.
+    if (argv.range || argv.bed) {
+      const samtoolsMinVersion = "1.17";
+      const tabixMinVersion = "1.20";
+      const bgzipMinVersion = "1.20";
+      const samtoolsOK = await checkToolAvailability(
+        "samtools",
+        "samtools --version",
+        samtoolsMinVersion,
+        logger,
+      );
+      const tabixOK = await checkToolAvailability(
+        "tabix",
+        "tabix --version",
+        tabixMinVersion,
+        logger,
+      );
+      const bgzipOK = await checkToolAvailability(
+        "bgzip",
+        "bgzip --version",
+        bgzipMinVersion,
+        logger,
+      );
+      if (!samtoolsOK || !tabixOK || !bgzipOK) {
+        logger.error(
+          "One or more required external tools (samtools, tabix, bgzip) are missing or outdated. Please install/update them and try again.",
+        );
+        process.exit(1);
+      }
+    }
 
     // Handle regions from command line or BED file
     let regions = [];

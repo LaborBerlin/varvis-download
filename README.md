@@ -60,17 +60,18 @@ The Varvis Download CLI now includes enhanced handling for archived files throug
 
 - **`--restoreArchived, -ra`**  
   Controls how archived BAM files are handled during the download process. Accepted values:
+
   - **`no`**:  
-    *Skip restoration for archived files.*  
+    _Skip restoration for archived files._  
     Archived files are skipped entirely, and a log message indicates that these files have been skipped.
   - **`ask`** (default):  
-    *Prompt for each archived file.*  
+    _Prompt for each archived file._  
     For each archived file encountered, the user is prompted to confirm whether to restore it.
   - **`all`**:  
-    *Ask once for all archived files.*  
+    _Ask once for all archived files._  
     The tool prompts once (early in the session) asking whether to restore all archived files; that decision is then applied to all files.
   - **`force`**:  
-    *Automatically restore every archived file.*  
+    _Automatically restore every archived file._  
     The tool automatically triggers restoration for every archived file without further prompting.
 
 - **`--restorationFile, -rf`**  
@@ -302,17 +303,18 @@ The Varvis Download CLI now supports enhanced handling of archived BAM files thr
 
 - **`--restoreArchived, -ra`**  
   Controls how archived files are processed. Accepted values:
+
   - **`no`**:  
-    *Skip restoration.*  
+    _Skip restoration._  
     The tool will log that the file is archived and will not attempt to restore it.
   - **`ask`** (default):  
-    *Prompt for each archived file.*  
+    _Prompt for each archived file._  
     The tool will prompt you to confirm restoration for each archived file encountered.
   - **`all`**:  
-    *Prompt once for all archived files.*  
+    _Prompt once for all archived files._  
     At the beginning of the session, you are asked whether all archived files should be restored. Your decision is then applied to all archived files.
   - **`force`**:  
-    *Automatically restore every archived file.*  
+    _Automatically restore every archived file._  
     The tool will automatically trigger restoration for all archived files without prompting.
 
 - **`--restorationFile, -rf`**  
@@ -588,18 +590,17 @@ The Varvis Download CLI provides enhanced handling for archived BAM files throug
 - **`--restoreArchived, -ra`**  
   Controls how archived files are processed:
   - **`no`**:  
-    *Skip restoration.*  
+    _Skip restoration._  
     Archived files are skipped, and a log message indicates that restoration was skipped.
   - **`ask`** (default):  
-    *Prompt for each archived file.*  
+    _Prompt for each archived file._  
     The tool prompts you for each archived file encountered.
   - **`all`**:  
-    *Ask once for all archived files.*  
+    _Ask once for all archived files._  
     The tool will ask you once at the beginning whether to restore all archived files. Your decision will be applied to all.
   - **`force`**:  
-    *Automatically restore every archived file.*  
+    _Automatically restore every archived file._  
     The tool will automatically restore every archived file without prompting.
-  
 - **`--restorationFile, -rf`**  
   Specifies the location and name of the JSON file that stores awaiting-restoration data (default: `"awaiting-restoration.json"`).
 

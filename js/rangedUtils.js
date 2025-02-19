@@ -21,7 +21,14 @@ const BGZIP_MIN_VERSION = "1.20";
 async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
   try {
     const { stdout } = await execPromise(versionCommand);
-    const toolVersion = stdout.split(" ")[1].trim(); // Assumes the second word is the version number
+    const parts = stdout.split(/\s+/);
+    let toolVersion;
+    // For tabix and bgzip, the second word is in parentheses, so the version is the third element.
+    if (parts[1].startsWith("(")) {
+      toolVersion = parts[2].trim();
+    } else {
+      toolVersion = parts[1].trim();
+    }
     if (compareVersions(toolVersion, minVersion)) {
       logger.info(`${tool} version ${toolVersion} is available.`);
       return true;
