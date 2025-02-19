@@ -20,7 +20,7 @@ npm link
 
 ## Program Requirements
 
-- Node.js v20.16.0 or higher
+- Node.js v20.16.0 or higher (version >=21 will work but show deprecated warnings for punycode)
 - NPM or Yarn for package management
 
 ## Usage
