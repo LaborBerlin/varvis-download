@@ -19,7 +19,7 @@
     "http-cookie-agent": "^6.0.5",
     "progress": "^2.0.3",
     "tough-cookie": "^4.1.4",
-    "undici": "^6.19.4",
+    "undici": "^6.21.1",
     "winston": "^3.13.1",
     "yargs": "^17.7.2",
     "yargs-interactive": "^3.0.1"
