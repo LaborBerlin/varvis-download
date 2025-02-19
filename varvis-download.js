@@ -245,6 +245,19 @@ for (const field of requiredFields) {
   }
 }
 
+// Ensure at least one of analysisIds, sampleIds, limsIds is provided unless resumeArchivedDownloads is set.
+if (
+  finalConfig.analysisIds.length === 0 &&
+  finalConfig.sampleIds.length === 0 &&
+  finalConfig.limsIds.length === 0 &&
+  !finalConfig.resumeArchivedDownloads
+) {
+  logger.error(
+    "Error: You must provide at least one of the following options: analysisIds (-a), sampleIds (-s), limsIds (-l), or set --resumeArchivedDownloads (rad) to process archived downloads.",
+  );
+  process.exit(1);
+}
+
 // Extract the final configuration values
 const target = finalConfig.target;
 const userName = finalConfig.username;

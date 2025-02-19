@@ -11,6 +11,9 @@ const metrics = {
   downloadSpeeds: [],
 };
 
+// Global variable to store the decision for "all" option.
+let allDecisionForArchived;
+
 /**
  * Prompts the user to confirm restoration of an archived file.
  * @param {Object} file - The archived file object.
@@ -142,7 +145,12 @@ async function fetchAnalysisIds(
  * @param {string} token - The CSRF token for authentication.
  * @param {Object} agent - The HTTP agent instance.
  * @param {Object} logger - The logger instance.
- * @param {string} [restoreArchived="ask"] - Restoration mode for archived files. "ask" prompts the user, "all" automatically restores.
+ * @param {string} [restoreArchived="ask"] - Restoration mode for archived files.
+ *   Accepts:
+ *     - "no": skip restoration,
+ *     - "ask": prompt for each file,
+ *     - "all": ask once for all files,
+ *     - "force": restore automatically.
  * @param {Object} [rl] - The readline interface instance for prompting.
  * @returns {Promise<Object>} - An object containing the download links for the specified file types.
  */
@@ -173,17 +181,40 @@ async function getDownloadLinks(
 
     const fileDict = {};
     for (const file of apiFileLinks) {
-      // If the file is a BAM and is archived, handle restoration logic
+      // If the file is a BAM and is archived, handle restoration logic.
       if (file.fileName.endsWith(".bam") && file.currentlyArchived) {
         logger.warn(
           `File ${file.fileName} for analysis ${analysisId} is archived.`,
         );
         let shouldRestore = false;
-        if (restoreArchived === "all") {
+        if (restoreArchived === "no") {
+          logger.info(
+            `Skipping restoration for archived file ${file.fileName} as per "no" option.`,
+          );
+        } else if (restoreArchived === "force") {
           shouldRestore = true;
+          logger.info(
+            `Force restoring archived file ${file.fileName} without prompting.`,
+          );
+        } else if (restoreArchived === "all") {
+          // If not yet decided, ask once.
+          if (typeof allDecisionForArchived === "undefined" && rl) {
+            allDecisionForArchived = await new Promise((resolve) => {
+              rl.question("Restore all archived files? (y/n): ", (answer) => {
+                resolve(answer.toLowerCase() === "y");
+              });
+            });
+          }
+          shouldRestore = allDecisionForArchived;
+          if (!shouldRestore) {
+            logger.info(
+              `Skipping restoration for archived file ${file.fileName} as per "all" option decision.`,
+            );
+          }
         } else if (restoreArchived === "ask" && rl) {
           shouldRestore = await confirmRestore(file, rl, logger);
         }
+
         if (shouldRestore) {
           await triggerRestoreArchivedFile(
             analysisId,
@@ -194,7 +225,7 @@ async function getDownloadLinks(
             logger,
           );
         }
-        // Skip adding this archived file to the download list
+        // In all cases, skip adding this archived file to the download list.
         continue;
       }
       const fileNameParts = file.fileName.split(".");
