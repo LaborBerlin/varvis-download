@@ -2,6 +2,7 @@ const { fetch } = require("undici");
 const ProgressBar = require("progress");
 const fs = require("fs");
 const { applyFilters } = require("./filterUtils");
+const { triggerRestoreArchivedFile } = require("./archiveUtils");
 
 const metrics = {
   startTime: Date.now(),
@@ -9,6 +10,24 @@ const metrics = {
   totalBytesDownloaded: 0,
   downloadSpeeds: [],
 };
+
+/**
+ * Prompts the user to confirm restoration of an archived file.
+ * @param {Object} file - The archived file object.
+ * @param {Object} rl - The readline interface instance.
+ * @param {Object} logger - The logger instance.
+ * @returns {Promise<boolean>} - Resolves to true if the user confirms, otherwise false.
+ */
+async function confirmRestore(file, rl, logger) {
+  return new Promise((resolve) => {
+    rl.question(
+      `File ${file.fileName} is archived. Restore it? (y/n): `,
+      (answer) => {
+        resolve(answer.toLowerCase() === "y");
+      },
+    );
+  });
+}
 
 /**
  * Retries a fetch operation with a specified number of attempts.
@@ -40,7 +59,7 @@ async function fetchWithRetry(url, options, retries = 3, logger) {
 }
 
 /**
- * Fetches analysis IDs based on sampleIds or limsIds.
+ * Fetches analysis IDs based on sample IDs or LIMS IDs.
  * @param {string} target - The target for the Varvis API.
  * @param {string} token - The CSRF token for authentication.
  * @param {Object} agent - The HTTP agent instance.
@@ -116,13 +135,15 @@ async function fetchAnalysisIds(
 }
 
 /**
- * Fetches the download links for specified file types from the Varvis API.
- * @param {string} analysisId - The analysis ID to fetch download links for.
+ * Fetches the download links for specified file types from the Varvis API for a given analysis ID.
+ * @param {string} analysisId - The analysis ID to get download links for.
  * @param {Array<string>} filter - An optional array of file types to filter by.
- * @param {string} target - The target for the Varvis API.
+ * @param {string} target - The Varvis API target.
  * @param {string} token - The CSRF token for authentication.
  * @param {Object} agent - The HTTP agent instance.
  * @param {Object} logger - The logger instance.
+ * @param {string} [restoreArchived="ask"] - Restoration mode for archived files. "ask" prompts the user, "all" automatically restores.
+ * @param {Object} [rl] - The readline interface instance for prompting.
  * @returns {Promise<Object>} - An object containing the download links for the specified file types.
  */
 async function getDownloadLinks(
@@ -132,6 +153,8 @@ async function getDownloadLinks(
   token,
   agent,
   logger,
+  restoreArchived = "ask",
+  rl,
 ) {
   try {
     logger.debug(`Fetching download links for analysis ID: ${analysisId}`);
@@ -150,6 +173,30 @@ async function getDownloadLinks(
 
     const fileDict = {};
     for (const file of apiFileLinks) {
+      // If the file is a BAM and is archived, handle restoration logic
+      if (file.fileName.endsWith(".bam") && file.currentlyArchived) {
+        logger.warn(
+          `File ${file.fileName} for analysis ${analysisId} is archived.`,
+        );
+        let shouldRestore = false;
+        if (restoreArchived === "all") {
+          shouldRestore = true;
+        } else if (restoreArchived === "ask" && rl) {
+          shouldRestore = await confirmRestore(file, rl, logger);
+        }
+        if (shouldRestore) {
+          await triggerRestoreArchivedFile(
+            analysisId,
+            file,
+            target,
+            token,
+            agent,
+            logger,
+          );
+        }
+        // Skip adding this archived file to the download list
+        continue;
+      }
       const fileNameParts = file.fileName.split(".");
       const fileType =
         fileNameParts.length > 2
@@ -169,6 +216,9 @@ async function getDownloadLinks(
       );
     } else {
       logger.info(`Found ${totalFiles} files for analysis ID: ${analysisId}`);
+      logger.debug(
+        `Filtered analysis IDs: ${Object.keys(fileDict).join(", ")}`,
+      );
     }
 
     // Warn if requested file types are not available

@@ -37,6 +37,8 @@ const {
   indexBAM,
   generateOutputFileName,
 } = require("./js/rangedUtils");
+// Rename the imported function to avoid collision.
+const { resumeArchivedDownloads: resumeArchivedDownloadsFunc } = require("./js/archiveUtils");
 
 // Command line arguments setup
 const argv = yargs
@@ -149,6 +151,27 @@ const argv = yargs
     describe: "Path to BED file containing multiple regions",
     type: "string",
   })
+  .option("restoreArchived", {
+    alias: "ra",
+    describe:
+      'Restore archived files. Accepts "ask" (default) to prompt for each file or "all" to restore all archived files automatically.',
+    type: "string",
+    default: "ask",
+  })
+  .option("restorationFile", {
+    alias: "rf",
+    describe:
+      'Path and name for the awaiting-restoration JSON file (default: "awaiting-restoration.json")',
+    type: "string",
+    default: "awaiting-restoration.json",
+  })
+  .option("resumeArchivedDownloads", {
+    alias: "rad",
+    describe:
+      "Resume downloads for archived files from the awaiting-restoration JSON file if restoreEstimation has passed.",
+    type: "boolean",
+    default: false,
+  })
   .option("version", {
     alias: "v",
     type: "boolean",
@@ -202,6 +225,13 @@ const finalConfig = {
   filters: (argv.filter || config.filter || []).map((filter) => filter.trim()),
   destination:
     argv.destination !== "." ? argv.destination : config.destination || ".",
+  restoreArchived: argv.restoreArchived || config.restoreArchived || "ask",
+  restorationFile:
+    argv.restorationFile || config.restorationFile || "awaiting-restoration.json",
+  resumeArchivedDownloads:
+    argv.resumeArchivedDownloads ||
+    config.resumeArchivedDownloads ||
+    false,
 };
 
 // Validate the final configuration
@@ -228,6 +258,9 @@ const overwrite = finalConfig.overwrite;
 const filetypes = finalConfig.filetypes;
 const reportfile = finalConfig.reportfile;
 const filters = finalConfig.filters;
+const restoreArchived = finalConfig.restoreArchived;
+const restorationFile = finalConfig.restorationFile;
+const resumeArchivedDownloads = finalConfig.resumeArchivedDownloads;
 
 // Setup HTTP agent for proxy and cookie handling
 const jar = new CookieJar();
@@ -265,8 +298,22 @@ const rl = readline.createInterface({
 // Main function to orchestrate the login and download process
 const os = require("os"); // Import for generating temp file paths
 
-// Main function to orchestrate the login and download process
 async function main() {
+  // If resumeArchivedDownloads flag is set, resume archived downloads and exit.
+  if (finalConfig.resumeArchivedDownloads) {
+    logger.info("Resuming archived downloads as requested.");
+    await resumeArchivedDownloadsFunc(
+      restorationFile,
+      destination,
+      target,
+      authService.token,
+      agent,
+      logger,
+      overwrite
+    );
+    process.exit(0);
+  }
+
   try {
     logger.debug("Starting main function");
 
@@ -327,7 +374,7 @@ async function main() {
     // Generate output file name using the function based on regions
     const outputFile = path.join(
       destination,
-      generateOutputFileName("download.bam", regions, logger),
+      generateOutputFileName("download.bam", regions, logger)
     );
     logger.info(`Output file: ${outputFile}`);
 
@@ -342,12 +389,13 @@ async function main() {
             sampleIds,
             limsIds,
             filters,
-            logger,
+            logger
           );
     logger.info(`Fetched analysis IDs: ${ids}`);
 
     for (const analysisId of ids) {
       logger.info(`Processing analysis ID: ${analysisId}`);
+      // Pass the restoreArchived flag, rl, and restorationFile to getDownloadLinks
       const fileDict = await getDownloadLinks(
         analysisId,
         filetypes,
@@ -355,6 +403,9 @@ async function main() {
         authService.token,
         agent,
         logger,
+        restoreArchived,
+        rl,
+        restorationFile
       );
       logger.debug(`Fetched download links for analysis ID ${analysisId}`);
 
@@ -377,13 +428,13 @@ async function main() {
           rl,
           logger,
           metrics,
-          overwrite,
+          overwrite
         );
 
-        // Now pass the actual fileName instead of hardcoded 'download.bam'
+        // Generate the output file name for the current file
         const outputFile = path.join(
           destination,
-          generateOutputFileName(fileName, regions, logger),
+          generateOutputFileName(fileName, regions, logger)
         );
 
         if (regions.length > 0) {
@@ -396,12 +447,12 @@ async function main() {
               outputFile,
               indexFilePath,
               logger,
-              overwrite,
+              overwrite
             );
             await indexBAM(outputFile, logger, overwrite);
           } catch (error) {
             logger.error(
-              `Error during ranged download for ${fileName}: ${error.message}`,
+              `Error during ranged download for ${fileName}: ${error.message}`
             );
           }
         } else {
@@ -415,12 +466,12 @@ async function main() {
               agent,
               rl,
               logger,
-              metrics,
+              metrics
             );
             await indexBAM(outputFile, logger, overwrite);
           } catch (error) {
             logger.error(
-              `Error during full download for ${fileName}: ${error.message}`,
+              `Error during full download for ${fileName}: ${error.message}`
             );
           }
         }

@@ -39,3 +39,6 @@ pnpm-debug.log*
 
 # development folder
 /development/
+
+# output files
+awaiting-restoration.json
