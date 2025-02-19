@@ -1,6 +1,6 @@
 {
   "name": "varvis-download",
-  "version": "0.14.1",
+  "version": "0.14.2",
   "description": "",
   "repository": {
     "type": "git",
@@ -10,7 +10,17 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["api", "cli", "data-download", "varvis", "node", "bioinformatics", "genomics", "authentication", "proxy-support"],
+  "keywords": [
+    "api",
+    "cli",
+    "data-download",
+    "varvis",
+    "node",
+    "bioinformatics",
+    "genomics",
+    "authentication",
+    "proxy-support"
+  ],
   "author": "Bernt Popp",
   "license": "GPL-3.0",
   "dependencies": {
