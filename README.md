@@ -70,7 +70,7 @@ You can use a configuration file to specify default values for the parameters. T
 }
 ```
 
-To use a configuration file, specify the --config or -c parameter followed by the path to the config file:
+To use a configuration file, specify the `--config` or `-c` parameter followed by the path to the config file:
 
 ```sh
 ./varvis-download.js -a '12345,67890' -c ./your_config.json
@@ -106,6 +106,50 @@ When using the `--range` or `--bed` options, the output filename is generated dy
 
 - **Single range**: The filename will include the genomic range (e.g., `sample.chr1_1_100000.bam`).
 - **Multiple ranges**: The filename will include `"multiple-regions"` (e.g., `sample.multiple-regions.bam`).
+
+---
+
+## CLI Arguments
+
+In addition to the parameters listed above, the tool supports the following CLI arguments:
+
+```
+  -c, --config                Path to the configuration file
+                              [string] [default: ".config.json"]
+  -u, --username              Varvis API username                       [string]
+  -p, --password              Varvis API password                       [string]
+  -t, --target                Target for the Varvis API                 [string]
+  -a, --analysisIds           Analysis IDs to download files for
+                              (comma-separated)                         [string]
+  -s, --sampleIds             Sample IDs to filter analyses (comma-separated)
+                                                                        [string]
+  -l, --limsIds               LIMS IDs to filter analyses (comma-separated)
+                                                                        [string]
+  -L, --list                  List available files for the specified analysis
+                              IDs                                      [boolean]
+  -d, --destination           Destination folder for the downloaded files
+                              [string] [default: "."]
+  -x, --proxy                 Proxy URL                                 [string]
+      --proxyUsername, --pxu  Proxy username                            [string]
+      --proxyPassword, --pxp  Proxy password                            [string]
+  -o, --overwrite             Overwrite existing files                 [boolean] [default: false]
+  -f, --filetypes             File types to download (comma-separated)
+                              [string] [default: "bam,bam.bai"]
+      --loglevel, --ll        Logging level (info, warn, error, debug)
+                              [string] [default: "info"]
+      --logfile, --lf         Path to the log file                      [string]
+  -r, --reportfile            Path to the report file                   [string]
+  -F, --filter                Filter expressions (e.g., "analysisType=SNV",
+                              "sampleId>LB24-0001")        [array] [default: []]
+  -g, --range                 Genomic range for ranged download (e.g.,
+                              chr1:1-100000)                            [string]
+  -b, --bed                   Path to BED file containing multiple regions
+                              [string]
+  -v, --version               Show version information                  [boolean] [default: false]
+  -h, --help                  Show help                                  [boolean]
+```
+
+---
 
 ## Diagrams
 
@@ -160,7 +204,9 @@ sequenceDiagram
     CLI->>CLI: generateReport()
 ```
 
-### Detailed Function Documentation
+---
+
+## Detailed Function Documentation
 
 #### `AuthService` Class
 
@@ -264,3 +310,43 @@ Generates a summary report of the download process.
   - `reportfile`: Path to the report file.
   - `logger`: Logger instance for logging.
 - **Returns**: `void`
+
+---
+
+## Development & Contribution
+
+### Code Linting
+
+We use [Prettier](https://prettier.io/) to ensure code consistency and readability. To format the code, run:
+
+```bash
+npx prettier --write .
+```
+
+This command will automatically reformat your files according to our Prettier configuration.
+
+### Version Management
+
+We follow semantic versioning for releases. To bump the version, run one of the following commands:
+
+- For a patch release:
+  ```bash
+  npm version patch
+  ```
+- For a minor release:
+  ```bash
+  npm version minor
+  ```
+- For a major release:
+  ```bash
+  npm version major
+  ```
+
+These commands update the version number in `package.json` and create a corresponding Git tag.
+
+### Contributing
+
+Contributions are welcome! If you have suggestions or improvements, please open an issue or submit a pull request. When contributing:
+
+- Ensure your code adheres to our linting guidelines.
+- Follow semantic versioning when making changes that affect the public API.
