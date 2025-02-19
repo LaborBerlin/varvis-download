@@ -197,7 +197,6 @@ async function getDownloadLinks(
             `Force restoring archived file ${file.fileName} without prompting.`,
           );
         } else if (restoreArchived === "all") {
-          // If not yet decided, ask once.
           if (typeof allDecisionForArchived === "undefined" && rl) {
             allDecisionForArchived = await new Promise((resolve) => {
               rl.question("Restore all archived files? (y/n): ", (answer) => {
@@ -272,15 +271,14 @@ async function getDownloadLinks(
     return fileDict;
   } catch (error) {
     logger.error(
-      `Failed to get download links for analysis ID ${analysisId}:`,
-      error.message,
+      `Failed to get download links for analysis ID ${analysisId}: ${error.message}`,
     );
     throw error;
   }
 }
 
 /**
- * Lists available files for the specified analysis IDs.
+ * Lists available files for the specified analysis IDs without triggering any restoration logic.
  * @param {string} analysisId - The analysis ID to list files for.
  * @param {string} target - The target for the Varvis API.
  * @param {string} token - The CSRF token for authentication.
@@ -291,6 +289,7 @@ async function getDownloadLinks(
 async function listAvailableFiles(analysisId, target, token, agent, logger) {
   try {
     logger.info(`Listing available files for analysis ID: ${analysisId}`);
+    // Pass "none" as the restoreArchived parameter to skip any restoration logic.
     const fileDict = await getDownloadLinks(
       analysisId,
       null,
@@ -298,17 +297,17 @@ async function listAvailableFiles(analysisId, target, token, agent, logger) {
       token,
       agent,
       logger,
+      "none",
+      null,
     );
 
     const totalFiles = Object.keys(fileDict).length;
-
     for (const fileName of Object.keys(fileDict)) {
       logger.info(`- ${fileName}`);
     }
   } catch (error) {
     logger.error(
-      `Failed to list available files for analysis ID ${analysisId}:`,
-      error.message,
+      `Failed to list available files for analysis ID ${analysisId}: ${error.message}`,
     );
   }
 }

@@ -342,6 +342,36 @@ async function main() {
     await authService.login({ username: userName, password: password }, target);
     logger.debug("Login successful");
 
+    // ***************** NEW CODE FOR -L FLAG *****************
+    // If the -L flag is set, list available files for each analysis and exit.
+    if (finalConfig.list) {
+      const ids =
+        analysisIds.length > 0
+          ? analysisIds
+          : await fetchAnalysisIds(
+              target,
+              authService.token,
+              agent,
+              sampleIds,
+              limsIds,
+              filters,
+              logger,
+            );
+      logger.info(`Fetched analysis IDs: ${ids}`);
+      for (const analysisId of ids) {
+        await listAvailableFiles(
+          analysisId,
+          target,
+          authService.token,
+          agent,
+          logger,
+        );
+      }
+      logger.info("Listing complete. Exiting.");
+      process.exit(0);
+    }
+    // ***************** END NEW CODE *****************
+
     // If subsetting is needed, check that external tools are available.
     if (argv.range || argv.bed) {
       const samtoolsMinVersion = "1.17";
