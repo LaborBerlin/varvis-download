@@ -38,7 +38,9 @@ const {
   generateOutputFileName,
 } = require("./js/rangedUtils");
 // Rename the imported function to avoid collision.
-const { resumeArchivedDownloads: resumeArchivedDownloadsFunc } = require("./js/archiveUtils");
+const {
+  resumeArchivedDownloads: resumeArchivedDownloadsFunc,
+} = require("./js/archiveUtils");
 
 // Command line arguments setup
 const argv = yargs
@@ -227,11 +229,11 @@ const finalConfig = {
     argv.destination !== "." ? argv.destination : config.destination || ".",
   restoreArchived: argv.restoreArchived || config.restoreArchived || "ask",
   restorationFile:
-    argv.restorationFile || config.restorationFile || "awaiting-restoration.json",
+    argv.restorationFile ||
+    config.restorationFile ||
+    "awaiting-restoration.json",
   resumeArchivedDownloads:
-    argv.resumeArchivedDownloads ||
-    config.resumeArchivedDownloads ||
-    false,
+    argv.resumeArchivedDownloads || config.resumeArchivedDownloads || false,
 };
 
 // Validate the final configuration
@@ -309,7 +311,7 @@ async function main() {
       authService.token,
       agent,
       logger,
-      overwrite
+      overwrite,
     );
     process.exit(0);
   }
@@ -374,7 +376,7 @@ async function main() {
     // Generate output file name using the function based on regions
     const outputFile = path.join(
       destination,
-      generateOutputFileName("download.bam", regions, logger)
+      generateOutputFileName("download.bam", regions, logger),
     );
     logger.info(`Output file: ${outputFile}`);
 
@@ -389,7 +391,7 @@ async function main() {
             sampleIds,
             limsIds,
             filters,
-            logger
+            logger,
           );
     logger.info(`Fetched analysis IDs: ${ids}`);
 
@@ -405,7 +407,7 @@ async function main() {
         logger,
         restoreArchived,
         rl,
-        restorationFile
+        restorationFile,
       );
       logger.debug(`Fetched download links for analysis ID ${analysisId}`);
 
@@ -428,13 +430,13 @@ async function main() {
           rl,
           logger,
           metrics,
-          overwrite
+          overwrite,
         );
 
         // Generate the output file name for the current file
         const outputFile = path.join(
           destination,
-          generateOutputFileName(fileName, regions, logger)
+          generateOutputFileName(fileName, regions, logger),
         );
 
         if (regions.length > 0) {
@@ -447,12 +449,12 @@ async function main() {
               outputFile,
               indexFilePath,
               logger,
-              overwrite
+              overwrite,
             );
             await indexBAM(outputFile, logger, overwrite);
           } catch (error) {
             logger.error(
-              `Error during ranged download for ${fileName}: ${error.message}`
+              `Error during ranged download for ${fileName}: ${error.message}`,
             );
           }
         } else {
@@ -466,12 +468,12 @@ async function main() {
               agent,
               rl,
               logger,
-              metrics
+              metrics,
             );
             await indexBAM(outputFile, logger, overwrite);
           } catch (error) {
             logger.error(
-              `Error during full download for ${fileName}: ${error.message}`
+              `Error during full download for ${fileName}: ${error.message}`,
             );
           }
         }
