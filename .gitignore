@@ -42,3 +42,7 @@ pnpm-debug.log*
 
 # output files
 awaiting-restoration.json
+
+# claude files and folder
+.claude/
+CLAUDE.md

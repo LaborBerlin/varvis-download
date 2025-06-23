@@ -29,8 +29,8 @@ async function triggerRestoreArchivedFile(
     postData.append("analysisIds", analysisId);
     postData.append("disableArchive", "false");
 
-    // Lazy-require fetchWithRetry to break the circular dependency.
-    const { fetchWithRetry } = require("./fetchUtils");
+    // Use apiClient to avoid circular dependency.
+    const { fetchWithRetry } = require("./apiClient");
 
     const response = await fetchWithRetry(
       `https://${target}.varvis.com/archive/analysis/restore`,

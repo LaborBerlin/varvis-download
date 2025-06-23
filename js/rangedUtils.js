@@ -1,14 +1,54 @@
-const { exec } = require("child_process");
+const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
-const { promisify } = require("util");
-const execPromise = promisify(exec);
 const { downloadFile } = require("./fileUtils");
 
 // Define minimum required versions for external tools
 const SAMTOOLS_MIN_VERSION = "1.17";
 const TABIX_MIN_VERSION = "1.20";
 const BGZIP_MIN_VERSION = "1.20";
+
+/**
+ * Wraps spawn in a Promise to maintain async/await syntax.
+ * @param {string} command - The command to execute.
+ * @param {Array<string>} args - The command arguments.
+ * @param {Object} logger - The logger instance.
+ * @param {boolean} captureOutput - Whether to capture stdout for return value.
+ * @returns {Promise<{stdout?: string}>} - Resolves when the process completes successfully.
+ */
+function spawnPromise(command, args, logger, captureOutput = false) {
+  return new Promise((resolve, reject) => {
+    const process = spawn(command, args);
+    let stdout = '';
+    let stderr = '';
+    
+    process.stdout.on('data', (data) => {
+      const output = data.toString();
+      if (captureOutput) {
+        stdout += output;
+      }
+      logger.debug(`[${command}] stdout: ${output.trim()}`);
+    });
+
+    process.stderr.on('data', (data) => {
+      const output = data.toString();
+      stderr += output;
+      logger.debug(`[${command}] stderr: ${output.trim()}`);
+    });
+
+    process.on('close', (code) => {
+      if (code === 0) {
+        resolve(captureOutput ? { stdout } : {});
+      } else {
+        reject(new Error(`Process ${command} exited with code ${code}`));
+      }
+    });
+
+    process.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
 
 /**
  * Checks if a tool is available and meets the minimum version.
@@ -20,7 +60,12 @@ const BGZIP_MIN_VERSION = "1.20";
  */
 async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
   try {
-    const { stdout } = await execPromise(versionCommand);
+    // Parse the versionCommand to extract command and arguments
+    const commandParts = versionCommand.split(/\s+/);
+    const command = commandParts[0];
+    const args = commandParts.slice(1);
+    
+    const { stdout } = await spawnPromise(command, args, logger, true);
     const parts = stdout.split(/\s+/);
     let toolVersion;
     // For tabix and bgzip, the second word is in parentheses, so the version is the third element.
@@ -51,9 +96,22 @@ async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
  * @returns {boolean} - True if the current version is >= the minimum version.
  */
 function compareVersions(version, minVersion) {
-  const [major, minor] = version.split(".").map(Number);
-  const [minMajor, minMinor] = minVersion.split(".").map(Number);
-  return major > minMajor || (major === minMajor && minor >= minMinor);
+  const versionParts = version.split(".").map(Number);
+  const minVersionParts = minVersion.split(".").map(Number);
+  
+  // Pad arrays to same length with zeros
+  const maxLength = Math.max(versionParts.length, minVersionParts.length);
+  while (versionParts.length < maxLength) versionParts.push(0);
+  while (minVersionParts.length < maxLength) minVersionParts.push(0);
+  
+  // Compare each part from left to right
+  for (let i = 0; i < maxLength; i++) {
+    if (versionParts[i] > minVersionParts[i]) return true;
+    if (versionParts[i] < minVersionParts[i]) return false;
+  }
+  
+  // All parts are equal
+  return true;
 }
 
 /**
@@ -82,10 +140,10 @@ async function rangedDownloadBAM(
     }
 
     logger.debug(`Downloading BAM for regions in BED file: ${bedFile}`);
-    const cmd = `samtools view -b -X '${url}' ${indexFile} -L ${bedFile} -M -o ${outputFile}`;
-    logger.info(`Running command: ${cmd}`);
+    const args = ['view', '-b', '-X', url, indexFile, '-L', bedFile, '-M', '-o', outputFile];
+    logger.info(`Running command: samtools ${args.join(' ')}`);
 
-    await execPromise(cmd);
+    await spawnPromise('samtools', args, logger);
     logger.info(`Downloaded BAM file for regions in BED file to ${outputFile}`);
   } catch (error) {
     logger.error(`Error performing ranged download for BAM: ${error.message}`);
@@ -117,14 +175,18 @@ async function rangedDownloadVCF(
     }
 
     const tempOutputFile = outputFile.replace(".gz", ""); // Temporary file for tabix output
-    const cmdTabix = `tabix ${url} ${range} > ${tempOutputFile}`;
-    logger.info(`Running command: ${cmdTabix}`);
-    await execPromise(cmdTabix);
+    
+    // Use tabix to extract range and write to temp file
+    logger.info(`Running command: tabix ${url} ${range}`);
+    const tabixResult = await spawnPromise('tabix', [url, range], logger, true);
+    fs.writeFileSync(tempOutputFile, tabixResult.stdout);
     logger.info(`Downloaded VCF file range to ${tempOutputFile}`);
 
-    const cmdBgzip = `bgzip -c ${tempOutputFile} > ${outputFile}`;
-    logger.info(`Running command to compress the VCF: ${cmdBgzip}`);
-    await execPromise(cmdBgzip);
+    // Compress with bgzip
+    const args = ['-c', tempOutputFile];
+    logger.info(`Running command to compress the VCF: bgzip ${args.join(' ')}`);
+    const bgzipResult = await spawnPromise('bgzip', args, logger, true);
+    fs.writeFileSync(outputFile, bgzipResult.stdout);
     logger.info(`Compressed VCF to ${outputFile}`);
 
     // Clean up the temporary uncompressed file
@@ -150,9 +212,9 @@ async function indexBAM(bamFile, logger, overwrite = false) {
   }
 
   try {
-    const cmd = `samtools index ${bamFile}`;
+    const args = ['index', bamFile];
     logger.info(`Indexing BAM file: ${bamFile}`);
-    await execPromise(cmd);
+    await spawnPromise('samtools', args, logger);
     logger.info(`Indexed BAM file: ${bamFile}`);
   } catch (error) {
     logger.error(`Error indexing BAM file: ${error.message}`);
@@ -175,9 +237,9 @@ async function indexVCF(vcfGzFile, logger, overwrite = false) {
   }
 
   try {
-    const cmd = `tabix -p vcf ${vcfGzFile}`;
+    const args = ['-p', 'vcf', vcfGzFile];
     logger.info(`Indexing VCF.gz file: ${vcfGzFile}`);
-    await execPromise(cmd);
+    await spawnPromise('tabix', args, logger);
     logger.info(`Indexed VCF.gz file: ${vcfGzFile}`);
   } catch (error) {
     logger.error(`Error indexing VCF.gz file: ${error.message}`);
@@ -261,6 +323,7 @@ function generateOutputFileName(fileName, regions, logger) {
 
 module.exports = {
   checkToolAvailability,
+  compareVersions,
   rangedDownloadBAM,
   rangedDownloadVCF,
   ensureIndexFile,

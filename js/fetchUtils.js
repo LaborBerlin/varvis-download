@@ -1,8 +1,8 @@
-const { fetch } = require("undici");
 const ProgressBar = require("progress");
 const fs = require("fs");
 const { applyFilters } = require("./filterUtils");
 const { triggerRestoreArchivedFile } = require("./archiveUtils");
+const { fetchWithRetry } = require("./apiClient");
 
 const metrics = {
   startTime: Date.now(),
@@ -32,34 +32,6 @@ async function confirmRestore(file, rl, logger) {
   });
 }
 
-/**
- * Retries a fetch operation with a specified number of attempts.
- * @param {string} url - The URL to fetch.
- * @param {Object} options - The fetch options.
- * @param {number} retries - The number of retry attempts.
- * @param {Object} logger - The logger instance.
- * @returns {Promise<Response>} - The fetch response.
- */
-async function fetchWithRetry(url, options, retries = 3, logger) {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      const response = await fetch(url, options);
-      if (!response.ok)
-        throw new Error(`Fetch failed with status: ${response.status}`);
-      return response;
-    } catch (error) {
-      if (attempt < retries) {
-        logger.warn(`Fetch attempt ${attempt} failed. Retrying...`);
-        await new Promise((res) => setTimeout(res, attempt * 1000)); // Exponential backoff
-      } else {
-        logger.error(
-          `Fetch failed after ${retries} attempts: ${error.message}`,
-        );
-        throw error;
-      }
-    }
-  }
-}
 
 /**
  * Fetches analysis IDs based on sample IDs or LIMS IDs.
@@ -341,7 +313,6 @@ function generateReport(reportfile, logger) {
 }
 
 module.exports = {
-  fetchWithRetry,
   fetchAnalysisIds,
   getDownloadLinks,
   listAvailableFiles,

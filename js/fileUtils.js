@@ -1,6 +1,6 @@
 const fs = require("fs");
 const ProgressBar = require("progress");
-const { fetchWithRetry } = require("./fetchUtils");
+const { fetchWithRetry } = require("./apiClient");
 
 /**
  * Prompts the user to confirm file overwrite if the file already exists.

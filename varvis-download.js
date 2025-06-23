@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+// Load environment variables from .env file
+require('dotenv').config();
+
 const { CookieJar } = require("tough-cookie");
 const { CookieClient } = require("http-cookie-agent/undici");
 const yargs = require("yargs");
@@ -258,10 +261,10 @@ if (
   process.exit(1);
 }
 
-// Extract the final configuration values
+// Extract the final configuration values with environment variable priority
 const target = finalConfig.target;
-const userName = finalConfig.username;
-const password = finalConfig.password;
+const userName = process.env.VARVIS_USER || finalConfig.username;
+const password = process.env.VARVIS_PASSWORD || finalConfig.password;
 const analysisIds = finalConfig.analysisIds;
 const sampleIds = finalConfig.sampleIds;
 const limsIds = finalConfig.limsIds;
@@ -338,8 +341,31 @@ async function main() {
       fs.mkdirSync(destination, { recursive: true });
     }
 
+    // Interactive password prompt if password is not available
+    let finalPassword = password;
+    if (!finalPassword) {
+      const Mute = require('mute-stream');
+      const mute = new Mute();
+      mute.pipe(process.stdout);
+      const rlWithMute = readline.createInterface({
+        input: process.stdin,
+        output: mute,
+        terminal: true,
+      });
+      
+      finalPassword = await new Promise(resolve => {
+        rlWithMute.question('Please enter your Varvis password: ', (input) => {
+          resolve(input);
+          rlWithMute.close();
+          mute.end();
+          // Print a newline since muted input doesn't show one
+          process.stdout.write('\n');
+        });
+      });
+    }
+
     logger.debug("Attempting to log in");
-    await authService.login({ username: userName, password: password }, target);
+    await authService.login({ username: userName, password: finalPassword }, target);
     logger.debug("Login successful");
 
     // ***************** NEW CODE FOR -L FLAG *****************
@@ -562,12 +588,15 @@ async function main() {
       fs.unlinkSync(tempBedPath);
       logger.info(`Deleted temporary BED file: ${tempBedPath}`);
     }
+
+    // Exit successfully
+    process.exit(0);
   } catch (error) {
     logger.error("An error occurred:", error.message);
     logger.debug(error.stack);
+    process.exit(1);
   } finally {
     rl.close();
-    process.exit(1);
   }
 }
 

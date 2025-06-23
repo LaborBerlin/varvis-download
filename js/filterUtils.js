@@ -6,7 +6,7 @@
  * @returns {Object} - An object containing field, operator, and value (e.g., { field: 'analysisType', operator: '=', value: 'SNV' })
  */
 function parseFilterExpression(filterExpression) {
-  const regex = /^(\w+)([><=]{1,2})(.+)$/;
+  const regex = /^(\w+)(!=|[><=])(.+)$/;
   const match = filterExpression.match(regex);
   if (match) {
     return {
