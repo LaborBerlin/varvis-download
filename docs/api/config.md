@@ -16,7 +16,7 @@ Configuration files use JSON format with the following schema:
       "description": "Varvis API username"
     },
     "password": {
-      "type": "string", 
+      "type": "string",
       "description": "Varvis API password (not recommended for config files)"
     },
     "target": {
@@ -26,17 +26,17 @@ Configuration files use JSON format with the following schema:
     },
     "analysisIds": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": { "type": "string" },
       "description": "List of analysis IDs to download"
     },
     "sampleIds": {
-      "type": "array", 
-      "items": {"type": "string"},
+      "type": "array",
+      "items": { "type": "string" },
       "description": "List of sample IDs for filtering"
     },
     "limsIds": {
       "type": "array",
-      "items": {"type": "string"}, 
+      "items": { "type": "string" },
       "description": "List of LIMS IDs for filtering"
     },
     "destination": {
@@ -54,18 +54,18 @@ Configuration files use JSON format with the following schema:
       "description": "File types to download"
     },
     "overwrite": {
-      "type": "boolean", 
+      "type": "boolean",
       "default": false,
       "description": "Whether to overwrite existing files"
     },
     "list": {
       "type": "boolean",
-      "default": false, 
+      "default": false,
       "description": "List files without downloading"
     },
     "filters": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": { "type": "string" },
       "description": "Filter expressions for file selection"
     },
     "range": {
@@ -103,7 +103,7 @@ Configuration files use JSON format with the following schema:
       "description": "Path to log file"
     },
     "reportfile": {
-      "type": "string", 
+      "type": "string",
       "description": "Path to download report file"
     },
     "proxy": {
@@ -128,40 +128,40 @@ All configuration options can be overridden using environment variables:
 
 ### Authentication
 
-| Variable | Configuration Key | Description |
-|----------|------------------|-------------|
-| `VARVIS_USER` | `username` | API username |
-| `VARVIS_PASSWORD` | `password` | API password |
+| Variable          | Configuration Key | Description  |
+| ----------------- | ----------------- | ------------ |
+| `VARVIS_USER`     | `username`        | API username |
+| `VARVIS_PASSWORD` | `password`        | API password |
 
 ### Connection
 
-| Variable | Configuration Key | Description |
-|----------|------------------|-------------|
-| `VARVIS_TARGET` | `target` | API target instance |
-| `VARVIS_PROXY` | `proxy` | Proxy URL |
-| `VARVIS_PROXY_USER` | `proxyUsername` | Proxy username |
-| `VARVIS_PROXY_PASS` | `proxyPassword` | Proxy password |
+| Variable            | Configuration Key | Description         |
+| ------------------- | ----------------- | ------------------- |
+| `VARVIS_TARGET`     | `target`          | API target instance |
+| `VARVIS_PROXY`      | `proxy`           | Proxy URL           |
+| `VARVIS_PROXY_USER` | `proxyUsername`   | Proxy username      |
+| `VARVIS_PROXY_PASS` | `proxyPassword`   | Proxy password      |
 
 ### File Operations
 
-| Variable | Configuration Key | Description |
-|----------|------------------|-------------|
-| `VARVIS_DESTINATION` | `destination` | Download directory |
-| `VARVIS_FILETYPES` | `filetypes` | File types (comma-separated) |
-| `VARVIS_OVERWRITE` | `overwrite` | Overwrite existing files |
+| Variable             | Configuration Key | Description                  |
+| -------------------- | ----------------- | ---------------------------- |
+| `VARVIS_DESTINATION` | `destination`     | Download directory           |
+| `VARVIS_FILETYPES`   | `filetypes`       | File types (comma-separated) |
+| `VARVIS_OVERWRITE`   | `overwrite`       | Overwrite existing files     |
 
 ### Logging
 
-| Variable | Configuration Key | Description |
-|----------|------------------|-------------|
-| `VARVIS_LOG_LEVEL` | `loglevel` | Logging level |
-| `VARVIS_LOG_FILE` | `logfile` | Log file path |
+| Variable           | Configuration Key | Description   |
+| ------------------ | ----------------- | ------------- |
+| `VARVIS_LOG_LEVEL` | `loglevel`        | Logging level |
+| `VARVIS_LOG_FILE`  | `logfile`         | Log file path |
 
 ### Archive Management
 
-| Variable | Configuration Key | Description |
-|----------|------------------|-------------|
-| `VARVIS_RESTORE_ARCHIVED` | `restoreArchived` | Archive restoration mode |
+| Variable                  | Configuration Key | Description               |
+| ------------------------- | ----------------- | ------------------------- |
+| `VARVIS_RESTORE_ARCHIVED` | `restoreArchived` | Archive restoration mode  |
 | `VARVIS_RESTORATION_FILE` | `restorationFile` | Restoration tracking file |
 
 ## Configuration Examples
@@ -184,7 +184,7 @@ All configuration options can be overridden using environment variables:
 
 ```json
 {
-  "target": "laborberlin", 
+  "target": "laborberlin",
   "username": "prod_user",
   "destination": "/data/genomics",
   "loglevel": "warn",
@@ -201,7 +201,7 @@ All configuration options can be overridden using environment variables:
 ```json
 {
   "target": "laborberlin",
-  "destination": "./ci-downloads", 
+  "destination": "./ci-downloads",
   "loglevel": "info",
   "reportfile": "./ci-report.json",
   "overwrite": true,
@@ -236,7 +236,7 @@ Error: Missing required argument --target
 # Invalid file type
 Error: Unsupported file type: invalid_type
 
-# Invalid log level  
+# Invalid log level
 Error: Invalid log level: invalid_level
 
 # Invalid directory

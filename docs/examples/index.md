@@ -32,7 +32,9 @@ export VARVIS_PASSWORD="your_password"
 ## Example Categories
 
 ### [Basic Usage](/examples/basic)
+
 Essential commands and common operations including:
+
 - Simple downloads
 - File type selection
 - Directory management
@@ -40,21 +42,27 @@ Essential commands and common operations including:
 - Error handling
 
 ### Advanced Filtering (Coming Soon)
+
 Complex search and filtering patterns:
+
 - Filter expressions
 - Sample ID filtering
 - LIMS ID filtering
 - Combined search methods
 
 ### Genomic Ranges (Coming Soon)
+
 Targeted genomic region downloads:
+
 - Single coordinate ranges
 - Multiple region downloads
 - BED file integration
 - Tool chain integration
 
 ### Automation Scripts (Coming Soon)
+
 Production-ready automation examples:
+
 - CI/CD integration
 - Batch processing scripts
 - Monitoring and reporting
@@ -135,7 +143,7 @@ name: Download Genomic Data
 
 on:
   schedule:
-    - cron: '0 2 * * *'  # Daily at 2 AM
+    - cron: '0 2 * * *' # Daily at 2 AM
 
 jobs:
   download:
@@ -145,10 +153,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      
+
       - name: Install dependencies
         run: npm install
-      
+
       - name: Download data
         env:
           VARVIS_USER: ${{ secrets.VARVIS_USER }}
@@ -167,16 +175,16 @@ import os
 
 def download_varvis_data(analysis_ids, target="laborberlin"):
     """Download data using Varvis CLI from Python"""
-    
+
     cmd = [
         "./varvis-download.js",
         "-t", target,
         "-a", ",".join(analysis_ids),
         "--reportfile", "download_report.json"
     ]
-    
+
     result = subprocess.run(cmd, capture_output=True, text=True)
-    
+
     if result.returncode == 0:
         # Read download report
         with open("download_report.json") as f:
@@ -205,11 +213,11 @@ function runVarvisDownload(args) {
     const process = spawn('./varvis-download.js', args);
     let stdout = '';
     let stderr = '';
-    
-    process.stdout.on('data', data => stdout += data.toString());
-    process.stderr.on('data', data => stderr += data.toString());
-    
-    process.on('close', code => {
+
+    process.stdout.on('data', (data) => (stdout += data.toString()));
+    process.stderr.on('data', (data) => (stderr += data.toString()));
+
+    process.on('close', (code) => {
       resolve({ code, stdout, stderr });
     });
   });
@@ -316,7 +324,7 @@ grep -i "error\|timeout\|connection" debug_network.log
 if ! ./varvis-download.js -t laborberlin -a "$ANALYSIS_IDS"; then
   echo "First attempt failed, retrying in 5 minutes..."
   sleep 300
-  
+
   # Retry with different settings
   ./varvis-download.js \
     -t laborberlin \
@@ -342,6 +350,7 @@ Have a useful example or workflow? We welcome contributions!
 4. Submit a pull request
 
 Examples should be:
+
 - Complete and functional
 - Well-commented
 - Include expected output when helpful

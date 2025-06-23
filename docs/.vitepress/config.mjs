@@ -8,11 +8,11 @@ export default defineConfig({
   ignoreDeadLinks: [
     // Temporarily ignore missing pages while documentation is being built
     '/api/functions',
-    '/api/filters', 
+    '/api/filters',
     '/api/archive',
     '/examples/filtering',
     '/examples/ranges',
-    '/examples/automation'
+    '/examples/automation',
   ],
 
   themeConfig: {

@@ -5,6 +5,7 @@ The Varvis Download CLI provides comprehensive logging and reporting capabilitie
 ## Overview
 
 Logging and reporting features include:
+
 - Multiple log levels for different verbosity
 - File-based and console logging
 - Structured JSON reports
@@ -16,12 +17,12 @@ Logging and reporting features include:
 
 ### Available Log Levels
 
-| Level   | Description                           | Use Case                    |
-|---------|---------------------------------------|-----------------------------|
-| `error` | Only error messages                   | Production monitoring       |
-| `warn`  | Warnings and errors                   | Standard production         |
-| `info`  | General information (default)         | Normal operations           |
-| `debug` | Detailed debugging information        | Troubleshooting             |
+| Level   | Description                    | Use Case              |
+| ------- | ------------------------------ | --------------------- |
+| `error` | Only error messages            | Production monitoring |
+| `warn`  | Warnings and errors            | Standard production   |
+| `info`  | General information (default)  | Normal operations     |
+| `debug` | Detailed debugging information | Troubleshooting       |
 
 ### Setting Log Level
 
@@ -114,7 +115,7 @@ mkdir -p "$LOG_DIR"
 rotate_logs() {
   local log_file="$1"
   local base_name=$(basename "$log_file" .log)
-  
+
   # Check if log file exceeds size limit
   if [[ -f "$log_file" ]] && [[ $(stat -f%z "$log_file" 2>/dev/null || stat -c%s "$log_file") -gt $((100*1024*1024)) ]]; then
     # Rotate existing files
@@ -123,10 +124,10 @@ rotate_logs() {
         mv "$LOG_DIR/${base_name}.${i}.log" "$LOG_DIR/${base_name}.$((i+1)).log"
       fi
     done
-    
+
     # Move current log to .1
     mv "$log_file" "$LOG_DIR/${base_name}.1.log"
-    
+
     # Remove oldest logs
     for i in $(seq $((MAX_FILES+1)) 20); do
       rm -f "$LOG_DIR/${base_name}.${i}.log"
@@ -207,15 +208,15 @@ Generate structured JSON reports:
 
 analyze_report() {
   local report_file="$1"
-  
+
   if [[ ! -f "$report_file" ]]; then
     echo "Report file not found: $report_file"
     return 1
   fi
-  
+
   echo "Download Report Analysis"
   echo "======================="
-  
+
   # Basic statistics
   python3 << EOF
 import json
@@ -265,10 +266,10 @@ analyze_report "$1"
 format_logs() {
   local log_file="$1"
   local formatted_file="${log_file%.log}_formatted.log"
-  
+
   # Add custom formatting
   sed 's/^\[/['"$(hostname)"' - /' "$log_file" > "$formatted_file"
-  
+
   echo "Formatted log saved to: $formatted_file"
 }
 
@@ -341,25 +342,25 @@ EOF
 monitor_download() {
   local log_file="$1"
   local pid_file="$2"
-  
+
   echo "Monitoring download progress..."
-  
+
   # Monitor log file in real-time
   tail -f "$log_file" | while read line; do
     echo "$line"
-    
+
     # Check for completion
     if echo "$line" | grep -q "All downloads completed"; then
       echo "Download completed successfully!"
       break
     fi
-    
+
     # Check for errors
     if echo "$line" | grep -q "ERROR"; then
       echo "Error detected: $line"
       # Could send alert here
     fi
-    
+
     # Check if process is still running
     if [[ -f "$pid_file" ]] && ! kill -0 "$(cat "$pid_file")" 2>/dev/null; then
       echo "Process terminated unexpectedly"
@@ -389,34 +390,34 @@ rm -f download.pid
 analyze_and_alert() {
   local log_file="$1"
   local alert_threshold=5
-  
+
   # Count errors in last hour
   error_count=$(grep "$(date -d '1 hour ago' '+%Y-%m-%d %H')" "$log_file" | grep -c "ERROR" || echo 0)
-  
+
   if [[ $error_count -ge $alert_threshold ]]; then
     # Send alert (example implementations)
     echo "ALERT: $error_count errors detected in last hour" | \
       mail -s "Varvis Download Alert" admin@company.com
-    
+
     # Or send to Slack
     curl -X POST -H 'Content-type: application/json' \
       --data '{"text":"Varvis Download Alert: '"$error_count"' errors detected"}' \
       "$SLACK_WEBHOOK_URL"
-    
+
     # Or write to syslog
     logger -p user.warn "Varvis Download: $error_count errors detected"
   fi
-  
+
   # Check for download failures
   failure_count=$(grep "$(date '+%Y-%m-%d')" "$log_file" | grep -c "Download failed" || echo 0)
-  
+
   if [[ $failure_count -gt 0 ]]; then
     echo "WARNING: $failure_count download failures detected today"
   fi
-  
+
   # Check for authentication issues
   auth_failures=$(grep "$(date '+%Y-%m-%d')" "$log_file" | grep -c "Authentication failed" || echo 0)
-  
+
   if [[ $auth_failures -gt 0 ]]; then
     echo "CRITICAL: Authentication failures detected"
   fi
@@ -438,7 +439,7 @@ analyze_and_alert "/var/log/varvis-download/varvis.log"
 send_to_rsyslog() {
   local log_file="$1"
   local facility="local0"
-  
+
   # Send each log line to rsyslog
   while IFS= read -r line; do
     logger -p "$facility.info" "varvis-download: $line"
@@ -450,7 +451,7 @@ send_to_elk() {
   local log_file="$1"
   local elasticsearch_url="http://elasticsearch:9200"
   local index_name="varvis-logs"
-  
+
   # Convert log to JSON and send to Elasticsearch
   python3 << EOF
 import json
@@ -466,7 +467,7 @@ with open('$log_file') as f:
                 'message': line.strip(),
                 'host': '$(hostname)'
             }
-            
+
             response = requests.post(
                 '$elasticsearch_url/$index_name/_doc',
                 json=log_entry,
@@ -490,25 +491,25 @@ send_to_rsyslog "download.log"
 ```yaml
 # filebeat.yml - Filebeat configuration for log shipping
 filebeat.inputs:
-- type: log
-  enabled: true
-  paths:
-    - /var/log/varvis-download/*.log
-  fields:
-    application: varvis-download
-    environment: production
-  fields_under_root: true
-  multiline.pattern: '^\['
-  multiline.negate: true
-  multiline.match: after
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/varvis-download/*.log
+    fields:
+      application: varvis-download
+      environment: production
+    fields_under_root: true
+    multiline.pattern: '^\['
+    multiline.negate: true
+    multiline.match: after
 
 output.elasticsearch:
-  hosts: ["elasticsearch:9200"]
-  index: "varvis-logs-%{+yyyy.MM.dd}"
+  hosts: ['elasticsearch:9200']
+  index: 'varvis-logs-%{+yyyy.MM.dd}'
 
 processors:
-- add_host_metadata:
-    when.not.contains.tags: forwarded
+  - add_host_metadata:
+      when.not.contains.tags: forwarded
 
 logging.level: info
 logging.to_files: true
@@ -530,7 +531,7 @@ logging.files:
 collect_metrics() {
   local report_file="$1"
   local metrics_file="metrics.csv"
-  
+
   # Extract metrics from report
   python3 << EOF
 import json
@@ -587,24 +588,24 @@ collect_metrics "performance_report.json"
 monitor_resources() {
   local output_file="resource_usage.log"
   local download_pid="$1"
-  
+
   echo "timestamp,cpu_percent,memory_mb,disk_io_read,disk_io_write,network_rx,network_tx" > "$output_file"
-  
+
   while kill -0 "$download_pid" 2>/dev/null; do
     # Get process stats
     local stats=$(ps -p "$download_pid" -o pcpu,rss --no-headers 2>/dev/null)
     local cpu_percent=$(echo "$stats" | awk '{print $1}')
     local memory_mb=$(echo "$stats" | awk '{print $2/1024}')
-    
+
     # Get system I/O stats (Linux)
     local disk_stats=$(cat /proc/diskstats | awk '/sda/ {print $6,$10}' | head -1)
     local net_stats=$(cat /proc/net/dev | grep eth0 | awk '{print $2,$10}')
-    
+
     echo "$(date '+%Y-%m-%d %H:%M:%S'),$cpu_percent,$memory_mb,$disk_stats,$net_stats" >> "$output_file"
-    
+
     sleep 5
   done
-  
+
   echo "Resource monitoring completed. Data saved to $output_file"
 }
 

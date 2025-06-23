@@ -151,13 +151,13 @@ ANALYSIS_LIST="archive_analyses.txt"
 
 while IFS= read -r ANALYSIS_ID; do
   echo "Requesting restoration for analysis: $ANALYSIS_ID"
-  
+
   ./varvis-download.js \
     -t laborberlin \
     -a "$ANALYSIS_ID" \
     --restoreArchived force \
     --list
-    
+
   sleep 5  # Rate limiting
 done < "$ANALYSIS_LIST"
 
@@ -227,7 +227,7 @@ filtered_restorations = []
 
 for restoration in data['restorations']:
     request_time = datetime.datetime.fromisoformat(restoration['requestTime'].replace('Z', '+00:00'))
-    
+
     # Keep pending restorations and recent completed/failed ones
     if restoration['status'] == 'pending' or request_time > cutoff:
         filtered_restorations.append(restoration)
@@ -284,6 +284,7 @@ fi
 ### Common Issues
 
 **Restoration requests timeout:**
+
 ```bash
 # Check network connectivity
 ping api.varvis.com
@@ -293,6 +294,7 @@ ping api.varvis.com
 ```
 
 **Files not becoming available:**
+
 ```bash
 # Check restoration status
 ./varvis-download.js --resumeArchivedDownloads --list
@@ -301,6 +303,7 @@ ping api.varvis.com
 ```
 
 **Large restoration tracking files:**
+
 ```bash
 # Clean up old restorations
 ./cleanup-restorations.sh
@@ -386,10 +389,10 @@ import datetime
 
 def update_restoration_db():
     """Update database with restoration status"""
-    
+
     conn = sqlite3.connect('restorations.db')
     cursor = conn.cursor()
-    
+
     # Create table if not exists
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS restorations (
@@ -401,11 +404,11 @@ def update_restoration_db():
             PRIMARY KEY (analysis_id, file_name)
         )
     ''')
-    
+
     # Read restoration file
     with open('awaiting-restoration.json', 'r') as f:
         data = json.load(f)
-    
+
     # Update database
     for restoration in data['restorations']:
         cursor.execute('''
@@ -418,7 +421,7 @@ def update_restoration_db():
             restoration['status'],
             restoration['target']
         ))
-    
+
     conn.commit()
     conn.close()
 

@@ -12,73 +12,73 @@ varvis-download [OPTIONS] COMMAND [ARGS...]
 
 ### Required Parameters
 
-| Option | Short | Description | Example |
-|--------|-------|-------------|---------|
-| `--target` | `-t` | API target instance | `laborberlin` |
+| Option     | Short | Description         | Example       |
+| ---------- | ----- | ------------------- | ------------- |
+| `--target` | `-t`  | API target instance | `laborberlin` |
 
 **At least one of the following is required:**
 
-| Option | Short | Description | Example |
-|--------|-------|-------------|---------|
-| `--analysisIds` | `-a` | Analysis IDs (comma-separated) | `12345,67890` |
-| `--sampleIds` | `-s` | Sample IDs for filtering | `LB24-001,LB24-002` |
-| `--limsIds` | `-l` | LIMS IDs for filtering | `LIMS_123,LIMS_456` |
+| Option          | Short | Description                    | Example             |
+| --------------- | ----- | ------------------------------ | ------------------- |
+| `--analysisIds` | `-a`  | Analysis IDs (comma-separated) | `12345,67890`       |
+| `--sampleIds`   | `-s`  | Sample IDs for filtering       | `LB24-001,LB24-002` |
+| `--limsIds`     | `-l`  | LIMS IDs for filtering         | `LIMS_123,LIMS_456` |
 
 ### Authentication Options
 
-| Option | Short | Environment Variable | Description |
-|--------|-------|---------------------|-------------|
-| `--username` | `-u` | `VARVIS_USER` | Varvis API username |
-| `--password` | `-p` | `VARVIS_PASSWORD` | Varvis API password |
-| `--config` | `-c` | - | Configuration file path |
+| Option       | Short | Environment Variable | Description             |
+| ------------ | ----- | -------------------- | ----------------------- |
+| `--username` | `-u`  | `VARVIS_USER`        | Varvis API username     |
+| `--password` | `-p`  | `VARVIS_PASSWORD`    | Varvis API password     |
+| `--config`   | `-c`  | -                    | Configuration file path |
 
 ### File & Output Options
 
-| Option | Short | Default | Description |
-|--------|-------|---------|-------------|
-| `--destination` | `-d` | `.` | Download destination folder |
-| `--filetypes` | `-f` | `bam,bam.bai` | File types (comma-separated) |
-| `--overwrite` | `-o` | `false` | Overwrite existing files |
-| `--list` | `-L` | `false` | List files without downloading |
+| Option          | Short | Default       | Description                    |
+| --------------- | ----- | ------------- | ------------------------------ |
+| `--destination` | `-d`  | `.`           | Download destination folder    |
+| `--filetypes`   | `-f`  | `bam,bam.bai` | File types (comma-separated)   |
+| `--overwrite`   | `-o`  | `false`       | Overwrite existing files       |
+| `--list`        | `-L`  | `false`       | List files without downloading |
 
 ### Filtering & Range Options
 
-| Option | Short | Description | Example |
-|--------|-------|-------------|---------|
-| `--filter` | `-F` | Filter expressions | `"analysisType=SNV"` |
-| `--range` | `-g` | Genomic range | `"chr1:1-100000"` |
-| `--bed` | `-b` | BED file with regions | `regions.bed` |
+| Option     | Short | Description           | Example              |
+| ---------- | ----- | --------------------- | -------------------- |
+| `--filter` | `-F`  | Filter expressions    | `"analysisType=SNV"` |
+| `--range`  | `-g`  | Genomic range         | `"chr1:1-100000"`    |
+| `--bed`    | `-b`  | BED file with regions | `regions.bed`        |
 
 ### Archive Management
 
-| Option | Short | Default | Description |
-|--------|-------|---------|-------------|
-| `--restoreArchived` | `-ra` | `ask` | Archive mode: `ask|all|force|no` |
-| `--restorationFile` | `-rf` | `awaiting-restoration.json` | Restoration tracking file |
-| `--resumeArchivedDownloads` | `-rad` | `false` | Resume archived downloads |
+| Option                      | Short  | Default                     | Description               |
+| --------------------------- | ------ | --------------------------- | ------------------------- | --- | ----- | --- |
+| `--restoreArchived`         | `-ra`  | `ask`                       | Archive mode: `ask        | all | force | no` |
+| `--restorationFile`         | `-rf`  | `awaiting-restoration.json` | Restoration tracking file |
+| `--resumeArchivedDownloads` | `-rad` | `false`                     | Resume archived downloads |
 
 ### Logging & Reports
 
-| Option | Short | Default | Description |
-|--------|-------|---------|-------------|
-| `--loglevel` | `--ll` | `info` | Log level: `debug|info|warn|error` |
-| `--logfile` | `--lf` | - | Path to log file |
-| `--reportfile` | `-r` | - | Path to download report |
+| Option         | Short  | Default | Description             |
+| -------------- | ------ | ------- | ----------------------- | ---- | ---- | ------ |
+| `--loglevel`   | `--ll` | `info`  | Log level: `debug       | info | warn | error` |
+| `--logfile`    | `--lf` | -       | Path to log file        |
+| `--reportfile` | `-r`   | -       | Path to download report |
 
 ### Proxy Configuration
 
-| Option | Short | Description |
-|--------|-------|-------------|
-| `--proxy` | `-x` | Proxy URL |
+| Option            | Short   | Description    |
+| ----------------- | ------- | -------------- |
+| `--proxy`         | `-x`    | Proxy URL      |
 | `--proxyUsername` | `--pxu` | Proxy username |
 | `--proxyPassword` | `--pxp` | Proxy password |
 
 ### Utility Options
 
-| Option | Short | Description |
-|--------|-------|-------------|
-| `--version` | `-v` | Show version information |
-| `--help` | `-h` | Show help message |
+| Option      | Short | Description              |
+| ----------- | ----- | ------------------------ |
+| `--version` | `-v`  | Show version information |
+| `--help`    | `-h`  | Show help message        |
 
 ## Usage Examples
 
@@ -167,11 +167,11 @@ varvis-download -t laborberlin -a 12345 --reportfile report.json
 
 ## Exit Codes
 
-| Code | Description |
-|------|-------------|
-| `0` | Success |
-| `1` | General error (authentication, network, file system) |
-| `2` | Invalid arguments or configuration |
+| Code | Description                                          |
+| ---- | ---------------------------------------------------- |
+| `0`  | Success                                              |
+| `1`  | General error (authentication, network, file system) |
+| `2`  | Invalid arguments or configuration                   |
 
 ## Configuration Files
 
@@ -180,7 +180,7 @@ varvis-download -t laborberlin -a 12345 --reportfile report.json
 ```json
 {
   "username": "your_username",
-  "target": "laborberlin", 
+  "target": "laborberlin",
   "destination": "./downloads",
   "filetypes": ["bam", "bam.bai"],
   "loglevel": "info"
@@ -208,11 +208,11 @@ varvis-download -t laborberlin -a 12345 --reportfile report.json
 
 All command-line options can be set via environment variables using the `VARVIS_` prefix:
 
-| Environment Variable | CLI Option |
-|---------------------|-----------|
-| `VARVIS_USER` | `--username` |
-| `VARVIS_PASSWORD` | `--password` |
-| `VARVIS_TARGET` | `--target` |
+| Environment Variable | CLI Option      |
+| -------------------- | --------------- |
+| `VARVIS_USER`        | `--username`    |
+| `VARVIS_PASSWORD`    | `--password`    |
+| `VARVIS_TARGET`      | `--target`      |
 | `VARVIS_DESTINATION` | `--destination` |
-| `VARVIS_LOG_LEVEL` | `--loglevel` |
-| `VARVIS_PROXY` | `--proxy` |
+| `VARVIS_LOG_LEVEL`   | `--loglevel`    |
+| `VARVIS_PROXY`       | `--proxy`       |

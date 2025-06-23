@@ -1,6 +1,5 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
-const path = require('path');
 
 // Mock child_process.spawn
 jest.mock('child_process');
@@ -10,14 +9,10 @@ jest.mock('fs');
 jest.mock('../../js/fileUtils');
 
 const {
-  checkToolAvailability,
   compareVersions,
-  rangedDownloadBAM,
   rangedDownloadVCF,
-  indexBAM,
   indexVCF,
 } = require('../../js/rangedUtils');
-const { downloadFile } = require('../../js/fileUtils');
 
 describe('rangedUtils', () => {
   let mockLogger;
@@ -71,8 +66,6 @@ describe('rangedUtils', () => {
   describe('checkToolAvailability', () => {
     beforeEach(() => {
       // Reset the mocked exec behavior for each test
-      const { exec } = require('child_process');
-      const { promisify } = require('util');
       jest.doMock('child_process', () => ({
         exec: jest.fn(),
         spawn: jest.fn(),
@@ -81,7 +74,7 @@ describe('rangedUtils', () => {
 
     test('should return true when tool version meets requirement', async () => {
       // Mock exec to return version output
-      const mockExec = jest.fn().mockResolvedValue({
+      jest.fn().mockResolvedValue({
         stdout: 'samtools 1.18',
       });
 
@@ -171,11 +164,6 @@ describe('rangedUtils', () => {
     test('should respect overwrite parameter', async () => {
       fs.existsSync.mockReturnValue(true); // File exists
 
-      const url = 'https://example.com/test.bam';
-      const bedFile = '/path/to/regions.bed';
-      const outputFile = '/path/to/output.bam';
-      const indexFile = '/path/to/test.bam.bai';
-
       // Test that the function would check for file existence
       expect(fs.existsSync).not.toHaveBeenCalled(); // Not called yet, but will be in implementation
     });
@@ -209,7 +197,6 @@ describe('rangedUtils', () => {
 
       const url = 'https://example.com/test.vcf.gz';
       const range = 'chr1:1000-2000';
-      const outputFile = '/path/to/output.vcf.gz';
 
       // Expected tabix arguments for range extraction
       const expectedTabixArgs = [url, range];

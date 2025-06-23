@@ -1,19 +1,11 @@
 {
   "source": {
-    "include": [
-      "./js/",
-      "./varvis-download.js"
-    ],
-    "exclude": [
-      "./js/**/*.test.js",
-      "./tests/"
-    ],
+    "include": ["./js/", "./varvis-download.js"],
+    "exclude": ["./js/**/*.test.js", "./tests/"],
     "includePattern": "\\.(js)$"
   },
   "opts": {
     "recurse": true
   },
-  "plugins": [
-    "plugins/markdown"
-  ]
+  "plugins": ["plugins/markdown"]
 }

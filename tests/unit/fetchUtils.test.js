@@ -1,6 +1,5 @@
 const { getDownloadLinks } = require('../../js/fetchUtils');
 const { fetchWithRetry } = require('../../js/apiClient');
-const { triggerRestoreArchivedFile } = require('../../js/archiveUtils');
 
 // Mock dependencies
 jest.mock('../../js/apiClient');

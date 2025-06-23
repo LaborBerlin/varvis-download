@@ -5,6 +5,7 @@ The Varvis Download CLI is designed for efficient batch processing, allowing you
 ## Overview
 
 Batch operations enable you to:
+
 - Download multiple analyses simultaneously
 - Process lists of samples or LIMS IDs
 - Automate routine data collection
@@ -124,17 +125,17 @@ error() {
 download_analysis() {
   local analysis_id="$1"
   local attempt=1
-  
+
   while [[ $attempt -le $RETRY_COUNT ]]; do
     log "Downloading analysis $analysis_id (attempt $attempt/$RETRY_COUNT)"
-    
+
     if ./varvis-download.js \
       -t "$TARGET" \
       -a "$analysis_id" \
       -d "$DATA_DIR/$analysis_id" \
       --logfile "$LOG_FILE" \
       --reportfile "$REPORT_DIR/report_$analysis_id.json"; then
-      
+
       log "Successfully downloaded analysis $analysis_id"
       return 0
     else
@@ -146,7 +147,7 @@ download_analysis() {
       ((attempt++))
     fi
   done
-  
+
   error "Failed to download analysis $analysis_id after $RETRY_COUNT attempts"
   echo "$analysis_id" >> "$FAILED_FILE"
   return 1
@@ -155,46 +156,46 @@ download_analysis() {
 # Main execution
 main() {
   local analysis_file="$1"
-  
+
   if [[ -z "$analysis_file" || ! -f "$analysis_file" ]]; then
     echo "Usage: $0 <analysis_file>"
     echo "Analysis file should contain one analysis ID per line"
     exit 1
   fi
-  
+
   # Setup
   local timestamp=$(date +%Y%m%d_%H%M%S)
   LOG_FILE="$LOG_DIR/batch_$timestamp.log"
   FAILED_FILE="$LOG_DIR/failed_$timestamp.txt"
-  
+
   mkdir -p "$LOG_DIR" "$DATA_DIR" "$REPORT_DIR"
-  
+
   log "Starting batch download"
   log "Processing file: $analysis_file"
   log "Target: $TARGET"
   log "Data directory: $DATA_DIR"
-  
+
   local total_count=0
   local success_count=0
   local failed_count=0
-  
+
   # Process each analysis
   while IFS= read -r analysis_id; do
     [[ -z "$analysis_id" || "$analysis_id" =~ ^#.*$ ]] && continue
-    
+
     ((total_count++))
-    
+
     if download_analysis "$analysis_id"; then
       ((success_count++))
     else
       ((failed_count++))
     fi
   done < "$analysis_file"
-  
+
   # Summary
   log "Batch download completed"
   log "Total: $total_count, Success: $success_count, Failed: $failed_count"
-  
+
   if [[ $failed_count -gt 0 ]]; then
     log "Failed analyses listed in: $FAILED_FILE"
     exit 1
@@ -204,7 +205,7 @@ main() {
 # Configuration validation
 validate_config() {
   local required_vars=("TARGET" "DATA_DIR" "LOG_DIR" "REPORT_DIR")
-  
+
   for var in "${required_vars[@]}"; do
     if [[ -z "${!var}" ]]; then
       error "Required configuration variable $var is not set"
@@ -263,9 +264,9 @@ MAX_JOBS=4  # Adjust based on system capacity
 download_single() {
   local analysis_id="$1"
   local log_file="logs/analysis_$analysis_id.log"
-  
+
   mkdir -p "data/$analysis_id" "logs"
-  
+
   ./varvis-download.js \
     -t laborberlin \
     -a "$analysis_id" \
@@ -299,7 +300,7 @@ declare -a PIDS=()
 wait_for_slot() {
   while [[ ${#PIDS[@]} -ge $MAX_CONCURRENT ]]; do
     local finished_pids=()
-    
+
     for i in "${!PIDS[@]}"; do
       if ! kill -0 "${PIDS[$i]}" 2>/dev/null; then
         wait "${PIDS[$i]}"
@@ -307,10 +308,10 @@ wait_for_slot() {
         unset "PIDS[$i]"
       fi
     done
-    
+
     # Rebuild array without gaps
     PIDS=("${PIDS[@]}")
-    
+
     sleep 1
   done
 }
@@ -318,13 +319,13 @@ wait_for_slot() {
 # Download function
 download_background() {
   local analysis_id="$1"
-  
+
   ./varvis-download.js \
     -t laborberlin \
     -a "$analysis_id" \
     -d "data/$analysis_id" \
     --logfile "logs/analysis_$analysis_id.log" &
-  
+
   local pid=$!
   PIDS+=("$pid")
   echo "Started download for analysis $analysis_id (PID: $pid)"
@@ -333,7 +334,7 @@ download_background() {
 # Main processing loop
 while IFS= read -r analysis_id; do
   [[ -z "$analysis_id" ]] && continue
-  
+
   wait_for_slot
   download_background "$analysis_id"
 done < "$ANALYSIS_FILE"
@@ -360,11 +361,11 @@ create_organized_structure() {
   local sample_id="$2"
   local analysis_type="$3"
   local date="$4"
-  
+
   # Create hierarchical structure
   local structure="data/$date/$analysis_type/$sample_id/$analysis_id"
   mkdir -p "$structure"
-  
+
   ./varvis-download.js \
     -t laborberlin \
     -a "$analysis_id" \
@@ -376,7 +377,7 @@ create_organized_structure() {
 # Format: analysis_id,sample_id,analysis_type,date
 while IFS=',' read -r analysis_id sample_id analysis_type date; do
   [[ "$analysis_id" =~ ^#.*$ ]] && continue  # Skip comments
-  
+
   echo "Processing: $analysis_id ($sample_id, $analysis_type, $date)"
   create_organized_structure "$analysis_id" "$sample_id" "$analysis_type" "$date"
 done < structured_analysis_list.csv
@@ -415,7 +416,7 @@ LAST_WEEK=$(date -d '7 days ago' '+%Y-%m-%d')
 # Process the results
 if [[ -s recent_analyses.txt ]]; then
   echo "Found $(grep -c "Analysis ID" recent_analyses.txt) recent analyses"
-  
+
   # Extract analysis IDs and download
   grep "Analysis ID:" recent_analyses.txt | \
     cut -d: -f2 | \
@@ -436,19 +437,19 @@ fi
 process_sample_batch() {
   local sample_id="$1"
   local output_dir="data/$sample_id"
-  
+
   mkdir -p "$output_dir"
-  
+
   # List available analyses for sample
   ./varvis-download.js \
     -t laborberlin \
     -s "$sample_id" \
     --list > "$output_dir/available.txt"
-  
+
   # Check if WGS analysis is available
   if grep -q "WGS" "$output_dir/available.txt"; then
     echo "WGS analysis found for $sample_id, downloading..."
-    
+
     ./varvis-download.js \
       -t laborberlin \
       -s "$sample_id" \
@@ -477,18 +478,18 @@ done < sample_list.txt
 generate_batch_report() {
   local report_dir="$1"
   local output_file="$2"
-  
+
   cat > "$output_file" << EOF
 # Batch Download Report
 Generated: $(date)
 
 ## Summary
 EOF
-  
+
   # Count total files
   local total_files=$(find "$report_dir" -name "report_*.json" | wc -l)
   echo "Total download reports: $total_files" >> "$output_file"
-  
+
   # Aggregate statistics
   python3 << 'PYTHON_EOF' >> "$output_file"
 import json
@@ -503,16 +504,16 @@ for report_file in glob.glob("reports/report_*.json"):
     try:
         with open(report_file) as f:
             data = json.load(f)
-            
+
         stats['total_downloads'] += len(data.get('files', []))
         stats['successful'] += data.get('successful', 0)
         stats['failed'] += data.get('failed', 0)
-        
+
         for file_info in data.get('files', []):
             file_type = file_info.get('type', 'unknown')
             file_types[file_type] += 1
             total_size += file_info.get('size', 0)
-            
+
     except Exception as e:
         stats['report_errors'] += 1
 
@@ -529,7 +530,7 @@ PYTHON_EOF
 
   echo "" >> "$output_file"
   echo "## Recent Errors" >> "$output_file"
-  
+
   # Extract recent errors from logs
   find logs -name "*.log" -mtime -1 -exec grep -l "ERROR" {} \; | \
     head -5 | \
@@ -554,23 +555,23 @@ echo "Batch report generated: batch_summary.md"
 monitor_batch() {
   local pid_file="$1"
   local log_dir="$2"
-  
+
   echo "Monitoring batch operation..."
   echo "PID file: $pid_file"
   echo "Log directory: $log_dir"
   echo ""
-  
+
   while [[ -f "$pid_file" ]]; do
     clear
     echo "Batch Download Monitor - $(date)"
     echo "=========================="
-    
+
     # Count completed downloads
     local completed=$(find "$log_dir" -name "*.log" -exec grep -l "Download completed" {} \; | wc -l)
     local total_logs=$(find "$log_dir" -name "*.log" | wc -l)
-    
+
     echo "Progress: $completed/$total_logs downloads completed"
-    
+
     # Show recent activity
     echo ""
     echo "Recent Activity:"
@@ -578,16 +579,16 @@ monitor_batch() {
     find "$log_dir" -name "*.log" -mmin -5 -exec tail -1 {} \; | \
       grep -E "(completed|failed|started)" | \
       tail -5
-    
+
     # Show current disk usage
     echo ""
     echo "Disk Usage:"
     echo "-----------"
     df -h . | tail -1
-    
+
     sleep 30
   done
-  
+
   echo "Batch operation completed"
 }
 
@@ -605,7 +606,7 @@ name: Batch Download
 
 on:
   schedule:
-    - cron: '0 2 * * *'  # Daily at 2 AM
+    - cron: '0 2 * * *' # Daily at 2 AM
   workflow_dispatch:
     inputs:
       analysis_list:
@@ -616,19 +617,19 @@ on:
 jobs:
   batch-download:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      
+
       - name: Install dependencies
         run: npm install
-      
+
       - name: Create analysis list
         run: |
           if [[ -n "${{ github.event.inputs.analysis_list }}" ]]; then
@@ -637,14 +638,14 @@ jobs:
             # Use default list or fetch from API
             echo "12345\n67890\n11111" > analysis_list.txt
           fi
-      
+
       - name: Run batch download
         env:
           VARVIS_USER: ${{ secrets.VARVIS_USER }}
           VARVIS_PASSWORD: ${{ secrets.VARVIS_PASSWORD }}
         run: |
           ./batch-download.sh analysis_list.txt
-      
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:

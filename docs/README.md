@@ -79,6 +79,7 @@ Documentation is automatically deployed to GitHub Pages when changes are pushed 
 2. **Deploy**: Deploys to GitHub Pages
 
 Triggered by changes to:
+
 - `docs/**` - Documentation files
 - `js/**` - Source code (for API docs)
 - `varvis-download.js` - Main CLI file
@@ -93,6 +94,7 @@ Triggered by changes to:
 3. Reference from other pages as needed
 
 Example:
+
 ```markdown
 # My New Guide
 
@@ -168,6 +170,7 @@ Complete API reference available at [API Documentation](/api/).
 ### Automatic Deployment
 
 Documentation deploys automatically via GitHub Actions when:
+
 - Changes pushed to `main` branch
 - Workflow can be triggered manually
 
@@ -186,16 +189,19 @@ npm run docs:build
 ### Common Issues
 
 **Build Failures:**
+
 - Check Node.js version (requires v20+)
 - Verify all dependencies installed: `npm ci`
 - Clear cache: `rm -rf node_modules docs/.vitepress/cache`
 
 **Missing API Documentation:**
+
 - Ensure JSDoc comments use correct syntax
 - Run `npm run docs:generate` manually
 - Check for TypeScript syntax errors in comments
 
 **Local Development Issues:**
+
 - Port 5173 in use: Kill process or use different port
 - Hot reloading not working: Restart dev server
 - Broken links: Check file paths and extensions
@@ -235,6 +241,7 @@ npm run docs:build
 ### Version Management
 
 Documentation versions should align with tool releases:
+
 - Major version changes: Update all documentation
 - Minor version changes: Update affected sections
 - Patch versions: Update specific fixes/features

@@ -5,6 +5,7 @@ The Varvis Download CLI supports HTTP and HTTPS proxies for environments that re
 ## Overview
 
 Proxy support includes:
+
 - HTTP and HTTPS proxy protocols
 - Proxy authentication (username/password)
 - Environment variable configuration
@@ -116,7 +117,7 @@ if ($proxyServer) {
     $env:HTTP_PROXY = "http://$proxyServer"
     $env:HTTPS_PROXY = "http://$proxyServer"
     $env:VARVIS_PROXY = "http://$proxyServer"
-    
+
     Write-Host "Proxy configured: $proxyServer"
 } else {
     Write-Host "No proxy detected in IE settings"
@@ -144,7 +145,7 @@ else
   if command -v gsettings >/dev/null 2>&1; then
     PROXY_HOST=$(gsettings get org.gnome.system.proxy.http host 2>/dev/null | tr -d "'")
     PROXY_PORT=$(gsettings get org.gnome.system.proxy.http port 2>/dev/null)
-    
+
     if [[ -n "$PROXY_HOST" && "$PROXY_HOST" != "''" ]]; then
       export VARVIS_PROXY="http://$PROXY_HOST:$PROXY_PORT"
       echo "Detected proxy from GNOME settings: $VARVIS_PROXY"
@@ -180,10 +181,10 @@ fi
 get_proxy_from_pac() {
   local pac_url="$1"
   local target_url="$2"
-  
+
   # Download PAC file
   curl -s "$pac_url" > /tmp/proxy.pac
-  
+
   # Simple PAC parser (requires node.js)
   node << EOF
 const fs = require('fs');
@@ -312,9 +313,9 @@ rm -f /tmp/custom-ca-bundle.crt
 test_proxy() {
   local proxy="$1"
   local test_url="https://api.varvis.com"
-  
+
   echo "Testing proxy: $proxy"
-  
+
   # Test basic connectivity
   if curl -x "$proxy" -s --max-time 10 "$test_url" >/dev/null; then
     echo "✓ Proxy connectivity successful"
@@ -322,7 +323,7 @@ test_proxy() {
     echo "✗ Proxy connectivity failed"
     return 1
   fi
-  
+
   # Test with authentication if provided
   if [[ -n "$VARVIS_PROXY_USER" ]]; then
     if curl -x "$proxy" -U "$VARVIS_PROXY_USER:$VARVIS_PROXY_PASS" \
@@ -333,7 +334,7 @@ test_proxy() {
       return 1
     fi
   fi
-  
+
   return 0
 }
 
@@ -397,7 +398,7 @@ if [[ -n "$VARVIS_PROXY" ]]; then
   curl -x "$VARVIS_PROXY" -s --max-time 10 https://api.varvis.com >/dev/null && \
     echo "✓ Proxy connection successful" || \
     echo "✗ Proxy connection failed"
-    
+
   # Test proxy authentication
   if [[ -n "$VARVIS_PROXY_USER" ]]; then
     echo "4. Proxy Authentication:"
@@ -425,6 +426,7 @@ echo "Diagnostics complete"
 **Problem:** `407 Proxy Authentication Required`
 
 **Solutions:**
+
 ```bash
 # Verify credentials
 echo "Testing credentials..."
@@ -442,6 +444,7 @@ export VARVIS_PROXY="http://$VARVIS_PROXY_USER:$ENCODED_PASS@proxy.company.com:8
 **Problem:** `unable to verify the first certificate`
 
 **Solutions:**
+
 ```bash
 # Add corporate CA
 export NODE_EXTRA_CA_CERTS="/path/to/corporate-ca.crt"
@@ -455,6 +458,7 @@ export NODE_TLS_REJECT_UNAUTHORIZED=0
 **Problem:** Downloads timeout through proxy
 
 **Solutions:**
+
 ```bash
 # Increase timeout settings
 export NODE_OPTIONS="--max-http-header-size=32768"
@@ -514,7 +518,7 @@ if [[ "$NODE_ENV" == "development" ]]; then
   # Use development proxy (may have relaxed security)
   export VARVIS_PROXY="http://dev-proxy.company.com:8080"
   export NODE_TLS_REJECT_UNAUTHORIZED=0  # Dev only!
-  
+
   echo "Development mode: Using relaxed security settings"
 else
   # Production proxy configuration
@@ -540,14 +544,14 @@ PROXIES=(
 test_and_use_proxy() {
   for proxy in "${PROXIES[@]}"; do
     echo "Testing proxy: $proxy"
-    
+
     if curl -x "$proxy" -s --max-time 5 https://api.varvis.com >/dev/null; then
       echo "Using proxy: $proxy"
       export VARVIS_PROXY="$proxy"
       return 0
     fi
   done
-  
+
   echo "All proxies failed, trying direct connection"
   unset VARVIS_PROXY
   return 1
@@ -563,18 +567,21 @@ test_and_use_proxy
 ## Best Practices
 
 ### Security
+
 1. **Credential Protection**: Never hardcode proxy credentials in scripts
 2. **Environment Variables**: Use environment variables for sensitive data
 3. **Certificate Validation**: Always validate SSL certificates in production
 4. **Audit Logging**: Log proxy usage for security auditing
 
 ### Performance
+
 1. **Connection Reuse**: Enable HTTP keep-alive for better performance
 2. **Timeout Configuration**: Set appropriate timeouts for proxy connections
 3. **Bandwidth Management**: Monitor and limit bandwidth usage if required
 4. **Proxy Selection**: Use the closest/fastest proxy server
 
 ### Troubleshooting
+
 1. **Test Connectivity**: Always test proxy connectivity before batch operations
 2. **Debug Logging**: Enable detailed logging for proxy issues
 3. **Fallback Options**: Implement proxy failover mechanisms

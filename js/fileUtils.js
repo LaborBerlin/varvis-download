@@ -9,7 +9,7 @@ const { fetchWithRetry } = require('./apiClient');
  * @param {Object} logger - The logger instance.
  * @returns {Promise<boolean>} - True if the user confirms overwrite, otherwise false.
  */
-async function confirmOverwrite(file, rl, logger) {
+async function confirmOverwrite(file, rl, _logger) {
   return new Promise((resolve) => {
     rl.question(`File ${file} already exists. Overwrite? (y/n): `, (answer) => {
       resolve(answer.toLowerCase() === 'y');

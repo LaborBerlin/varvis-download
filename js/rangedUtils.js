@@ -4,9 +4,6 @@ const path = require('path');
 const { downloadFile } = require('./fileUtils');
 
 // Define minimum required versions for external tools
-const SAMTOOLS_MIN_VERSION = '1.17';
-const TABIX_MIN_VERSION = '1.20';
-const BGZIP_MIN_VERSION = '1.20';
 
 /**
  * Wraps spawn in a Promise to maintain async/await syntax.
@@ -20,7 +17,6 @@ function spawnPromise(command, args, logger, captureOutput = false) {
   return new Promise((resolve, reject) => {
     const process = spawn(command, args);
     let stdout = '';
-    let stderr = '';
 
     process.stdout.on('data', (data) => {
       const output = data.toString();
@@ -32,7 +28,6 @@ function spawnPromise(command, args, logger, captureOutput = false) {
 
     process.stderr.on('data', (data) => {
       const output = data.toString();
-      stderr += output;
       logger.debug(`[${command}] stderr: ${output.trim()}`);
     });
 
@@ -337,7 +332,7 @@ function generateOutputFileName(fileName, regions, logger) {
     suffix = 'multiple-regions';
   } else {
     // This logic now only runs when regions has at least one valid element.
-    const sanitizedRegion = regions.toString().replace(/[:\-]/g, '_'); // Replace colon and dash with underscores
+    const sanitizedRegion = regions.toString().replace(/[:-]/g, '_'); // Replace colon and dash with underscores
     suffix = sanitizedRegion;
   }
 
