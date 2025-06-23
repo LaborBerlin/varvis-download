@@ -1,608 +1,311 @@
 # Varvis Download CLI
 
-This script provides a command-line interface (CLI) to download BAM and BAI files from the Varvis API. It supports authentication, fetching download links, downloading files, and proxy configuration.
+A command-line interface (CLI) tool for downloading BAM, BAI, and VCF files from the Varvis API. Built for bioinformatics workflows, it supports authentication, file filtering, proxy configuration, and archived file restoration.
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Usage & Parameters](#usage--parameters)
+- [Authentication](#authentication)
+- [Archive Management](#archive-management)
+- [Advanced Features](#advanced-features)
+- [Development](#development)
+- [API Reference](#api-reference)
 
 ## Installation
 
-1. Ensure you have [Node.js](https://nodejs.org/) installed.
-2. Clone the repository.
-3. Install the required packages.
-4. Make the script executable (Linux/Mac).
-5. Link the script to make it globally accessible (optional).
+### Prerequisites
+- [Node.js](https://nodejs.org/) v20.16.0 or higher
+- NPM or Yarn for package management
+- **External Tools** (for range-based downloads):
+  - `samtools` v1.17+
+  - `tabix` v1.20+
+  - `bgzip` v1.20+
 
-```sh
+### Setup
+```bash
 git clone https://github.com/LaborBerlin/varvis-download.git
 cd varvis-download
 npm install
 chmod +x varvis-download.js
-npm link
+npm link  # Optional: makes the tool globally accessible
 ```
 
-## Program Requirements
+## Quick Start
 
-- Node.js v20.16.0 or higher (version >=21 will work but show deprecated warnings for punycode)
-- NPM or Yarn for package management
+### Basic Download
+```bash
+# Download all BAM/BAI files for specific analysis IDs
+./varvis-download.js -u <username> -p <password> -t <target> -a <analysisId1,analysisId2>
 
-## Usage
-
-```sh
-./varvis-download.js --username <username> --password <password> --target <target> --analysisIds <analysisId> [options]
+# Using environment variables (recommended for security)
+export VARVIS_USER="your_username"
+export VARVIS_PASSWORD="your_password"
+./varvis-download.js -t laborberlin -a 12345,67890
 ```
 
-### Parameters
-
-- `--config`, `-c`: Path to a configuration file (default: `.config.json` in the current directory)
-- `--username`, `-u`: Varvis API username (required)
-- `--password`, `-p`: Varvis API password (required)
-- `--target`, `-t`: Target for the Varvis API (e.g., `laborberlin` or `uni-leipzig`) (required)
-- `--analysisIds`, `-a`: Analysis ID(s) to download files for, comma-separated for multiple IDs (required)
-- `--sampleIds`, `-s`: Sample IDs to filter analyses (comma-separated)
-- `--limsIds`, `-l`: LIMS IDs to filter analyses (comma-separated)
-- `--destination`, `-d`: Destination folder for the downloaded files (default: current directory)
-- `--proxy`, `-x`: Proxy URL (optional)
-- `--proxyUsername`, `-pxu`: Proxy username (optional)
-- `--proxyPassword`, `-pxp`: Proxy password (optional)
-- `--overwrite`, `-o`: Overwrite existing files (default: false)
-- `--filetypes`, `-f`: File types to download (comma-separated, default: `bam,bam.bai`)
-- `--loglevel`, `-ll`: Logging level (`info`, `warn`, `error`, `debug`; default: `info`)
-- `--logfile`, `-lf`: Path to the log file (optional)
-- `--reportfile`, `-r`: Path to the report file (optional)
-- `--range`, `-g`: A genomic range for ranged download (e.g., `chr1:1-100000`). Now supports multiple ranges separated by spaces (e.g., `chr1:1-100000 chr2:1-100000`) (optional)
-- `--bed`, `-b`: A BED file containing genomic ranges for ranged download (optional)
-- `--version`, `-v`: Show version information
-- `--help`, `-h`: Show help message
-
----
-
-## Archive Behavior and Options
-
-The Varvis Download CLI now includes enhanced handling for archived files through several new options:
-
-- **`--restoreArchived, -ra`**  
-  Controls how archived BAM files are handled during the download process. Accepted values:
-
-  - **`no`**:  
-    _Skip restoration for archived files._  
-    Archived files are skipped entirely, and a log message indicates that these files have been skipped.
-  - **`ask`** (default):  
-    _Prompt for each archived file._  
-    For each archived file encountered, the user is prompted to confirm whether to restore it.
-  - **`all`**:  
-    _Ask once for all archived files._  
-    The tool prompts once (early in the session) asking whether to restore all archived files; that decision is then applied to all files.
-  - **`force`**:  
-    _Automatically restore every archived file._  
-    The tool automatically triggers restoration for every archived file without further prompting.
-
-- **`--restorationFile, -rf`**  
-  Specifies the location and name for the awaiting-restoration JSON file (default: `"awaiting-restoration.json"`). This file is used to store details of archived files that have been requested for restoration.
-
-- **`--resumeArchivedDownloads, -rad`**  
-  When set to true, the CLI will process the restoration file and attempt to resume downloads for archived files whose restoration time (restoreEstimation) has passed. If this flag is set, the CLI will exclusively process archived downloads from the restoration file and then exit.
-
----
-
-## CLI Arguments
-
-In addition to the parameters listed above, the tool supports the following CLI arguments:
-
-```
-  -c, --config                Path to the configuration file
-                              [string] [default: ".config.json"]
-  -u, --username              Varvis API username                       [string]
-  -p, --password              Varvis API password                       [string]
-  -t, --target                Target for the Varvis API                 [string]
-  -a, --analysisIds           Analysis IDs to download files for
-                              (comma-separated)                         [string]
-  -s, --sampleIds             Sample IDs to filter analyses (comma-separated)
-                                                                        [string]
-  -l, --limsIds               LIMS IDs to filter analyses (comma-separated)
-                                                                        [string]
-  -L, --list                  List available files for the specified analysis
-                              IDs                                      [boolean]
-  -d, --destination           Destination folder for the downloaded files
-                              [string] [default: "."]
-  -x, --proxy                 Proxy URL                                 [string]
-      --proxyUsername, --pxu  Proxy username                            [string]
-      --proxyPassword, --pxp  Proxy password                            [string]
-  -o, --overwrite             Overwrite existing files                 [boolean] [default: false]
-  -f, --filetypes             File types to download (comma-separated)
-                              [string] [default: "bam,bam.bai"]
-      --loglevel, --ll        Logging level (info, warn, error, debug)
-                              [string] [default: "info"]
-      --logfile, --lf         Path to the log file                      [string]
-  -r, --reportfile            Path to the report file                   [string]
-  -F, --filter                Filter expressions (e.g., "analysisType=SNV",
-                              "sampleId>LB24-0001")        [array] [default: []]
-  -g, --range                 Genomic range for ranged download (e.g.,
-                              chr1:1-100000)                            [string]
-  -b, --bed                   Path to BED file containing multiple regions
-                              [string]
-      --restoreArchived, --ra Restore archived files. Accepts "no", "ask" (default),
-                              "all", or "force" to control behavior.
-                              [string] [default: "ask"]
-      --restorationFile, --rf Path and name for the awaiting-restoration JSON file.
-                              [string] [default: "awaiting-restoration.json"]
-      --resumeArchivedDownloads, --rad
-                              Resume downloads for archived files from the awaiting-restoration
-                              JSON file if restoreEstimation has passed.
-                              [boolean] [default: false]
-  -v, --version               Show version information                  [boolean] [default: false]
-  -h, --help                  Show help                                  [boolean]
+### List Available Files
+```bash
+# List files without downloading
+./varvis-download.js -u <username> -p <password> -t <target> -a <analysisId> --list
 ```
 
----
+## Usage & Parameters
 
-## Diagrams
+### Required Parameters
 
-### Overview of the Functions
+| Parameter | Short | Description | Example |
+|-----------|-------|-------------|---------|
+| `--target` | `-t` | API target | `laborberlin`, `uni-leipzig` |
 
-```mermaid
-graph TD;
-    A[Main Function] --> B[AuthService.login]
-    B --> C[AuthService.getCsrfToken]
-    A --> D[fetchAnalysisIds]
-    A --> E[getDownloadLinks]
-    E --> F[fetch download links]
-    A --> G[downloadFile]
-    G --> H[fetch file data]
-    G --> I[write to file]
-    A --> J[generateReport]
+**At least one of the following is required:**
+- `--analysisIds` (`-a`): Analysis IDs (comma-separated)
+- `--sampleIds` (`-s`): Sample IDs to filter analyses (comma-separated)  
+- `--limsIds` (`-l`): LIMS IDs to filter analyses (comma-separated)
+
+### Authentication Options
+
+| Parameter | Short | Description | Note |
+|-----------|-------|-------------|------|
+| `--username` | `-u` | Varvis API username | Can use `VARVIS_USER` env var |
+| `--password` | `-p` | Varvis API password | Can use `VARVIS_PASSWORD` env var |
+| `--config` | `-c` | Path to configuration file | Default: `.config.json` |
+
+### File & Output Options
+
+| Parameter | Short | Default | Description |
+|-----------|-------|---------|-------------|
+| `--destination` | `-d` | `.` | Download destination folder |
+| `--filetypes` | `-f` | `bam,bam.bai` | File types to download (comma-separated) |
+| `--overwrite` | `-o` | `false` | Overwrite existing files |
+| `--list` | `-L` | `false` | List available files without downloading |
+
+### Filtering & Range Options
+
+| Parameter | Short | Description | Example |
+|-----------|-------|-------------|---------|
+| `--filter` | `-F` | Filter expressions | `"analysisType=SNV"` |
+| `--range` | `-g` | Genomic range | `"chr1:1-100000"` |
+| `--bed` | `-b` | BED file with regions | `regions.bed` |
+
+### Archive Management
+
+| Parameter | Short | Default | Description |
+|-----------|-------|---------|-------------|
+| `--restoreArchived` | `-ra` | `ask` | Archive mode: `ask`, `all`, `force`, `no` |
+| `--restorationFile` | `-rf` | `awaiting-restoration.json` | Restoration JSON file |
+| `--resumeArchivedDownloads` | `-rad` | `false` | Resume archived downloads |
+
+### Logging & Reports
+
+| Parameter | Short | Default | Description |
+|-----------|-------|---------|-------------|
+| `--loglevel` | `--ll` | `info` | Log level: `debug`, `info`, `warn`, `error` |
+| `--logfile` | `--lf` | - | Path to log file |
+| `--reportfile` | `-r` | - | Path to download report |
+
+### Proxy Configuration
+
+| Parameter | Short | Description |
+|-----------|-------|-------------|
+| `--proxy` | `-x` | Proxy URL |
+| `--proxyUsername` | `--pxu` | Proxy username |
+| `--proxyPassword` | `--pxp` | Proxy password |
+
+### Other Options
+
+| Parameter | Short | Description |
+|-----------|-------|-------------|
+| `--version` | `-v` | Show version information |
+| `--help` | `-h` | Show help message |
+
+## Authentication
+
+### Environment Variables (Recommended)
+```bash
+export VARVIS_USER="your_username"
+export VARVIS_PASSWORD="your_password"
+./varvis-download.js -t laborberlin -a 12345
 ```
 
-### Function Flow
-
-#### Main Function
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant CLI
-    participant AuthService
-    participant VarvisAPI
-
-    User->>CLI: Run script with arguments
-    CLI->>AuthService: login({username, password})
-    AuthService->>VarvisAPI: Fetch CSRF token
-    VarvisAPI-->>AuthService: Return CSRF token
-    AuthService->>VarvisAPI: POST login with credentials and CSRF token
-    VarvisAPI-->>AuthService: Return session token
-    AuthService-->>CLI: Return session token
-
-    CLI->>VarvisAPI: GET analysis IDs
-    VarvisAPI-->>CLI: Return analysis IDs
-
-    CLI->>VarvisAPI: GET download links
-    VarvisAPI-->>CLI: Return download links
-
-    CLI->>VarvisAPI: GET BAM file
-    VarvisAPI-->>CLI: Stream BAM file
-    CLI->>CLI: Save BAM file
-
-    CLI->>VarvisAPI: GET BAI file
-    VarvisAPI-->>CLI: Stream BAI file
-    CLI->>CLI: Save BAI file
-
-    CLI->>CLI: generateReport()
+### Configuration File
+Create `.config.json`:
+```json
+{
+  "username": "your_username",
+  "target": "laborberlin",
+  "destination": "./downloads",
+  "loglevel": "info"
+}
 ```
 
----
-
-## Detailed Function Documentation
-
-#### `AuthService` Class
-
-Handles authentication with the Varvis API.
-
-##### `async getCsrfToken()`
-
-Fetches the CSRF token required for login.
-
-- **Returns**: `Promise<string>` - The CSRF token.
-
-##### `async login(user, target)`
-
-Logs in to the Varvis API and retrieves the CSRF token.
-
-- **Parameters**:
-  - `user`: Object containing the username and password.
-    - `username`: The Varvis API username.
-    - `password`: The Varvis API password.
-  - `target`: The Varvis API target.
-- **Returns**: `Promise<Object>` - The login response containing the CSRF token.
-
-#### `async confirmOverwrite(file, rl, logger)`
-
-Prompts the user to confirm file overwrite if the file already exists.
-
-- **Parameters**:
-  - `file`: The file path.
-  - `rl`: Readline interface for user input.
-  - `logger`: Logger instance for logging.
-- **Returns**: `Promise<boolean>` - True if the user confirms overwrite, otherwise false.
-
-#### `async fetchWithRetry(url, options, retries = 3, logger)`
-
-Retries a fetch operation with a specified number of attempts.
-
-- **Parameters**:
-  - `url`: The URL to fetch.
-  - `options`: The fetch options.
-  - `retries`: The number of retry attempts.
-  - `logger`: Logger instance for logging.
-- **Returns**: `Promise<Response>` - The fetch response.
-
-#### `async fetchAnalysisIds(target, token, agent, sampleIds, limsIds, logger)`
-
-Fetches analysis IDs based on sample IDs or LIMS IDs.
-
-- **Parameters**:
-  - `target`: The Varvis API target.
-  - `token`: The CSRF token.
-  - `agent`: The HTTP agent.
-  - `sampleIds`: Array of sample IDs to filter analyses.
-  - `limsIds`: Array of LIMS IDs to filter analyses.
-  - `logger`: Logger instance for logging.
-- **Returns**: `Promise<string[]>` - An array of analysis IDs.
-
-#### `async getDownloadLinks(analysisId, filter, target, token, agent, logger)`
-
-Fetches the download links for specified file types from the Varvis API for a given analysis ID.
-
-- **Parameters**:
-  - `analysisId`: The analysis ID to get download links for.
-  - `filter`: An optional array of file types to filter by.
-  - `target`: The Varvis API target.
-  - `token`: The CSRF token.
-  - `agent`: The HTTP agent.
-  - `logger`: Logger instance for logging.
-  - `restoreArchived`: Restoration mode for archived files. Accepts `"no"`, `"ask"`, `"all"`, or `"force"`.
-  - `rl`: (Optional) Readline interface for user prompting.
-- **Returns**: `Promise<Object>` - An object containing the download links for the specified file types.
-
-#### `async listAvailableFiles(analysisId, target, token, agent, logger)`
-
-Lists available files for the specified analysis IDs.
-
-- **Parameters**:
-  - `analysisId`: The analysis ID to list files for.
-  - `target`: The Varvis API target.
-  - `token`: The CSRF token.
-  - `agent`: The HTTP agent.
-  - `logger`: Logger instance for logging.
-- **Returns**: `Promise<void>`
-
-#### `async downloadFile(url, outputPath, overwrite, agent, rl, logger, metrics)`
-
-Downloads a file from the given URL to the specified output path.
-
-- **Parameters**:
-  - `url`: The URL of the file to download.
-  - `outputPath`: The path where the file should be saved.
-  - `overwrite`: Boolean to indicate whether to overwrite existing files.
-  - `agent`: The HTTP agent.
-  - `rl`: Readline interface for user input.
-  - `logger`: Logger instance for logging.
-  - `metrics`: Object to store download metrics.
-- **Returns**: `Promise<void>`
-
-#### `function generateReport(reportfile, logger)`
-
-Generates a summary report of the download process.
-
-- **Parameters**:
-  - `reportfile`: Path to the report file.
-  - `logger`: Logger instance for logging.
-- **Returns**: `void`
-
----
-
-## Archive Behavior and Options
-
-The Varvis Download CLI now supports enhanced handling of archived BAM files through the following options:
-
-- **`--restoreArchived, -ra`**  
-  Controls how archived files are processed. Accepted values:
-
-  - **`no`**:  
-    _Skip restoration._  
-    The tool will log that the file is archived and will not attempt to restore it.
-  - **`ask`** (default):  
-    _Prompt for each archived file._  
-    The tool will prompt you to confirm restoration for each archived file encountered.
-  - **`all`**:  
-    _Prompt once for all archived files._  
-    At the beginning of the session, you are asked whether all archived files should be restored. Your decision is then applied to all archived files.
-  - **`force`**:  
-    _Automatically restore every archived file._  
-    The tool will automatically trigger restoration for all archived files without prompting.
-
-- **`--restorationFile, -rf`**  
-  Specifies the path and name for the JSON file used to store awaiting-restoration data (default: `"awaiting-restoration.json"`).
-
-- **`--resumeArchivedDownloads, -rad`**  
-  When set, the tool will process the restoration file and attempt to resume downloads for archived files whose restoration time (restoreEstimation) has passed. If this flag is set, the CLI will only process archived downloads from the restoration file and then exit.
-
----
-
-## CLI Arguments
-
-In addition to the parameters listed above, the tool supports the following CLI arguments:
-
-```
-  -c, --config                Path to the configuration file
-                              [string] [default: ".config.json"]
-  -u, --username              Varvis API username                       [string]
-  -p, --password              Varvis API password                       [string]
-  -t, --target                Target for the Varvis API                 [string]
-  -a, --analysisIds           Analysis IDs to download files for
-                              (comma-separated)                         [string]
-  -s, --sampleIds             Sample IDs to filter analyses (comma-separated)
-                                                                        [string]
-  -l, --limsIds               LIMS IDs to filter analyses (comma-separated)
-                                                                        [string]
-  -L, --list                  List available files for the specified analysis
-                              IDs                                      [boolean]
-  -d, --destination           Destination folder for the downloaded files
-                              [string] [default: "."]
-  -x, --proxy                 Proxy URL                                 [string]
-      --proxyUsername, --pxu  Proxy username                            [string]
-      --proxyPassword, --pxp  Proxy password                            [string]
-  -o, --overwrite             Overwrite existing files                 [boolean] [default: false]
-  -f, --filetypes             File types to download (comma-separated)
-                              [string] [default: "bam,bam.bai"]
-      --loglevel, --ll        Logging level (info, warn, error, debug)
-                              [string] [default: "info"]
-      --logfile, --lf         Path to the log file                      [string]
-  -r, --reportfile            Path to the report file                   [string]
-  -F, --filter                Filter expressions (e.g., "analysisType=SNV",
-                              "sampleId>LB24-0001")        [array] [default: []]
-  -g, --range                 Genomic range for ranged download (e.g.,
-                              chr1:1-100000)                            [string]
-  -b, --bed                   Path to BED file containing multiple regions
-                              [string]
-      --restoreArchived, --ra Restore archived files. Accepts "no", "ask" (default), "all", or "force".
-                              [string] [default: "ask"]
-      --restorationFile, --rf Path and name for the awaiting-restoration JSON file.
-                              [string] [default: "awaiting-restoration.json"]
-      --resumeArchivedDownloads, --rad
-                              Resume downloads for archived files from the awaiting-restoration
-                              JSON file if restoreEstimation has passed.
-                              [boolean] [default: false]
-  -v, --version               Show version information                  [boolean] [default: false]
-  -h, --help                  Show help                                  [boolean]
-```
-
----
-
-## Diagrams
-
-### Overview of the Functions
-
-```mermaid
-graph TD;
-    A[Main Function] --> B[AuthService.login]
-    B --> C[AuthService.getCsrfToken]
-    A --> D[fetchAnalysisIds]
-    A --> E[getDownloadLinks]
-    E --> F[fetch download links]
-    A --> G[downloadFile]
-    G --> H[fetch file data]
-    G --> I[write to file]
-    A --> J[generateReport]
-```
-
-### Function Flow
-
-#### Main Function
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant CLI
-    participant AuthService
-    participant VarvisAPI
-
-    User->>CLI: Run script with arguments
-    CLI->>AuthService: login({username, password})
-    AuthService->>VarvisAPI: Fetch CSRF token
-    VarvisAPI-->>AuthService: Return CSRF token
-    AuthService->>VarvisAPI: POST login with credentials and CSRF token
-    VarvisAPI-->>AuthService: Return session token
-    AuthService-->>CLI: Return session token
-
-    CLI->>VarvisAPI: GET analysis IDs
-    VarvisAPI-->>CLI: Return analysis IDs
-
-    CLI->>VarvisAPI: GET download links
-    VarvisAPI-->>CLI: Return download links
-
-    CLI->>VarvisAPI: GET BAM file
-    VarvisAPI-->>CLI: Stream BAM file
-    CLI->>CLI: Save BAM file
-
-    CLI->>VarvisAPI: GET BAI file
-    VarvisAPI-->>CLI: Stream BAI file
-    CLI->>CLI: Save BAI file
-
-    CLI->>CLI: generateReport()
-```
-
----
-
-## Detailed Function Documentation
-
-#### `AuthService` Class
-
-Handles authentication with the Varvis API.
-
-##### `async getCsrfToken()`
-
-Fetches the CSRF token required for login.
-
-- **Returns**: `Promise<string>` - The CSRF token.
-
-##### `async login(user, target)`
-
-Logs in to the Varvis API and retrieves the CSRF token.
-
-- **Parameters**:
-  - `user`: Object containing the username and password.
-    - `username`: The Varvis API username.
-    - `password`: The Varvis API password.
-  - `target`: The Varvis API target.
-- **Returns**: `Promise<Object>` - The login response containing the CSRF token.
-
-#### `async confirmOverwrite(file, rl, logger)`
-
-Prompts the user to confirm file overwrite if the file already exists.
-
-- **Parameters**:
-  - `file`: The file path.
-  - `rl`: Readline interface for user input.
-  - `logger`: Logger instance for logging.
-- **Returns**: `Promise<boolean>` - True if the user confirms overwrite, otherwise false.
-
-#### `async fetchWithRetry(url, options, retries = 3, logger)`
-
-Retries a fetch operation with a specified number of attempts.
-
-- **Parameters**:
-  - `url`: The URL to fetch.
-  - `options`: The fetch options.
-  - `retries`: The number of retry attempts.
-  - `logger`: Logger instance for logging.
-- **Returns**: `Promise<Response>` - The fetch response.
-
-#### `async fetchAnalysisIds(target, token, agent, sampleIds, limsIds, logger)`
-
-Fetches analysis IDs based on sample IDs or LIMS IDs.
-
-- **Parameters**:
-  - `target`: The Varvis API target.
-  - `token`: The CSRF token.
-  - `agent`: The HTTP agent.
-  - `sampleIds`: Array of sample IDs to filter analyses.
-  - `limsIds`: Array of LIMS IDs to filter analyses.
-  - `logger`: Logger instance for logging.
-- **Returns**: `Promise<string[]>` - An array of analysis IDs.
-
-#### `async getDownloadLinks(analysisId, filter, target, token, agent, logger)`
-
-Fetches the download links for specified file types from the Varvis API for a given analysis ID.
-
-- **Parameters**:
-  - `analysisId`: The analysis ID to get download links for.
-  - `filter`: An optional array of file types to filter by.
-  - `target`: The Varvis API target.
-  - `token`: The CSRF token.
-  - `agent`: The HTTP agent.
-  - `logger`: Logger instance for logging.
-  - `restoreArchived`: Restoration mode for archived files. Accepts:
-    - `"no"`: Skip restoration.
-    - `"ask"`: Prompt for each file (default).
-    - `"all"`: Ask once whether to restore all archived files.
-    - `"force"`: Automatically restore without prompting.
-  - `rl`: (Optional) Readline interface for prompting.
-- **Returns**: `Promise<Object>` - An object containing the download links for the specified file types.
-
-#### `async listAvailableFiles(analysisId, target, token, agent, logger)`
-
-Lists available files for the specified analysis IDs.
-
-- **Parameters**:
-  - `analysisId`: The analysis ID to list files for.
-  - `target`: The Varvis API target.
-  - `token`: The CSRF token.
-  - `agent`: The HTTP agent.
-  - `logger`: Logger instance for logging.
-- **Returns**: `Promise<void>`
-
-#### `async downloadFile(url, outputPath, overwrite, agent, rl, logger, metrics)`
-
-Downloads a file from the given URL to the specified output path.
-
-- **Parameters**:
-  - `url`: The URL of the file to download.
-  - `outputPath`: The path where the file should be saved.
-  - `overwrite`: Boolean to indicate whether to overwrite existing files.
-  - `agent`: The HTTP agent.
-  - `rl`: Readline interface for user input.
-  - `logger`: Logger instance for logging.
-  - `metrics`: Object to store download metrics.
-- **Returns**: `Promise<void>`
-
-#### `function generateReport(reportfile, logger)`
-
-Generates a summary report of the download process.
-
-- **Parameters**:
-  - `reportfile`: Path to the report file.
-  - `logger`: Logger instance for logging.
-- **Returns**: `void`
-
----
-
-## Development & Contribution
-
-### Code Linting
-
-We use [Prettier](https://prettier.io/) to ensure code consistency and readability. To format the code, run:
+### Interactive Password Prompt
+If no password is provided via environment variables or CLI arguments, the tool will prompt for it securely with hidden input.
+
+## Archive Management
+
+### Archive Restoration Modes
+
+| Mode | Behavior |
+|------|----------|
+| `ask` (default) | Prompt for each archived file |
+| `all` | Ask once, apply to all archived files |
+| `force` | Automatically restore all archived files |
+| `no` | Skip archived files entirely |
 
 ```bash
+# Examples
+./varvis-download.js -t laborberlin -a 12345 --restoreArchived force
+./varvis-download.js -t laborberlin -a 12345 --restoreArchived no
+```
+
+### Resume Archived Downloads
+
+```bash
+# Trigger restoration and save to custom file
+./varvis-download.js -t laborberlin -a 12345 --restoreArchived force --restorationFile my-restorations.json
+
+# Later, resume downloads when files are ready
+./varvis-download.js --resumeArchivedDownloads --restorationFile my-restorations.json
+```
+
+## Advanced Features
+
+### Filtering Examples
+```bash
+# Filter by analysis type
+./varvis-download.js -t laborberlin -a 12345 -F "analysisType=SNV"
+
+# Multiple filters
+./varvis-download.js -t laborberlin -s LB24-001 -F "analysisType=SNV" "sampleId>LB24-0001"
+```
+
+### Range Downloads
+```bash
+# Single genomic range
+./varvis-download.js -t laborberlin -a 12345 -g "chr1:1-100000"
+
+# Multiple ranges (space-separated)
+./varvis-download.js -t laborberlin -a 12345 -g "chr1:1-100000 chr2:1-100000"
+
+# BED file with complex regions
+./varvis-download.js -t laborberlin -a 12345 -b complex-regions.bed
+```
+
+### Batch Operations
+```bash
+# Download multiple file types with custom settings
+./varvis-download.js -t laborberlin \
+  -a "12345,67890,11111" \
+  -f "bam,bam.bai,vcf.gz,vcf.gz.tbi" \
+  -d "./batch-download" \
+  --overwrite \
+  --restoreArchived all
+```
+
+### Proxy Usage
+```bash
+# Basic proxy
+./varvis-download.js -t laborberlin -a 12345 -x "http://proxy.example.com:8080"
+
+# Proxy with authentication
+./varvis-download.js -t laborberlin -a 12345 -x "http://proxy.example.com:8080" --pxu proxy_user --pxp proxy_pass
+```
+
+## Development
+
+### Testing
+```bash
+# Run all tests
+npm test
+
+# Run tests with coverage
+npm test -- --coverage
+```
+
+### Code Formatting
+```bash
+# Format code with Prettier
 npx prettier --write .
 ```
 
-This command will automatically reformat your files according to our Prettier configuration.
-
 ### Version Management
+```bash
+# Semantic versioning
+npm version patch   # 0.17.1 -> 0.17.2
+npm version minor   # 0.17.1 -> 0.18.0
+npm version major   # 0.17.1 -> 1.0.0
+```
 
-We follow semantic versioning for releases. To bump the version, run one of the following commands:
+## API Reference
 
-- For a patch release:
-  ```bash
-  npm version patch
-  ```
-- For a minor release:
-  ```bash
-  npm version minor
-  ```
-- For a major release:
-  ```bash
-  npm version major
-  ```
+### Architecture Overview
 
-These commands update the version number in `package.json` and create a corresponding Git tag.
+```mermaid
+graph TD;
+    A[Main Function] --> B[AuthService.login]
+    B --> C[AuthService.getCsrfToken]
+    A --> D[fetchAnalysisIds]
+    A --> E[getDownloadLinks]
+    E --> F[Check Archive Status]
+    A --> G[downloadFile]
+    A --> H[generateReport]
+```
 
-### Contributing
+### Authentication Flow
 
-Contributions are welcome! If you have suggestions or improvements, please open an issue or submit a pull request. When contributing:
+```mermaid
+sequenceDiagram
+    participant User
+    participant CLI
+    participant AuthService
+    participant VarvisAPI
 
-- Ensure your code adheres to our linting guidelines.
-- Follow semantic versioning when making changes that affect the public API.
+    User->>CLI: Run with credentials
+    CLI->>AuthService: login({username, password})
+    AuthService->>VarvisAPI: Fetch CSRF token
+    VarvisAPI-->>AuthService: Return CSRF token
+    AuthService->>VarvisAPI: POST login with CSRF
+    VarvisAPI-->>AuthService: Return session token
+    AuthService-->>CLI: Authentication complete
+    
+    CLI->>VarvisAPI: Fetch analysis data
+    CLI->>VarvisAPI: Download files
+    CLI->>CLI: Generate report
+```
+
+### Core Functions
+
+#### `AuthService.login(user, target)`
+Authenticates with Varvis API using CSRF tokens.
+
+**Parameters:**
+- `user`: Object with username and password
+- `target`: Varvis API target (e.g., "laborberlin")
+
+**Returns:** Promise resolving to session token
+
+#### `fetchAnalysisIds(target, token, agent, sampleIds, limsIds, filters, logger)`
+Retrieves analysis IDs based on filtering criteria.
+
+#### `getDownloadLinks(analysisId, filter, target, token, agent, logger, restoreArchived, rl)`
+Fetches download links for files, handling archived file restoration.
+
+#### `downloadFile(url, outputPath, overwrite, agent, rl, logger, metrics)`
+Downloads a file with progress tracking and metrics collection.
 
 ---
 
-## Archive Behavior and Options
+## Contributing
 
-The Varvis Download CLI provides enhanced handling for archived BAM files through several new options:
+Contributions are welcome! Please:
 
-- **`--restoreArchived, -ra`**  
-  Controls how archived files are processed:
-  - **`no`**:  
-    _Skip restoration._  
-    Archived files are skipped, and a log message indicates that restoration was skipped.
-  - **`ask`** (default):  
-    _Prompt for each archived file._  
-    The tool prompts you for each archived file encountered.
-  - **`all`**:  
-    _Ask once for all archived files._  
-    The tool will ask you once at the beginning whether to restore all archived files. Your decision will be applied to all.
-  - **`force`**:  
-    _Automatically restore every archived file._  
-    The tool will automatically restore every archived file without prompting.
-- **`--restorationFile, -rf`**  
-  Specifies the location and name of the JSON file that stores awaiting-restoration data (default: `"awaiting-restoration.json"`).
+1. Ensure code follows our Prettier formatting guidelines
+2. Add tests for new functionality  
+3. Follow semantic versioning for API changes
+4. Update documentation for new features
 
-- **`--resumeArchivedDownloads, -rad`**  
-  When set to true, the CLI will process the restoration file and resume downloads for archived files whose restoration time (`restoreEstimation`) has passed. If this flag is enabled, the tool will exclusively resume archived downloads and then exit.
+## License
+
+GPL-3.0 - See LICENSE file for details.
