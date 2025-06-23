@@ -32,7 +32,6 @@ async function confirmRestore(file, rl, logger) {
   });
 }
 
-
 /**
  * Fetches analysis IDs based on sample IDs or LIMS IDs.
  * @param {string} target - The target for the Varvis API.
@@ -199,14 +198,21 @@ async function getDownloadLinks(
         // In all cases, skip adding this archived file to the download list.
         continue;
       }
-      const fileNameParts = file.fileName.split(".");
-      const fileType =
-        fileNameParts.length > 2
-          ? fileNameParts.slice(-2).join(".")
-          : fileNameParts.pop();
-      logger.debug(`Checking file type: ${fileType}`);
-      if (!filter || filter.includes(fileType)) {
+
+      // NEW, ROBUST LOGIC:
+      // If no filter is provided, add all files.
+      // Otherwise, check if the fileName ends with any of the specified file types.
+      if (!filter || filter.length === 0) {
         fileDict[file.fileName] = file;
+      } else {
+        // Find if the current file's name matches any of the requested filetypes
+        const matchedType = filter.find((ft) => file.fileName.endsWith(ft));
+        if (matchedType) {
+          logger.debug(
+            `File ${file.fileName} matches filter type: ${matchedType}`,
+          );
+          fileDict[file.fileName] = file;
+        }
       }
     }
 
@@ -225,17 +231,13 @@ async function getDownloadLinks(
 
     // Warn if requested file types are not available
     if (filter) {
-      const availableFileTypes = Object.keys(fileDict).map((fileName) => {
-        const parts = fileName.split(".");
-        return parts.length > 2 ? parts.slice(-2).join(".") : parts.pop();
-      });
-      logger.debug(`Available file types: ${availableFileTypes.join(", ")}`);
+      const availableFileNames = Object.keys(fileDict);
       const missingFileTypes = filter.filter(
-        (ft) => !availableFileTypes.includes(ft),
+        (ft) => !availableFileNames.some((name) => name.endsWith(ft)),
       );
       if (missingFileTypes.length > 0) {
         logger.warn(
-          `Warning: The following requested file types are not available for the analysis ${analysisId}: ${missingFileTypes.join(", ")}`,
+          `Warning: Files with the following extensions are not available for analysis ${analysisId}: ${missingFileTypes.join(", ")}`,
         );
       }
     }

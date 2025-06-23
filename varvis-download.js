@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 // Load environment variables from .env file
-require('dotenv').config();
+require("dotenv").config();
 
 const { CookieJar } = require("tough-cookie");
 const { CookieClient } = require("http-cookie-agent/undici");
@@ -37,7 +37,9 @@ const {
   checkToolAvailability,
   ensureIndexFile,
   rangedDownloadBAM,
+  rangedDownloadVCF,
   indexBAM,
+  indexVCF,
   generateOutputFileName,
 } = require("./js/rangedUtils");
 // Rename the imported function to avoid collision.
@@ -344,7 +346,7 @@ async function main() {
     // Interactive password prompt if password is not available
     let finalPassword = password;
     if (!finalPassword) {
-      const Mute = require('mute-stream');
+      const Mute = require("mute-stream");
       const mute = new Mute();
       mute.pipe(process.stdout);
       const rlWithMute = readline.createInterface({
@@ -352,20 +354,23 @@ async function main() {
         output: mute,
         terminal: true,
       });
-      
-      finalPassword = await new Promise(resolve => {
-        rlWithMute.question('Please enter your Varvis password: ', (input) => {
+
+      finalPassword = await new Promise((resolve) => {
+        rlWithMute.question("Please enter your Varvis password: ", (input) => {
           resolve(input);
           rlWithMute.close();
           mute.end();
           // Print a newline since muted input doesn't show one
-          process.stdout.write('\n');
+          process.stdout.write("\n");
         });
       });
     }
 
     logger.debug("Attempting to log in");
-    await authService.login({ username: userName, password: finalPassword }, target);
+    await authService.login(
+      { username: userName, password: finalPassword },
+      target,
+    );
     logger.debug("Login successful");
 
     // ***************** NEW CODE FOR -L FLAG *****************
@@ -473,12 +478,8 @@ async function main() {
       logger.info("No regions provided. Proceeding with full file download.");
     }
 
-    // Generate output file name using the function based on regions
-    const outputFile = path.join(
-      destination,
-      generateOutputFileName("download.bam", regions, logger),
-    );
-    logger.info(`Output file: ${outputFile}`);
+    // Output file generation will happen inside the loop based on actual file types
+    logger.info("Processing files for download...");
 
     // Fetch analysis IDs based on filters or sample IDs
     const ids =
@@ -511,27 +512,13 @@ async function main() {
       );
       logger.debug(`Fetched download links for analysis ID ${analysisId}`);
 
-      for (const [fileName, file] of Object.entries(fileDict)) {
+      // Filter for primary data files first (BAM, VCF.GZ)
+      const primaryFiles = Object.entries(fileDict).filter(
+        ([fname]) => fname.endsWith(".bam") || fname.endsWith(".vcf.gz"),
+      );
+
+      for (const [fileName, file] of primaryFiles) {
         const downloadLink = file.downloadLink;
-        const indexFileUrl = fileDict[`${fileName}.bai`]?.downloadLink;
-        const indexFilePath = path.join(destination, `${fileName}.bai`);
-
-        if (!indexFileUrl) {
-          logger.error(`Index file for BAM (${fileName}) not found.`);
-          continue;
-        }
-
-        // Ensure index file is downloaded
-        await ensureIndexFile(
-          downloadLink,
-          indexFileUrl,
-          indexFilePath,
-          agent,
-          rl,
-          logger,
-          metrics,
-          overwrite,
-        );
 
         // Generate the output file name for the current file
         const outputFile = path.join(
@@ -539,42 +526,133 @@ async function main() {
           generateOutputFileName(fileName, regions, logger),
         );
 
-        if (regions.length > 0) {
-          // Perform ranged download using the temporary BED file
-          try {
-            logger.info(`Performing ranged download for file: ${fileName}`);
-            await rangedDownloadBAM(
-              downloadLink,
-              tempBedPath,
-              outputFile,
-              indexFilePath,
-              logger,
-              overwrite,
-            );
-            await indexBAM(outputFile, logger, overwrite);
-          } catch (error) {
+        if (fileName.endsWith(".bam")) {
+          // BAM file processing
+          const indexFileUrl = fileDict[`${fileName}.bai`]?.downloadLink;
+          const indexFilePath = path.join(destination, `${fileName}.bai`);
+
+          if (!indexFileUrl) {
             logger.error(
-              `Error during ranged download for ${fileName}: ${error.message}`,
+              `Index file for BAM (${fileName}) not found. Skipping.`,
             );
+            continue;
           }
-        } else {
-          // Perform full download
-          try {
-            logger.info(`Performing full download for file: ${fileName}`);
-            await downloadFile(
-              downloadLink,
-              outputFile,
-              overwrite,
-              agent,
-              rl,
-              logger,
-              metrics,
-            );
-            await indexBAM(outputFile, logger, overwrite);
-          } catch (error) {
+
+          // Ensure index file is downloaded
+          await ensureIndexFile(
+            downloadLink,
+            indexFileUrl,
+            indexFilePath,
+            agent,
+            rl,
+            logger,
+            metrics,
+            overwrite,
+          );
+
+          if (regions.length > 0) {
+            // Perform ranged download using the temporary BED file
+            try {
+              logger.info(
+                `Performing ranged download for BAM file: ${fileName}`,
+              );
+              await rangedDownloadBAM(
+                downloadLink,
+                tempBedPath,
+                outputFile,
+                indexFilePath,
+                logger,
+                overwrite,
+              );
+              await indexBAM(outputFile, logger, overwrite);
+            } catch (error) {
+              logger.error(
+                `Error during ranged download for ${fileName}: ${error.message}`,
+              );
+            }
+          } else {
+            // Perform full download
+            try {
+              logger.info(`Performing full download for BAM file: ${fileName}`);
+              await downloadFile(
+                downloadLink,
+                outputFile,
+                overwrite,
+                agent,
+                rl,
+                logger,
+                metrics,
+              );
+              await indexBAM(outputFile, logger, overwrite);
+            } catch (error) {
+              logger.error(
+                `Error during full download for ${fileName}: ${error.message}`,
+              );
+            }
+          }
+        } else if (fileName.endsWith(".vcf.gz")) {
+          // VCF file processing
+          const indexFileUrl = fileDict[`${fileName}.tbi`]?.downloadLink;
+          const indexFilePath = path.join(destination, `${fileName}.tbi`);
+
+          if (!indexFileUrl) {
             logger.error(
-              `Error during full download for ${fileName}: ${error.message}`,
+              `Index file for VCF (${fileName}) not found. Skipping.`,
             );
+            continue;
+          }
+
+          // Ensure index file is downloaded
+          await ensureIndexFile(
+            downloadLink,
+            indexFileUrl,
+            indexFilePath,
+            agent,
+            rl,
+            logger,
+            metrics,
+            overwrite,
+          );
+
+          if (regions.length > 0) {
+            // Perform ranged download for VCF - use the first region for simplicity
+            try {
+              const range = regions[0]; // tabix uses region format directly
+              logger.info(
+                `Performing ranged download for VCF file: ${fileName} with range: ${range}`,
+              );
+              await rangedDownloadVCF(
+                downloadLink,
+                range,
+                outputFile,
+                logger,
+                overwrite,
+              );
+              await indexVCF(outputFile, logger, overwrite);
+            } catch (error) {
+              logger.error(
+                `Error during ranged download for ${fileName}: ${error.message}`,
+              );
+            }
+          } else {
+            // Perform full download
+            try {
+              logger.info(`Performing full download for VCF file: ${fileName}`);
+              await downloadFile(
+                downloadLink,
+                outputFile,
+                overwrite,
+                agent,
+                rl,
+                logger,
+                metrics,
+              );
+              await indexVCF(outputFile, logger, overwrite);
+            } catch (error) {
+              logger.error(
+                `Error during full download for ${fileName}: ${error.message}`,
+              );
+            }
           }
         }
       }

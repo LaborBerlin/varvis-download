@@ -19,10 +19,10 @@ const BGZIP_MIN_VERSION = "1.20";
 function spawnPromise(command, args, logger, captureOutput = false) {
   return new Promise((resolve, reject) => {
     const process = spawn(command, args);
-    let stdout = '';
-    let stderr = '';
-    
-    process.stdout.on('data', (data) => {
+    let stdout = "";
+    let stderr = "";
+
+    process.stdout.on("data", (data) => {
       const output = data.toString();
       if (captureOutput) {
         stdout += output;
@@ -30,13 +30,13 @@ function spawnPromise(command, args, logger, captureOutput = false) {
       logger.debug(`[${command}] stdout: ${output.trim()}`);
     });
 
-    process.stderr.on('data', (data) => {
+    process.stderr.on("data", (data) => {
       const output = data.toString();
       stderr += output;
       logger.debug(`[${command}] stderr: ${output.trim()}`);
     });
 
-    process.on('close', (code) => {
+    process.on("close", (code) => {
       if (code === 0) {
         resolve(captureOutput ? { stdout } : {});
       } else {
@@ -44,7 +44,7 @@ function spawnPromise(command, args, logger, captureOutput = false) {
       }
     });
 
-    process.on('error', (err) => {
+    process.on("error", (err) => {
       reject(err);
     });
   });
@@ -64,7 +64,7 @@ async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
     const commandParts = versionCommand.split(/\s+/);
     const command = commandParts[0];
     const args = commandParts.slice(1);
-    
+
     const { stdout } = await spawnPromise(command, args, logger, true);
     const parts = stdout.split(/\s+/);
     let toolVersion;
@@ -98,18 +98,18 @@ async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
 function compareVersions(version, minVersion) {
   const versionParts = version.split(".").map(Number);
   const minVersionParts = minVersion.split(".").map(Number);
-  
+
   // Pad arrays to same length with zeros
   const maxLength = Math.max(versionParts.length, minVersionParts.length);
   while (versionParts.length < maxLength) versionParts.push(0);
   while (minVersionParts.length < maxLength) minVersionParts.push(0);
-  
+
   // Compare each part from left to right
   for (let i = 0; i < maxLength; i++) {
     if (versionParts[i] > minVersionParts[i]) return true;
     if (versionParts[i] < minVersionParts[i]) return false;
   }
-  
+
   // All parts are equal
   return true;
 }
@@ -140,10 +140,21 @@ async function rangedDownloadBAM(
     }
 
     logger.debug(`Downloading BAM for regions in BED file: ${bedFile}`);
-    const args = ['view', '-b', '-X', url, indexFile, '-L', bedFile, '-M', '-o', outputFile];
-    logger.info(`Running command: samtools ${args.join(' ')}`);
+    const args = [
+      "view",
+      "-b",
+      "-X",
+      url,
+      indexFile,
+      "-L",
+      bedFile,
+      "-M",
+      "-o",
+      outputFile,
+    ];
+    logger.info(`Running command: samtools ${args.join(" ")}`);
 
-    await spawnPromise('samtools', args, logger);
+    await spawnPromise("samtools", args, logger);
     logger.info(`Downloaded BAM file for regions in BED file to ${outputFile}`);
   } catch (error) {
     logger.error(`Error performing ranged download for BAM: ${error.message}`);
@@ -175,17 +186,17 @@ async function rangedDownloadVCF(
     }
 
     const tempOutputFile = outputFile.replace(".gz", ""); // Temporary file for tabix output
-    
+
     // Use tabix to extract range and write to temp file
     logger.info(`Running command: tabix ${url} ${range}`);
-    const tabixResult = await spawnPromise('tabix', [url, range], logger, true);
+    const tabixResult = await spawnPromise("tabix", [url, range], logger, true);
     fs.writeFileSync(tempOutputFile, tabixResult.stdout);
     logger.info(`Downloaded VCF file range to ${tempOutputFile}`);
 
     // Compress with bgzip
-    const args = ['-c', tempOutputFile];
-    logger.info(`Running command to compress the VCF: bgzip ${args.join(' ')}`);
-    const bgzipResult = await spawnPromise('bgzip', args, logger, true);
+    const args = ["-c", tempOutputFile];
+    logger.info(`Running command to compress the VCF: bgzip ${args.join(" ")}`);
+    const bgzipResult = await spawnPromise("bgzip", args, logger, true);
     fs.writeFileSync(outputFile, bgzipResult.stdout);
     logger.info(`Compressed VCF to ${outputFile}`);
 
@@ -212,9 +223,9 @@ async function indexBAM(bamFile, logger, overwrite = false) {
   }
 
   try {
-    const args = ['index', bamFile];
+    const args = ["index", bamFile];
     logger.info(`Indexing BAM file: ${bamFile}`);
-    await spawnPromise('samtools', args, logger);
+    await spawnPromise("samtools", args, logger);
     logger.info(`Indexed BAM file: ${bamFile}`);
   } catch (error) {
     logger.error(`Error indexing BAM file: ${error.message}`);
@@ -237,9 +248,9 @@ async function indexVCF(vcfGzFile, logger, overwrite = false) {
   }
 
   try {
-    const args = ['-p', 'vcf', vcfGzFile];
+    const args = ["-p", "vcf", vcfGzFile];
     logger.info(`Indexing VCF.gz file: ${vcfGzFile}`);
-    await spawnPromise('tabix', args, logger);
+    await spawnPromise("tabix", args, logger);
     logger.info(`Indexed VCF.gz file: ${vcfGzFile}`);
   } catch (error) {
     logger.error(`Error indexing VCF.gz file: ${error.message}`);

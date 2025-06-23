@@ -26,7 +26,7 @@ class ApiClient {
       try {
         const response = await fetch(url, {
           ...options,
-          dispatcher: this.agent
+          dispatcher: this.agent,
         });
         if (!response.ok)
           throw new Error(`Fetch failed with status: ${response.status}`);
@@ -61,9 +61,9 @@ async function fetchWithRetry(url, options, retries = 3, logger) {
   // Extract agent from options if present
   const agent = options.dispatcher;
   if (!agent) {
-    throw new Error('Agent (dispatcher) is required for fetchWithRetry');
+    throw new Error("Agent (dispatcher) is required for fetchWithRetry");
   }
-  
+
   const client = new ApiClient(agent, logger);
   return client.fetchWithRetry(url, options, retries);
 }
@@ -71,5 +71,5 @@ async function fetchWithRetry(url, options, retries = 3, logger) {
 module.exports = {
   ApiClient,
   createApiClient,
-  fetchWithRetry
+  fetchWithRetry,
 };

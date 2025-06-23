@@ -1,13 +1,13 @@
-const AuthService = require('../../js/authService');
+const AuthService = require("../../js/authService");
 
 // Mock undici fetch
-jest.mock('undici', () => ({
-  fetch: jest.fn()
+jest.mock("undici", () => ({
+  fetch: jest.fn(),
 }));
 
-const { fetch } = require('undici');
+const { fetch } = require("undici");
 
-describe('AuthService Integration Tests', () => {
+describe("AuthService Integration Tests", () => {
   let authService;
   let mockLogger;
   let mockAgent;
@@ -18,7 +18,7 @@ describe('AuthService Integration Tests', () => {
       debug: jest.fn(),
       info: jest.fn(),
       error: jest.fn(),
-      warn: jest.fn()
+      warn: jest.fn(),
     };
 
     // Create mock agent
@@ -36,16 +36,16 @@ describe('AuthService Integration Tests', () => {
     jest.clearAllMocks();
   });
 
-  describe('getCsrfToken', () => {
-    test('should fetch CSRF token successfully', async () => {
-      const expectedToken = 'test-csrf-token-123';
-      const target = 'test';
+  describe("getCsrfToken", () => {
+    test("should fetch CSRF token successfully", async () => {
+      const expectedToken = "test-csrf-token-123";
+      const target = "test";
 
       // Mock the fetch response
       fetch.mockResolvedValue({
         headers: {
-          get: jest.fn().mockReturnValue(expectedToken)
-        }
+          get: jest.fn().mockReturnValue(expectedToken),
+        },
       });
 
       const token = await authService.getCsrfToken(target);
@@ -54,100 +54,106 @@ describe('AuthService Integration Tests', () => {
       expect(fetch).toHaveBeenCalledWith(
         `https://${target}.varvis.com/authenticate`,
         {
-          method: 'HEAD',
-          dispatcher: mockAgent
-        }
+          method: "HEAD",
+          dispatcher: mockAgent,
+        },
       );
       expect(mockLogger.debug).toHaveBeenCalledWith(
-        `Fetching CSRF token from https://${target}.varvis.com/authenticate`
+        `Fetching CSRF token from https://${target}.varvis.com/authenticate`,
       );
       expect(mockLogger.debug).toHaveBeenCalledWith(
-        `Received CSRF token: ${expectedToken}`
+        `Received CSRF token: ${expectedToken}`,
       );
     });
 
-    test('should handle errors when fetching CSRF token', async () => {
-      const target = 'test';
+    test("should handle errors when fetching CSRF token", async () => {
+      const target = "test";
 
       // Mock a failed request
-      fetch.mockRejectedValue(new Error('Network error'));
+      fetch.mockRejectedValue(new Error("Network error"));
 
-      await expect(authService.getCsrfToken(target)).rejects.toThrow('Network error');
+      await expect(authService.getCsrfToken(target)).rejects.toThrow(
+        "Network error",
+      );
       expect(mockLogger.error).toHaveBeenCalled();
     });
   });
 
-  describe('login', () => {
-    test('should login successfully and retrieve CSRF token', async () => {
-      const target = 'test';
+  describe("login", () => {
+    test("should login successfully and retrieve CSRF token", async () => {
+      const target = "test";
       const user = {
-        username: 'testuser',
-        password: 'testpass'
+        username: "testuser",
+        password: "testpass",
       };
-      const initialToken = 'initial-csrf-token';
-      const finalToken = 'final-csrf-token';
+      const initialToken = "initial-csrf-token";
+      const finalToken = "final-csrf-token";
 
       // Mock the sequence of fetch calls
       fetch
         .mockResolvedValueOnce({
-          headers: { get: jest.fn().mockReturnValue(initialToken) }
+          headers: { get: jest.fn().mockReturnValue(initialToken) },
         })
         .mockResolvedValueOnce({
-          status: 200
+          status: 200,
         })
         .mockResolvedValueOnce({
-          headers: { get: jest.fn().mockReturnValue(finalToken) }
+          headers: { get: jest.fn().mockReturnValue(finalToken) },
         });
 
       const result = await authService.login(user, target);
 
       expect(result.csrfToken).toBe(finalToken);
       expect(authService.token).toBe(finalToken);
-      expect(mockLogger.info).toHaveBeenCalledWith('Login successful');
+      expect(mockLogger.info).toHaveBeenCalledWith("Login successful");
       expect(fetch).toHaveBeenCalledTimes(3);
     });
 
-    test('should handle login failure', async () => {
-      const target = 'test';
+    test("should handle login failure", async () => {
+      const target = "test";
       const user = {
-        username: 'testuser',
-        password: 'wrongpass'
+        username: "testuser",
+        password: "wrongpass",
       };
-      const initialToken = 'initial-csrf-token';
+      const initialToken = "initial-csrf-token";
 
       // Mock initial CSRF token success, then login failure
       fetch
         .mockResolvedValueOnce({
-          headers: { get: jest.fn().mockReturnValue(initialToken) }
+          headers: { get: jest.fn().mockReturnValue(initialToken) },
         })
         .mockResolvedValueOnce({
-          status: 401
+          status: 401,
         });
 
-      await expect(authService.login(user, target)).rejects.toThrow('Login failed');
+      await expect(authService.login(user, target)).rejects.toThrow(
+        "Login failed",
+      );
       expect(mockLogger.error).toHaveBeenCalled();
     });
 
-    test('should handle network errors during login', async () => {
-      const target = 'test';
+    test("should handle network errors during login", async () => {
+      const target = "test";
       const user = {
-        username: 'testuser',
-        password: 'testpass'
+        username: "testuser",
+        password: "testpass",
       };
 
       // Mock initial CSRF token request that fails
-      fetch.mockRejectedValue(new Error('Connection refused'));
+      fetch.mockRejectedValue(new Error("Connection refused"));
 
-      await expect(authService.login(user, target)).rejects.toThrow('Connection refused');
+      await expect(authService.login(user, target)).rejects.toThrow(
+        "Connection refused",
+      );
       expect(mockLogger.error).toHaveBeenCalled();
     });
 
-    test('should handle missing CSRF token in response', async () => {
-      const target = 'test';
+    test("should handle missing CSRF token in response", async () => {
+      const target = "test";
 
       // Mock request without token header
       fetch.mockResolvedValue({
-        headers: { get: jest.fn().mockReturnValue(null) }
+        headers: { get: jest.fn().mockReturnValue(null) },
       });
 
       const result = await authService.getCsrfToken(target);
@@ -155,25 +161,25 @@ describe('AuthService Integration Tests', () => {
     });
   });
 
-  describe('Full authentication flow', () => {
-    test('should complete full authentication workflow', async () => {
-      const target = 'prod';
+  describe("Full authentication flow", () => {
+    test("should complete full authentication workflow", async () => {
+      const target = "prod";
       const user = {
-        username: 'realuser',
-        password: 'realpass'
+        username: "realuser",
+        password: "realpass",
       };
-      const tokens = ['token1', 'token2'];
+      const tokens = ["token1", "token2"];
 
       // Mock the complete flow
       fetch
         .mockResolvedValueOnce({
-          headers: { get: jest.fn().mockReturnValue(tokens[0]) }
+          headers: { get: jest.fn().mockReturnValue(tokens[0]) },
         })
         .mockResolvedValueOnce({
-          status: 200
+          status: 200,
         })
         .mockResolvedValueOnce({
-          headers: { get: jest.fn().mockReturnValue(tokens[1]) }
+          headers: { get: jest.fn().mockReturnValue(tokens[1]) },
         });
 
       const result = await authService.login(user, target);
