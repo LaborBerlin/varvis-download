@@ -305,15 +305,29 @@ async function ensureIndexFile(
 
 /**
  * Generates an output file name by appending the genomic range or "multiple-regions" if more than one range is provided.
+ * If no regions are provided, the original filename is returned. This applies to all file types (BAM, VCF, etc.).
  * @param {string} fileName - The original file name.
- * @param {string | string[]} regions - A string representing a single genomic range (e.g., 'chr1:1-100000') or an array of multiple regions.
+ * @param {string | string[]} regions - A string representing a single genomic range or an array of multiple regions.
  * @param {Object} logger - The logger instance.
- * @returns {string} - The new file name with the range or "multiple-regions" appended.
+ * @returns {string} - The new file name with the range appended, or the original file name.
  */
 function generateOutputFileName(fileName, regions, logger) {
   logger.debug(
-    `Generating output file name for file: ${fileName} with regions: ${regions}`,
+    `Generating output file name for file: ${fileName} with regions: ${JSON.stringify(regions)}`,
   );
+
+  // If no regions are provided, return the original filename. This covers full downloads for any file type.
+  // The check for regions[0] === '' handles the case where an empty string might be passed from argument parsing.
+  if (
+    !regions ||
+    regions.length === 0 ||
+    (regions.length === 1 && regions[0] === "")
+  ) {
+    logger.debug(
+      `No regions provided. Returning original filename: ${fileName}`,
+    );
+    return fileName;
+  }
 
   const extension = path.extname(fileName);
   const baseName = path.basename(fileName, extension);
@@ -322,6 +336,7 @@ function generateOutputFileName(fileName, regions, logger) {
   if (Array.isArray(regions) && regions.length > 1) {
     suffix = "multiple-regions";
   } else {
+    // This logic now only runs when regions has at least one valid element.
     const sanitizedRegion = regions.toString().replace(/[:\-]/g, "_"); // Replace colon and dash with underscores
     suffix = sanitizedRegion;
   }
