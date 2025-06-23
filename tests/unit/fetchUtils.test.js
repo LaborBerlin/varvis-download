@@ -1,12 +1,12 @@
-const { getDownloadLinks } = require("../../js/fetchUtils");
-const { fetchWithRetry } = require("../../js/apiClient");
-const { triggerRestoreArchivedFile } = require("../../js/archiveUtils");
+const { getDownloadLinks } = require('../../js/fetchUtils');
+const { fetchWithRetry } = require('../../js/apiClient');
+const { triggerRestoreArchivedFile } = require('../../js/archiveUtils');
 
 // Mock dependencies
-jest.mock("../../js/apiClient");
-jest.mock("../../js/archiveUtils");
+jest.mock('../../js/apiClient');
+jest.mock('../../js/archiveUtils');
 
-describe("fetchUtils", () => {
+describe('fetchUtils', () => {
   let mockLogger;
   let mockAgent;
 
@@ -25,10 +25,10 @@ describe("fetchUtils", () => {
     jest.clearAllMocks();
   });
 
-  describe("getDownloadLinks - file extension filtering", () => {
-    const mockAnalysisId = "12345";
-    const mockTarget = "test";
-    const mockToken = "csrf-token";
+  describe('getDownloadLinks - file extension filtering', () => {
+    const mockAnalysisId = '12345';
+    const mockTarget = 'test';
+    const mockToken = 'csrf-token';
 
     beforeEach(() => {
       // Mock successful API response with various file types
@@ -38,33 +38,33 @@ describe("fetchUtils", () => {
             response: {
               apiFileLinks: [
                 {
-                  fileName: "sample.bam",
-                  downloadLink: "https://example.com/sample.bam",
+                  fileName: 'sample.bam',
+                  downloadLink: 'https://example.com/sample.bam',
                   currentlyArchived: false,
                 },
                 {
-                  fileName: "sample.bam.bai",
-                  downloadLink: "https://example.com/sample.bam.bai",
+                  fileName: 'sample.bam.bai',
+                  downloadLink: 'https://example.com/sample.bam.bai',
                   currentlyArchived: false,
                 },
                 {
-                  fileName: "sample.vcf.gz",
-                  downloadLink: "https://example.com/sample.vcf.gz",
+                  fileName: 'sample.vcf.gz',
+                  downloadLink: 'https://example.com/sample.vcf.gz',
                   currentlyArchived: false,
                 },
                 {
-                  fileName: "sample.vcf.gz.tbi",
-                  downloadLink: "https://example.com/sample.vcf.gz.tbi",
+                  fileName: 'sample.vcf.gz.tbi',
+                  downloadLink: 'https://example.com/sample.vcf.gz.tbi',
                   currentlyArchived: false,
                 },
                 {
-                  fileName: "sample.fastq.gz",
-                  downloadLink: "https://example.com/sample.fastq.gz",
+                  fileName: 'sample.fastq.gz',
+                  downloadLink: 'https://example.com/sample.fastq.gz',
                   currentlyArchived: false,
                 },
                 {
-                  fileName: "report.pdf",
-                  downloadLink: "https://example.com/report.pdf",
+                  fileName: 'report.pdf',
+                  downloadLink: 'https://example.com/report.pdf',
                   currentlyArchived: false,
                 },
               ],
@@ -73,8 +73,8 @@ describe("fetchUtils", () => {
       });
     });
 
-    test("should correctly filter BAM files with compound extensions", async () => {
-      const filter = ["bam", "bam.bai"];
+    test('should correctly filter BAM files with compound extensions', async () => {
+      const filter = ['bam', 'bam.bai'];
 
       const result = await getDownloadLinks(
         mockAnalysisId,
@@ -83,17 +83,17 @@ describe("fetchUtils", () => {
         mockToken,
         mockAgent,
         mockLogger,
-        "no",
+        'no',
       );
 
       expect(Object.keys(result)).toHaveLength(2);
-      expect(result["sample.bam"]).toBeDefined();
-      expect(result["sample.bam.bai"]).toBeDefined();
-      expect(result["sample.vcf.gz"]).toBeUndefined();
+      expect(result['sample.bam']).toBeDefined();
+      expect(result['sample.bam.bai']).toBeDefined();
+      expect(result['sample.vcf.gz']).toBeUndefined();
     });
 
-    test("should correctly filter VCF files with compound extensions", async () => {
-      const filter = ["vcf.gz", "vcf.gz.tbi"];
+    test('should correctly filter VCF files with compound extensions', async () => {
+      const filter = ['vcf.gz', 'vcf.gz.tbi'];
 
       const result = await getDownloadLinks(
         mockAnalysisId,
@@ -102,17 +102,17 @@ describe("fetchUtils", () => {
         mockToken,
         mockAgent,
         mockLogger,
-        "no",
+        'no',
       );
 
       expect(Object.keys(result)).toHaveLength(2);
-      expect(result["sample.vcf.gz"]).toBeDefined();
-      expect(result["sample.vcf.gz.tbi"]).toBeDefined();
-      expect(result["sample.bam"]).toBeUndefined();
+      expect(result['sample.vcf.gz']).toBeDefined();
+      expect(result['sample.vcf.gz.tbi']).toBeDefined();
+      expect(result['sample.bam']).toBeUndefined();
     });
 
-    test("should correctly filter mixed file types", async () => {
-      const filter = ["bam", "vcf.gz", "pdf"];
+    test('should correctly filter mixed file types', async () => {
+      const filter = ['bam', 'vcf.gz', 'pdf'];
 
       const result = await getDownloadLinks(
         mockAnalysisId,
@@ -121,18 +121,18 @@ describe("fetchUtils", () => {
         mockToken,
         mockAgent,
         mockLogger,
-        "no",
+        'no',
       );
 
       expect(Object.keys(result)).toHaveLength(3);
-      expect(result["sample.bam"]).toBeDefined();
-      expect(result["sample.vcf.gz"]).toBeDefined();
-      expect(result["report.pdf"]).toBeDefined();
-      expect(result["sample.bam.bai"]).toBeUndefined();
-      expect(result["sample.vcf.gz.tbi"]).toBeUndefined();
+      expect(result['sample.bam']).toBeDefined();
+      expect(result['sample.vcf.gz']).toBeDefined();
+      expect(result['report.pdf']).toBeDefined();
+      expect(result['sample.bam.bai']).toBeUndefined();
+      expect(result['sample.vcf.gz.tbi']).toBeUndefined();
     });
 
-    test("should return all files when no filter is provided", async () => {
+    test('should return all files when no filter is provided', async () => {
       const result = await getDownloadLinks(
         mockAnalysisId,
         null,
@@ -140,19 +140,19 @@ describe("fetchUtils", () => {
         mockToken,
         mockAgent,
         mockLogger,
-        "no",
+        'no',
       );
 
       expect(Object.keys(result)).toHaveLength(6);
-      expect(result["sample.bam"]).toBeDefined();
-      expect(result["sample.bam.bai"]).toBeDefined();
-      expect(result["sample.vcf.gz"]).toBeDefined();
-      expect(result["sample.vcf.gz.tbi"]).toBeDefined();
-      expect(result["sample.fastq.gz"]).toBeDefined();
-      expect(result["report.pdf"]).toBeDefined();
+      expect(result['sample.bam']).toBeDefined();
+      expect(result['sample.bam.bai']).toBeDefined();
+      expect(result['sample.vcf.gz']).toBeDefined();
+      expect(result['sample.vcf.gz.tbi']).toBeDefined();
+      expect(result['sample.fastq.gz']).toBeDefined();
+      expect(result['report.pdf']).toBeDefined();
     });
 
-    test("should return all files when empty filter array is provided", async () => {
+    test('should return all files when empty filter array is provided', async () => {
       const result = await getDownloadLinks(
         mockAnalysisId,
         [],
@@ -160,14 +160,14 @@ describe("fetchUtils", () => {
         mockToken,
         mockAgent,
         mockLogger,
-        "no",
+        'no',
       );
 
       expect(Object.keys(result)).toHaveLength(6);
     });
 
-    test("should warn about missing file types using new logic", async () => {
-      const filter = ["vcf.gz.tbi", "missing.type"];
+    test('should warn about missing file types using new logic', async () => {
+      const filter = ['vcf.gz.tbi', 'missing.type'];
 
       const result = await getDownloadLinks(
         mockAnalysisId,
@@ -176,18 +176,18 @@ describe("fetchUtils", () => {
         mockToken,
         mockAgent,
         mockLogger,
-        "no",
+        'no',
       );
 
-      expect(result["sample.vcf.gz.tbi"]).toBeDefined();
+      expect(result['sample.vcf.gz.tbi']).toBeDefined();
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        "Warning: Files with the following extensions are not available for analysis 12345: missing.type",
+        'Warning: Files with the following extensions are not available for analysis 12345: missing.type',
       );
     });
 
-    test("should handle partial extension matches correctly", async () => {
+    test('should handle partial extension matches correctly', async () => {
       // Test that 'gz' matches all .gz files (this is the correct behavior)
-      const filter = ["gz"];
+      const filter = ['gz'];
 
       const result = await getDownloadLinks(
         mockAnalysisId,
@@ -196,16 +196,16 @@ describe("fetchUtils", () => {
         mockToken,
         mockAgent,
         mockLogger,
-        "no",
+        'no',
       );
 
       // Should match both sample.fastq.gz and sample.vcf.gz since both end with 'gz'
       expect(Object.keys(result)).toHaveLength(2);
-      expect(result["sample.fastq.gz"]).toBeDefined();
-      expect(result["sample.vcf.gz"]).toBeDefined();
+      expect(result['sample.fastq.gz']).toBeDefined();
+      expect(result['sample.vcf.gz']).toBeDefined();
     });
 
-    test("should handle case-sensitive extensions", async () => {
+    test('should handle case-sensitive extensions', async () => {
       // Add a file with different case
       fetchWithRetry.mockResolvedValue({
         json: () =>
@@ -213,13 +213,13 @@ describe("fetchUtils", () => {
             response: {
               apiFileLinks: [
                 {
-                  fileName: "sample.BAM",
-                  downloadLink: "https://example.com/sample.BAM",
+                  fileName: 'sample.BAM',
+                  downloadLink: 'https://example.com/sample.BAM',
                   currentlyArchived: false,
                 },
                 {
-                  fileName: "sample.bam",
-                  downloadLink: "https://example.com/sample.bam",
+                  fileName: 'sample.bam',
+                  downloadLink: 'https://example.com/sample.bam',
                   currentlyArchived: false,
                 },
               ],
@@ -227,7 +227,7 @@ describe("fetchUtils", () => {
           }),
       });
 
-      const filter = ["bam"];
+      const filter = ['bam'];
 
       const result = await getDownloadLinks(
         mockAnalysisId,
@@ -236,35 +236,35 @@ describe("fetchUtils", () => {
         mockToken,
         mockAgent,
         mockLogger,
-        "no",
+        'no',
       );
 
       // Should only match lowercase 'bam'
       expect(Object.keys(result)).toHaveLength(1);
-      expect(result["sample.bam"]).toBeDefined();
-      expect(result["sample.BAM"]).toBeUndefined();
+      expect(result['sample.bam']).toBeDefined();
+      expect(result['sample.BAM']).toBeUndefined();
     });
   });
 
-  describe("getDownloadLinks - archived file handling", () => {
-    const mockAnalysisId = "12345";
-    const mockTarget = "test";
-    const mockToken = "csrf-token";
+  describe('getDownloadLinks - archived file handling', () => {
+    const mockAnalysisId = '12345';
+    const mockTarget = 'test';
+    const mockToken = 'csrf-token';
 
-    test("should skip archived BAM files", async () => {
+    test('should skip archived BAM files', async () => {
       fetchWithRetry.mockResolvedValue({
         json: () =>
           Promise.resolve({
             response: {
               apiFileLinks: [
                 {
-                  fileName: "archived.bam",
-                  downloadLink: "https://example.com/archived.bam",
+                  fileName: 'archived.bam',
+                  downloadLink: 'https://example.com/archived.bam',
                   currentlyArchived: true,
                 },
                 {
-                  fileName: "available.bam",
-                  downloadLink: "https://example.com/available.bam",
+                  fileName: 'available.bam',
+                  downloadLink: 'https://example.com/available.bam',
                   currentlyArchived: false,
                 },
               ],
@@ -272,7 +272,7 @@ describe("fetchUtils", () => {
           }),
       });
 
-      const filter = ["bam"];
+      const filter = ['bam'];
 
       const result = await getDownloadLinks(
         mockAnalysisId,
@@ -281,14 +281,14 @@ describe("fetchUtils", () => {
         mockToken,
         mockAgent,
         mockLogger,
-        "no",
+        'no',
       );
 
       expect(Object.keys(result)).toHaveLength(1);
-      expect(result["available.bam"]).toBeDefined();
-      expect(result["archived.bam"]).toBeUndefined();
+      expect(result['available.bam']).toBeDefined();
+      expect(result['archived.bam']).toBeUndefined();
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        "File archived.bam for analysis 12345 is archived.",
+        'File archived.bam for analysis 12345 is archived.',
       );
     });
   });

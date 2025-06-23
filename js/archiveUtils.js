@@ -1,5 +1,5 @@
-const fs = require("fs");
-const path = require("path");
+const fs = require('fs');
+const path = require('path');
 
 /**
  * Triggers restoration for an archived analysis file using the internal restore endpoint.
@@ -19,26 +19,26 @@ async function triggerRestoreArchivedFile(
   token,
   agent,
   logger,
-  restorationFile = "awaiting-restoration.json",
+  restorationFile = 'awaiting-restoration.json',
 ) {
   try {
     logger.info(
       `Triggering restoration for archived file ${file.fileName} (analysis ID: ${analysisId})`,
     );
     const postData = new URLSearchParams();
-    postData.append("analysisIds", analysisId);
-    postData.append("disableArchive", "false");
+    postData.append('analysisIds', analysisId);
+    postData.append('disableArchive', 'false');
 
     // Use apiClient to avoid circular dependency.
-    const { fetchWithRetry } = require("./apiClient");
+    const { fetchWithRetry } = require('./apiClient');
 
     const response = await fetchWithRetry(
       `https://${target}.varvis.com/archive/analysis/restore`,
       {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "x-csrf-token": token,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'x-csrf-token': token,
         },
         body: postData,
         dispatcher: agent,
@@ -88,15 +88,15 @@ async function triggerRestoreArchivedFile(
 async function appendToAwaitingRestoration(
   restorationInfo,
   logger,
-  restorationFile = "awaiting-restoration.json",
+  restorationFile = 'awaiting-restoration.json',
 ) {
   let data = [];
   if (fs.existsSync(restorationFile)) {
     try {
-      data = JSON.parse(fs.readFileSync(restorationFile, "utf-8"));
+      data = JSON.parse(fs.readFileSync(restorationFile, 'utf-8'));
     } catch (error) {
       logger.error(
-        "Failed to parse awaiting-restoration file. Starting fresh.",
+        'Failed to parse awaiting-restoration file. Starting fresh.',
       );
     }
   }
@@ -155,7 +155,7 @@ async function resumeArchivedDownloads(
   }
   let data;
   try {
-    data = JSON.parse(fs.readFileSync(restorationFile, "utf-8"));
+    data = JSON.parse(fs.readFileSync(restorationFile, 'utf-8'));
   } catch (error) {
     logger.error(
       `Error reading restoration file ${restorationFile}: ${error.message}`,
@@ -163,18 +163,18 @@ async function resumeArchivedDownloads(
     return;
   }
   if (!Array.isArray(data) || data.length === 0) {
-    logger.info("Restoration file is empty. Nothing to resume.");
+    logger.info('Restoration file is empty. Nothing to resume.');
     return;
   }
   // Lazy-require necessary functions
-  const { getDownloadLinks } = require("./fetchUtils");
+  const { getDownloadLinks } = require('./fetchUtils');
   const {
     ensureIndexFile,
     generateOutputFileName,
     indexBAM,
-  } = require("./rangedUtils");
-  const { downloadFile } = require("./fileUtils");
-  const metrics = require("./fetchUtils").metrics;
+  } = require('./rangedUtils');
+  const { downloadFile } = require('./fileUtils');
+  const metrics = require('./fetchUtils').metrics;
 
   let updatedData = [];
   const now = new Date();
@@ -195,7 +195,7 @@ async function resumeArchivedDownloads(
             token,
             agent,
             logger,
-            "none",
+            'none',
             null,
           );
         } catch (e) {
@@ -243,7 +243,7 @@ async function resumeArchivedDownloads(
         }
         const outputFile = path.join(
           destination,
-          generateOutputFileName(entry.fileName, "", logger),
+          generateOutputFileName(entry.fileName, '', logger),
         );
         try {
           logger.info(

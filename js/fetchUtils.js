@@ -1,8 +1,8 @@
-const ProgressBar = require("progress");
-const fs = require("fs");
-const { applyFilters } = require("./filterUtils");
-const { triggerRestoreArchivedFile } = require("./archiveUtils");
-const { fetchWithRetry } = require("./apiClient");
+const ProgressBar = require('progress');
+const fs = require('fs');
+const { applyFilters } = require('./filterUtils');
+const { triggerRestoreArchivedFile } = require('./archiveUtils');
+const { fetchWithRetry } = require('./apiClient');
 
 const metrics = {
   startTime: Date.now(),
@@ -26,7 +26,7 @@ async function confirmRestore(file, rl, logger) {
     rl.question(
       `File ${file.fileName} is archived. Restore it? (y/n): `,
       (answer) => {
-        resolve(answer.toLowerCase() === "y");
+        resolve(answer.toLowerCase() === 'y');
       },
     );
   });
@@ -53,12 +53,12 @@ async function fetchAnalysisIds(
   logger,
 ) {
   try {
-    logger.debug("Fetching all analysis IDs");
+    logger.debug('Fetching all analysis IDs');
     const response = await fetchWithRetry(
       `https://${target}.varvis.com/api/analyses`,
       {
-        method: "GET",
-        headers: { "x-csrf-token": token },
+        method: 'GET',
+        headers: { 'x-csrf-token': token },
         dispatcher: agent,
       },
       3,
@@ -70,40 +70,40 @@ async function fetchAnalysisIds(
 
     // Filter out analyses of type "CNV"
     let filteredAnalyses = analyses.filter(
-      (analysis) => analysis.analysisType !== "CNV",
+      (analysis) => analysis.analysisType !== 'CNV',
     );
 
     if (sampleIds.length > 0) {
-      logger.debug(`Filtering analyses by sampleIds: ${sampleIds.join(", ")}`);
+      logger.debug(`Filtering analyses by sampleIds: ${sampleIds.join(', ')}`);
       filteredAnalyses = filteredAnalyses.filter((analysis) =>
         sampleIds.includes(analysis.sampleId),
       );
     }
 
     if (limsIds.length > 0) {
-      logger.debug(`Filtering analyses by limsIds: ${limsIds.join(", ")}`);
+      logger.debug(`Filtering analyses by limsIds: ${limsIds.join(', ')}`);
       filteredAnalyses = filteredAnalyses.filter((analysis) =>
         limsIds.includes(analysis.personLimsId),
       );
     }
 
     if (filters.length > 0) {
-      logger.debug(`Applying custom filters: ${filters.join(", ")}`);
+      logger.debug(`Applying custom filters: ${filters.join(', ')}`);
       filteredAnalyses = applyFilters(filteredAnalyses, filters);
     }
 
     const ids = filteredAnalyses.map((analysis) => analysis.id.toString());
 
     if (ids.length === 0) {
-      logger.info("No analysis IDs found after applying filters.");
+      logger.info('No analysis IDs found after applying filters.');
     } else {
       logger.info(`Found ${ids.length} analysis IDs after filtering.`);
-      logger.debug(`Filtered analysis IDs: ${ids.join(", ")}`);
+      logger.debug(`Filtered analysis IDs: ${ids.join(', ')}`);
     }
 
     return ids;
   } catch (error) {
-    logger.error("Error fetching analysis IDs:", error);
+    logger.error('Error fetching analysis IDs:', error);
     throw error;
   }
 }
@@ -132,7 +132,7 @@ async function getDownloadLinks(
   token,
   agent,
   logger,
-  restoreArchived = "ask",
+  restoreArchived = 'ask',
   rl,
 ) {
   try {
@@ -140,8 +140,8 @@ async function getDownloadLinks(
     const response = await fetchWithRetry(
       `https://${target}.varvis.com/api/analysis/${analysisId}/get-file-download-links`,
       {
-        method: "GET",
-        headers: { "x-csrf-token": token },
+        method: 'GET',
+        headers: { 'x-csrf-token': token },
         dispatcher: agent,
       },
       3,
@@ -153,25 +153,25 @@ async function getDownloadLinks(
     const fileDict = {};
     for (const file of apiFileLinks) {
       // If the file is a BAM and is archived, handle restoration logic.
-      if (file.fileName.endsWith(".bam") && file.currentlyArchived) {
+      if (file.fileName.endsWith('.bam') && file.currentlyArchived) {
         logger.warn(
           `File ${file.fileName} for analysis ${analysisId} is archived.`,
         );
         let shouldRestore = false;
-        if (restoreArchived === "no") {
+        if (restoreArchived === 'no') {
           logger.info(
             `Skipping restoration for archived file ${file.fileName} as per "no" option.`,
           );
-        } else if (restoreArchived === "force") {
+        } else if (restoreArchived === 'force') {
           shouldRestore = true;
           logger.info(
             `Force restoring archived file ${file.fileName} without prompting.`,
           );
-        } else if (restoreArchived === "all") {
-          if (typeof allDecisionForArchived === "undefined" && rl) {
+        } else if (restoreArchived === 'all') {
+          if (typeof allDecisionForArchived === 'undefined' && rl) {
             allDecisionForArchived = await new Promise((resolve) => {
-              rl.question("Restore all archived files? (y/n): ", (answer) => {
-                resolve(answer.toLowerCase() === "y");
+              rl.question('Restore all archived files? (y/n): ', (answer) => {
+                resolve(answer.toLowerCase() === 'y');
               });
             });
           }
@@ -181,7 +181,7 @@ async function getDownloadLinks(
               `Skipping restoration for archived file ${file.fileName} as per "all" option decision.`,
             );
           }
-        } else if (restoreArchived === "ask" && rl) {
+        } else if (restoreArchived === 'ask' && rl) {
           shouldRestore = await confirmRestore(file, rl, logger);
         }
 
@@ -225,7 +225,7 @@ async function getDownloadLinks(
     } else {
       logger.info(`Found ${totalFiles} files for analysis ID: ${analysisId}`);
       logger.debug(
-        `Filtered analysis IDs: ${Object.keys(fileDict).join(", ")}`,
+        `Filtered analysis IDs: ${Object.keys(fileDict).join(', ')}`,
       );
     }
 
@@ -237,7 +237,7 @@ async function getDownloadLinks(
       );
       if (missingFileTypes.length > 0) {
         logger.warn(
-          `Warning: Files with the following extensions are not available for analysis ${analysisId}: ${missingFileTypes.join(", ")}`,
+          `Warning: Files with the following extensions are not available for analysis ${analysisId}: ${missingFileTypes.join(', ')}`,
         );
       }
     }
@@ -271,7 +271,7 @@ async function listAvailableFiles(analysisId, target, token, agent, logger) {
       token,
       agent,
       logger,
-      "none",
+      'none',
       null,
     );
 

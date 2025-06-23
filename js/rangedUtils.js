@@ -1,12 +1,12 @@
-const { spawn } = require("child_process");
-const fs = require("fs");
-const path = require("path");
-const { downloadFile } = require("./fileUtils");
+const { spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const { downloadFile } = require('./fileUtils');
 
 // Define minimum required versions for external tools
-const SAMTOOLS_MIN_VERSION = "1.17";
-const TABIX_MIN_VERSION = "1.20";
-const BGZIP_MIN_VERSION = "1.20";
+const SAMTOOLS_MIN_VERSION = '1.17';
+const TABIX_MIN_VERSION = '1.20';
+const BGZIP_MIN_VERSION = '1.20';
 
 /**
  * Wraps spawn in a Promise to maintain async/await syntax.
@@ -14,15 +14,15 @@ const BGZIP_MIN_VERSION = "1.20";
  * @param {Array<string>} args - The command arguments.
  * @param {Object} logger - The logger instance.
  * @param {boolean} captureOutput - Whether to capture stdout for return value.
- * @returns {Promise<{stdout?: string}>} - Resolves when the process completes successfully.
+ * @returns {Promise<Object>} - Resolves with result object when the process completes successfully.
  */
 function spawnPromise(command, args, logger, captureOutput = false) {
   return new Promise((resolve, reject) => {
     const process = spawn(command, args);
-    let stdout = "";
-    let stderr = "";
+    let stdout = '';
+    let stderr = '';
 
-    process.stdout.on("data", (data) => {
+    process.stdout.on('data', (data) => {
       const output = data.toString();
       if (captureOutput) {
         stdout += output;
@@ -30,13 +30,13 @@ function spawnPromise(command, args, logger, captureOutput = false) {
       logger.debug(`[${command}] stdout: ${output.trim()}`);
     });
 
-    process.stderr.on("data", (data) => {
+    process.stderr.on('data', (data) => {
       const output = data.toString();
       stderr += output;
       logger.debug(`[${command}] stderr: ${output.trim()}`);
     });
 
-    process.on("close", (code) => {
+    process.on('close', (code) => {
       if (code === 0) {
         resolve(captureOutput ? { stdout } : {});
       } else {
@@ -44,7 +44,7 @@ function spawnPromise(command, args, logger, captureOutput = false) {
       }
     });
 
-    process.on("error", (err) => {
+    process.on('error', (err) => {
       reject(err);
     });
   });
@@ -69,7 +69,7 @@ async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
     const parts = stdout.split(/\s+/);
     let toolVersion;
     // For tabix and bgzip, the second word is in parentheses, so the version is the third element.
-    if (parts[1].startsWith("(")) {
+    if (parts[1].startsWith('(')) {
       toolVersion = parts[2].trim();
     } else {
       toolVersion = parts[1].trim();
@@ -96,8 +96,8 @@ async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
  * @returns {boolean} - True if the current version is >= the minimum version.
  */
 function compareVersions(version, minVersion) {
-  const versionParts = version.split(".").map(Number);
-  const minVersionParts = minVersion.split(".").map(Number);
+  const versionParts = version.split('.').map(Number);
+  const minVersionParts = minVersion.split('.').map(Number);
 
   // Pad arrays to same length with zeros
   const maxLength = Math.max(versionParts.length, minVersionParts.length);
@@ -141,20 +141,20 @@ async function rangedDownloadBAM(
 
     logger.debug(`Downloading BAM for regions in BED file: ${bedFile}`);
     const args = [
-      "view",
-      "-b",
-      "-X",
+      'view',
+      '-b',
+      '-X',
       url,
       indexFile,
-      "-L",
+      '-L',
       bedFile,
-      "-M",
-      "-o",
+      '-M',
+      '-o',
       outputFile,
     ];
-    logger.info(`Running command: samtools ${args.join(" ")}`);
+    logger.info(`Running command: samtools ${args.join(' ')}`);
 
-    await spawnPromise("samtools", args, logger);
+    await spawnPromise('samtools', args, logger);
     logger.info(`Downloaded BAM file for regions in BED file to ${outputFile}`);
   } catch (error) {
     logger.error(`Error performing ranged download for BAM: ${error.message}`);
@@ -185,18 +185,18 @@ async function rangedDownloadVCF(
       return;
     }
 
-    const tempOutputFile = outputFile.replace(".gz", ""); // Temporary file for tabix output
+    const tempOutputFile = outputFile.replace('.gz', ''); // Temporary file for tabix output
 
     // Use tabix to extract range and write to temp file
     logger.info(`Running command: tabix ${url} ${range}`);
-    const tabixResult = await spawnPromise("tabix", [url, range], logger, true);
+    const tabixResult = await spawnPromise('tabix', [url, range], logger, true);
     fs.writeFileSync(tempOutputFile, tabixResult.stdout);
     logger.info(`Downloaded VCF file range to ${tempOutputFile}`);
 
     // Compress with bgzip
-    const args = ["-c", tempOutputFile];
-    logger.info(`Running command to compress the VCF: bgzip ${args.join(" ")}`);
-    const bgzipResult = await spawnPromise("bgzip", args, logger, true);
+    const args = ['-c', tempOutputFile];
+    logger.info(`Running command to compress the VCF: bgzip ${args.join(' ')}`);
+    const bgzipResult = await spawnPromise('bgzip', args, logger, true);
     fs.writeFileSync(outputFile, bgzipResult.stdout);
     logger.info(`Compressed VCF to ${outputFile}`);
 
@@ -223,9 +223,9 @@ async function indexBAM(bamFile, logger, overwrite = false) {
   }
 
   try {
-    const args = ["index", bamFile];
+    const args = ['index', bamFile];
     logger.info(`Indexing BAM file: ${bamFile}`);
-    await spawnPromise("samtools", args, logger);
+    await spawnPromise('samtools', args, logger);
     logger.info(`Indexed BAM file: ${bamFile}`);
   } catch (error) {
     logger.error(`Error indexing BAM file: ${error.message}`);
@@ -248,9 +248,9 @@ async function indexVCF(vcfGzFile, logger, overwrite = false) {
   }
 
   try {
-    const args = ["-p", "vcf", vcfGzFile];
+    const args = ['-p', 'vcf', vcfGzFile];
     logger.info(`Indexing VCF.gz file: ${vcfGzFile}`);
-    await spawnPromise("tabix", args, logger);
+    await spawnPromise('tabix', args, logger);
     logger.info(`Indexed VCF.gz file: ${vcfGzFile}`);
   } catch (error) {
     logger.error(`Error indexing VCF.gz file: ${error.message}`);
@@ -321,7 +321,7 @@ function generateOutputFileName(fileName, regions, logger) {
   if (
     !regions ||
     regions.length === 0 ||
-    (regions.length === 1 && regions[0] === "")
+    (regions.length === 1 && regions[0] === '')
   ) {
     logger.debug(
       `No regions provided. Returning original filename: ${fileName}`,
@@ -334,10 +334,10 @@ function generateOutputFileName(fileName, regions, logger) {
 
   let suffix;
   if (Array.isArray(regions) && regions.length > 1) {
-    suffix = "multiple-regions";
+    suffix = 'multiple-regions';
   } else {
     // This logic now only runs when regions has at least one valid element.
-    const sanitizedRegion = regions.toString().replace(/[:\-]/g, "_"); // Replace colon and dash with underscores
+    const sanitizedRegion = regions.toString().replace(/[:\-]/g, '_'); // Replace colon and dash with underscores
     suffix = sanitizedRegion;
   }
 

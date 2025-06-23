@@ -1,5 +1,5 @@
-const fs = require("fs");
-const path = require("path");
+const fs = require('fs');
+const path = require('path');
 
 /**
  * Loads configuration from a specified file.
@@ -8,7 +8,7 @@ const path = require("path");
  */
 function loadConfig(configFilePath) {
   if (fs.existsSync(configFilePath)) {
-    return JSON.parse(fs.readFileSync(configFilePath, "utf-8"));
+    return JSON.parse(fs.readFileSync(configFilePath, 'utf-8'));
   }
   return {};
 }
@@ -18,11 +18,11 @@ function loadConfig(configFilePath) {
  * @returns {string} - The ASCII logo.
  */
 function loadLogo() {
-  const logoPath = path.resolve(__dirname, "../assets/logo.txt");
+  const logoPath = path.resolve(__dirname, '../assets/logo.txt');
   if (fs.existsSync(logoPath)) {
-    return fs.readFileSync(logoPath, "utf-8");
+    return fs.readFileSync(logoPath, 'utf-8');
   }
-  return "";
+  return '';
 }
 
 /**
@@ -32,7 +32,7 @@ function loadLogo() {
  */
 function getLastModifiedDate(filePath) {
   const stats = fs.statSync(filePath);
-  return stats.mtime.toISOString().split("T")[0];
+  return stats.mtime.toISOString().split('T')[0];
 }
 
 module.exports = {

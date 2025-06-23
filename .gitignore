@@ -30,6 +30,14 @@ pnpm-debug.log*
 *.vcf.gz.tbi
 *.bed.gz
 *.sam
+*.vcf
+*.vcf.gz
+*.bed
+*.bed.gz.tbi
+*.vcf.gz.tbi
+
+# download folder
+/downloads/
 
 # config files
 *.config.json
@@ -46,3 +54,8 @@ awaiting-restoration.json
 # claude files and folder
 .claude/
 CLAUDE.md
+
+# VitePress build files
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+docs/.vitepress/.temp/

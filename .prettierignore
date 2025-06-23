@@ -1,0 +1,13 @@
+# Ignore dependencies
+node_modules
+
+# Ignore package lock files
+package-lock.json
+yarn.lock
+
+# Ignore user-generated downloads and development data
+/download/
+/development/
+
+# Ignore logs if they are created
+*.log

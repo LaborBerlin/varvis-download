@@ -1,4 +1,4 @@
-const { fetch } = require("undici");
+const { fetch } = require('undici');
 
 /**
  * API Client class for handling HTTP requests with retry logic and agent management.
@@ -61,7 +61,7 @@ async function fetchWithRetry(url, options, retries = 3, logger) {
   // Extract agent from options if present
   const agent = options.dispatcher;
   if (!agent) {
-    throw new Error("Agent (dispatcher) is required for fetchWithRetry");
+    throw new Error('Agent (dispatcher) is required for fetchWithRetry');
   }
 
   const client = new ApiClient(agent, logger);

@@ -8,7 +8,16 @@
   },
   "main": "varvis-download.js",
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "format": "prettier --write .",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
+    "docs:generate": "node docs-generator.js",
+    "docs:api": "npm run docs:generate && npm run docs:build",
+    "prepare": "husky"
   },
   "keywords": [
     "api",
@@ -38,8 +47,21 @@
     "varvis-download": "./varvis-download.js"
   },
   "devDependencies": {
+    "documentation": "^14.0.3",
     "dotenv": "^16.5.0",
+    "eslint": "^9.29.0",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-prettier": "^5.5.0",
+    "husky": "^9.1.7",
     "jest": "^30.0.2",
-    "nock": "^14.0.5"
+    "jsdoc": "^4.0.4",
+    "jsdoc-to-markdown": "^9.1.1",
+    "lint-staged": "^16.1.2",
+    "nock": "^14.0.5",
+    "prettier": "^3.6.0",
+    "vitepress": "^1.6.3"
+  },
+  "lint-staged": {
+    "*.js": "eslint --fix"
   }
 }

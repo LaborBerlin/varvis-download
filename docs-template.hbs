@@ -1,0 +1,95 @@
+# {{module}} API Reference
+
+{{#if description}}
+{{description}}
+{{/if}}
+
+{{#functions}}
+## {{name}}
+
+{{#if description}}
+{{description}}
+{{/if}}
+
+{{#if params}}
+### Parameters
+
+| Name | Type | Description |
+|------|------|-------------|
+{{#each params}}
+| `{{name}}` | `{{type.names.[0]}}` | {{description}} |
+{{/each}}
+{{/if}}
+
+{{#if returns}}
+### Returns
+
+**Type:** `{{returns.[0].type.names.[0]}}`
+
+{{#if returns.[0].description}}
+{{returns.[0].description}}
+{{/if}}
+{{/if}}
+
+{{#if examples}}
+### Examples
+
+{{#each examples}}
+```javascript
+{{this}}
+```
+{{/each}}
+{{/if}}
+
+---
+
+{{/functions}}
+
+{{#classes}}
+## Class: {{name}}
+
+{{#if description}}
+{{description}}
+{{/if}}
+
+{{#if params}}
+### Constructor Parameters
+
+| Name | Type | Description |
+|------|------|-------------|
+{{#each params}}
+| `{{name}}` | `{{type.names.[0]}}` | {{description}} |
+{{/each}}
+{{/if}}
+
+{{#methods}}
+### {{name}}()
+
+{{#if description}}
+{{description}}
+{{/if}}
+
+{{#if params}}
+#### Parameters
+
+| Name | Type | Description |
+|------|------|-------------|
+{{#each params}}
+| `{{name}}` | `{{type.names.[0]}}` | {{description}} |
+{{/each}}
+{{/if}}
+
+{{#if returns}}
+#### Returns
+
+**Type:** `{{returns.[0].type.names.[0]}}`
+
+{{#if returns.[0].description}}
+{{returns.[0].description}}
+{{/if}}
+{{/if}}
+
+---
+
+{{/methods}}
+{{/classes}}

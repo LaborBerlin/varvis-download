@@ -1,6 +1,6 @@
-const fs = require("fs");
-const ProgressBar = require("progress");
-const { fetchWithRetry } = require("./apiClient");
+const fs = require('fs');
+const ProgressBar = require('progress');
+const { fetchWithRetry } = require('./apiClient');
 
 /**
  * Prompts the user to confirm file overwrite if the file already exists.
@@ -12,7 +12,7 @@ const { fetchWithRetry } = require("./apiClient");
 async function confirmOverwrite(file, rl, logger) {
   return new Promise((resolve) => {
     rl.question(`File ${file} already exists. Overwrite? (y/n): `, (answer) => {
-      resolve(answer.toLowerCase() === "y");
+      resolve(answer.toLowerCase() === 'y');
     });
   });
 }
@@ -49,7 +49,7 @@ async function downloadFile(
   const writer = fs.createWriteStream(outputPath);
   const response = await fetchWithRetry(
     url,
-    { method: "GET", dispatcher: agent },
+    { method: 'GET', dispatcher: agent },
     3,
     logger,
   );
@@ -58,12 +58,12 @@ async function downloadFile(
   let totalBytes = 0;
 
   // Get the total size of the file for progress reporting
-  const totalSize = parseInt(response.headers.get("content-length"), 10);
+  const totalSize = parseInt(response.headers.get('content-length'), 10);
   const progressBar = new ProgressBar(
-    "  downloading [:bar] :rate/bps :percent :etas",
+    '  downloading [:bar] :rate/bps :percent :etas',
     {
-      complete: "=",
-      incomplete: " ",
+      complete: '=',
+      incomplete: ' ',
       width: 20,
       total: totalSize,
     },
@@ -82,14 +82,14 @@ async function downloadFile(
     const speed = totalBytes / duration; // bytes per second
 
     await new Promise((resolve, reject) => {
-      writer.on("finish", () => {
+      writer.on('finish', () => {
         logger.info(`Successfully downloaded ${outputPath}`);
         metrics.totalFilesDownloaded += 1;
         metrics.totalBytesDownloaded += totalBytes;
         metrics.downloadSpeeds.push(speed);
         resolve();
       });
-      writer.on("error", (error) => {
+      writer.on('error', (error) => {
         logger.error(`Failed to download ${outputPath}: ${error.message}`);
         reject(error);
       });

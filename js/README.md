@@ -143,21 +143,21 @@ Each of these modules is used in the main script (`varvis-download.js`) to provi
 
 ```javascript
 // Example of importing and using a function from configUtils.js
-const { loadConfig } = require("./js/configUtils");
-const config = loadConfig("./config.json");
+const { loadConfig } = require('./js/configUtils');
+const config = loadConfig('./config.json');
 
 // Example of using the logger
-const logger = require("./js/logger")(argv);
-logger.info("This is an info message");
+const logger = require('./js/logger')(argv);
+logger.info('This is an info message');
 
 // Example of using AuthService for authentication
 const authService = new AuthService(logger, agent);
 authService
   .login({ username, password }, target)
   .then(() => {
-    logger.info("Login successful");
+    logger.info('Login successful');
   })
   .catch((err) => {
-    logger.error("Login failed", err);
+    logger.error('Login failed', err);
   });
 ```

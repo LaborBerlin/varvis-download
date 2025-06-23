@@ -30,13 +30,13 @@ function applyFilter(analyses, filter) {
   return analyses.filter((analysis) => {
     const analysisValue = analysis[field];
     switch (operator) {
-      case "=":
+      case '=':
         return analysisValue == value;
-      case "!=":
+      case '!=':
         return analysisValue != value;
-      case ">":
+      case '>':
         return analysisValue > value;
-      case "<":
+      case '<':
         return analysisValue < value;
       default:
         throw new Error(`Unsupported operator: ${operator}`);
