@@ -1,4 +1,3 @@
-const ProgressBar = require('progress');
 const fs = require('fs');
 const { applyFilters } = require('./filterUtils');
 const { triggerRestoreArchivedFile } = require('./archiveUtils');
@@ -21,7 +20,7 @@ let allDecisionForArchived;
  * @param {Object} logger - The logger instance.
  * @returns {Promise<boolean>} - Resolves to true if the user confirms, otherwise false.
  */
-async function confirmRestore(file, rl, logger) {
+async function confirmRestore(file, rl, _logger) {
   return new Promise((resolve) => {
     rl.question(
       `File ${file.fileName} is archived. Restore it? (y/n): `,
@@ -123,6 +122,8 @@ async function fetchAnalysisIds(
  *     - "all": ask once for all files,
  *     - "force": restore automatically.
  * @param {Object} [rl] - The readline interface instance for prompting.
+ * @param {string} [restorationFile] - Path to the restoration file.
+ * @param {Object} [options] - Options object for restoration context.
  * @returns {Promise<Object>} - An object containing the download links for the specified file types.
  */
 async function getDownloadLinks(
@@ -134,6 +135,8 @@ async function getDownloadLinks(
   logger,
   restoreArchived = 'ask',
   rl,
+  restorationFile,
+  options,
 ) {
   try {
     logger.debug(`Fetching download links for analysis ID: ${analysisId}`);
@@ -193,6 +196,8 @@ async function getDownloadLinks(
             token,
             agent,
             logger,
+            restorationFile,
+            options,
           );
         }
         // In all cases, skip adding this archived file to the download list.
@@ -274,8 +279,6 @@ async function listAvailableFiles(analysisId, target, token, agent, logger) {
       'none',
       null,
     );
-
-    const totalFiles = Object.keys(fileDict).length;
     for (const fileName of Object.keys(fileDict)) {
       logger.info(`- ${fileName}`);
     }

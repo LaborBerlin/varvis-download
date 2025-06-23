@@ -280,7 +280,6 @@ const reportfile = finalConfig.reportfile;
 const filters = finalConfig.filters;
 const restoreArchived = finalConfig.restoreArchived;
 const restorationFile = finalConfig.restorationFile;
-const resumeArchivedDownloads = finalConfig.resumeArchivedDownloads;
 
 // Setup HTTP agent for proxy and cookie handling
 const jar = new CookieJar();
@@ -496,9 +495,18 @@ async function main() {
           );
     logger.info(`Fetched analysis IDs: ${ids}`);
 
+    // Create options object for restoration context
+    const optionsForRestoration = {
+      destination: finalConfig.destination,
+      overwrite: finalConfig.overwrite,
+      range: finalConfig.range,
+      bed: finalConfig.bed,
+      restorationFile: finalConfig.restorationFile,
+    };
+
     for (const analysisId of ids) {
       logger.info(`Processing analysis ID: ${analysisId}`);
-      // Pass the restoreArchived flag, rl, and restorationFile to getDownloadLinks
+      // Pass the restoreArchived flag, rl, restorationFile, and options to getDownloadLinks
       const fileDict = await getDownloadLinks(
         analysisId,
         filetypes,
@@ -509,6 +517,7 @@ async function main() {
         restoreArchived,
         rl,
         restorationFile,
+        optionsForRestoration,
       );
       logger.debug(`Fetched download links for analysis ID ${analysisId}`);
 
