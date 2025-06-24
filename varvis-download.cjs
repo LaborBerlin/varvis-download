@@ -211,7 +211,16 @@ const config = loadConfig(configFilePath);
 const finalConfig = {
   ...config,
   ...argv,
-  filetypes: argv.filetypes || config.filetypes || ['bam', 'bam.bai'],
+  filetypes: (() => {
+    const rawFiletypes = argv.filetypes ||
+      config.filetypes || ['bam', 'bam.bai'];
+    // Handle comma-separated strings in array elements
+    return rawFiletypes.flatMap((ft) =>
+      typeof ft === 'string' && ft.includes(',')
+        ? ft.split(',').map((s) => s.trim())
+        : ft,
+    );
+  })(),
   analysisIds: (argv.analysisIds || config.analysisIds || []).filter(Boolean),
   sampleIds: (argv.sampleIds || config.sampleIds || []).filter(Boolean),
   limsIds: (argv.limsIds || config.limsIds || []).filter(Boolean),
@@ -526,26 +535,27 @@ async function main() {
           const indexFileUrl = fileDict[`${fileName}.bai`]?.downloadLink;
           const indexFilePath = path.join(destination, `${fileName}.bai`);
 
-          if (!indexFileUrl) {
-            logger.error(
-              `Index file for BAM (${fileName}) not found. Skipping.`,
-            );
-            continue;
-          }
-
-          // Ensure index file is downloaded
-          await ensureIndexFile(
-            downloadLink,
-            indexFileUrl,
-            indexFilePath,
-            agent,
-            rl,
-            logger,
-            metrics,
-            overwrite,
-          );
-
           if (regions.length > 0) {
+            // For ranged downloads, index file is required
+            if (!indexFileUrl) {
+              logger.error(
+                `Index file for BAM (${fileName}) not found. Ranged download requires .bai index. Skipping ranged download.`,
+              );
+              continue;
+            }
+
+            // Ensure index file is downloaded for ranged access
+            await ensureIndexFile(
+              downloadLink,
+              indexFileUrl,
+              indexFilePath,
+              agent,
+              rl,
+              logger,
+              metrics,
+              overwrite,
+            );
+
             // Perform ranged download using the temporary BED file
             try {
               logger.info(
@@ -566,7 +576,7 @@ async function main() {
               );
             }
           } else {
-            // Perform full download
+            // Perform full download - index file is optional
             try {
               logger.info(`Performing full download for BAM file: ${fileName}`);
               await downloadFile(
@@ -578,6 +588,32 @@ async function main() {
                 logger,
                 metrics,
               );
+
+              // Download index file if available (optional for full downloads)
+              if (indexFileUrl) {
+                logger.info(`Downloading optional index file: ${fileName}.bai`);
+                try {
+                  await downloadFile(
+                    indexFileUrl,
+                    indexFilePath,
+                    overwrite,
+                    agent,
+                    rl,
+                    logger,
+                    metrics,
+                  );
+                } catch (indexError) {
+                  logger.warn(
+                    `Failed to download index file ${fileName}.bai: ${indexError.message}`,
+                  );
+                }
+              } else {
+                logger.info(
+                  `Index file for ${fileName} not available, skipping index download.`,
+                );
+              }
+
+              // Generate new index if needed
               await indexBAM(outputFile, logger, overwrite);
             } catch (error) {
               logger.error(
@@ -590,26 +626,27 @@ async function main() {
           const indexFileUrl = fileDict[`${fileName}.tbi`]?.downloadLink;
           const indexFilePath = path.join(destination, `${fileName}.tbi`);
 
-          if (!indexFileUrl) {
-            logger.error(
-              `Index file for VCF (${fileName}) not found. Skipping.`,
-            );
-            continue;
-          }
-
-          // Ensure index file is downloaded
-          await ensureIndexFile(
-            downloadLink,
-            indexFileUrl,
-            indexFilePath,
-            agent,
-            rl,
-            logger,
-            metrics,
-            overwrite,
-          );
-
           if (regions.length > 0) {
+            // For ranged downloads, index file is required
+            if (!indexFileUrl) {
+              logger.error(
+                `Index file for VCF (${fileName}) not found. Ranged download requires .tbi index. Skipping ranged download.`,
+              );
+              continue;
+            }
+
+            // Ensure index file is downloaded for ranged access
+            await ensureIndexFile(
+              downloadLink,
+              indexFileUrl,
+              indexFilePath,
+              agent,
+              rl,
+              logger,
+              metrics,
+              overwrite,
+            );
+
             // Perform ranged download for VCF - use the first region for simplicity
             try {
               const range = regions[0]; // tabix uses region format directly
@@ -630,7 +667,7 @@ async function main() {
               );
             }
           } else {
-            // Perform full download
+            // Perform full download - index file is optional
             try {
               logger.info(`Performing full download for VCF file: ${fileName}`);
               await downloadFile(
@@ -642,6 +679,32 @@ async function main() {
                 logger,
                 metrics,
               );
+
+              // Download index file if available (optional for full downloads)
+              if (indexFileUrl) {
+                logger.info(`Downloading optional index file: ${fileName}.tbi`);
+                try {
+                  await downloadFile(
+                    indexFileUrl,
+                    indexFilePath,
+                    overwrite,
+                    agent,
+                    rl,
+                    logger,
+                    metrics,
+                  );
+                } catch (indexError) {
+                  logger.warn(
+                    `Failed to download index file ${fileName}.tbi: ${indexError.message}`,
+                  );
+                }
+              } else {
+                logger.info(
+                  `Index file for ${fileName} not available, skipping index download.`,
+                );
+              }
+
+              // Generate new index if needed
               await indexVCF(outputFile, logger, overwrite);
             } catch (error) {
               logger.error(
