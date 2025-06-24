@@ -75,17 +75,17 @@ const argv = yargs
   .option('analysisIds', {
     alias: 'a',
     describe: 'Analysis IDs to download files for (comma-separated)',
-    type: 'string',
+    type: 'array',
   })
   .option('sampleIds', {
     alias: 's',
     describe: 'Sample IDs to filter analyses (comma-separated)',
-    type: 'string',
+    type: 'array',
   })
   .option('limsIds', {
     alias: 'l',
     describe: 'LIMS IDs to filter analyses (comma-separated)',
-    type: 'string',
+    type: 'array',
   })
   .option('list', {
     alias: 'L',
@@ -122,8 +122,8 @@ const argv = yargs
   .option('filetypes', {
     alias: 'f',
     describe: 'File types to download (comma-separated)',
-    type: 'string',
-    default: 'bam,bam.bai',
+    type: 'array',
+    default: ['bam', 'bam.bai'],
   })
   .option('loglevel', {
     alias: 'll',
@@ -211,24 +211,10 @@ const config = loadConfig(configFilePath);
 const finalConfig = {
   ...config,
   ...argv,
-  filetypes: (argv.filetypes || config.filetypes || 'bam,bam.bai')
-    .split(',')
-    .map((ft) => ft.trim()),
-  analysisIds: (argv.analysisIds || config.analysisIds || '')
-    .split(',')
-    .map((id) => id.trim())
-    .filter((id) => id),
-  sampleIds: (argv.sampleIds || config.sampleIds || '')
-    .split(',')
-    .map((id) => id.trim())
-    .filter((id) => id),
-  limsIds: (typeof argv.limsIds === 'string'
-    ? argv.limsIds
-    : config.limsIds || ''
-  )
-    .split(',')
-    .map((id) => id.trim())
-    .filter((id) => id),
+  filetypes: argv.filetypes || config.filetypes || ['bam', 'bam.bai'],
+  analysisIds: (argv.analysisIds || config.analysisIds || []).filter(Boolean),
+  sampleIds: (argv.sampleIds || config.sampleIds || []).filter(Boolean),
+  limsIds: (argv.limsIds || config.limsIds || []).filter(Boolean),
   filters: (argv.filter || config.filter || []).map((filter) => filter.trim()),
   destination:
     argv.destination !== '.' ? argv.destination : config.destination || '.',

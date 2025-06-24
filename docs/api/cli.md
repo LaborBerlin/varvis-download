@@ -1,218 +1,90 @@
-# CLI Commands
+# CLI Reference
 
-Complete command-line reference for Varvis Download CLI.
+This document provides a comprehensive reference for all command-line options available in the Varvis Download CLI.
 
-## Synopsis
+## Usage
 
 ```bash
-varvis-download [OPTIONS] COMMAND [ARGS...]
+varvis-download [options]
 ```
 
-## Global Options
+## Options
 
-### Required Parameters
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--config, c` | `string` | `.config.json` | Path to the configuration file |
+| `--username, u` | `string` | - | Varvis API username |
+| `--password, p` | `string` | - | Varvis API password |
+| `--target, t` | `string` | - | Target for the Varvis API |
+| `--analysisIds, a` | `string` | - | Analysis IDs to download files for (comma-separated) |
+| `--sampleIds, s` | `string` | - | Sample IDs to filter analyses (comma-separated) |
+| `--limsIds, l` | `string` | - | LIMS IDs to filter analyses (comma-separated) |
+| `--list, L` | `boolean` | `false` | List available files for the specified analysis IDs |
+| `--destination, d` | `string` | `.` | Destination folder for the downloaded files |
+| `--proxy, x` | `string` | - | Proxy URL |
+| `--proxyUsername, pxu` | `string` | - | Proxy username |
+| `--proxyPassword, pxp` | `string` | - | Proxy password |
+| `--overwrite, o` | `boolean` | `false` | Overwrite existing files |
+| `--filetypes, f` | `string` | `bam,bam.bai` | File types to download (comma-separated) |
+| `--loglevel, ll` | `string` | `info` | Logging level (info, warn, error, debug) |
+| `--logfile, lf` | `string` | - | Path to the log file |
+| `--reportfile, r` | `string` | - | Path to the report file |
+| `--filter, F` | `array` | `[]` | Filter expressions (e.g., "analysisType=SNV", "sampleId>LB24-0001") |
+| `--range, g` | `string` | - | Genomic range for ranged download (e.g., chr1:1-100000) |
+| `--bed, b` | `string` | - | Path to BED file containing multiple regions |
+| `--restoreArchived, ra` | `string` | `ask` | Restore archived files. Accepts "no", "ask" (default), "all", or "force". |
+| `--restorationFile, rf` | `string` | `awaiting-restoration.json` | Path and name for the awaiting-restoration JSON file |
+| `--resumeArchivedDownloads, rad` | `boolean` | `false` | Resume downloads for archived files from the awaiting-restoration JSON file if restoreEstimation has passed. |
+| `--version, v` | `boolean` | `false` | Show version information |
+| `--help, h` | `boolean` | `false` | Show help |
 
-| Option     | Short | Description         | Example       |
-| ---------- | ----- | ------------------- | ------------- |
-| `--target` | `-t`  | API target instance | `laborberlin` |
+## Examples
 
-**At least one of the following is required:**
-
-| Option          | Short | Description                    | Example             |
-| --------------- | ----- | ------------------------------ | ------------------- |
-| `--analysisIds` | `-a`  | Analysis IDs (comma-separated) | `12345,67890`       |
-| `--sampleIds`   | `-s`  | Sample IDs for filtering       | `LB24-001,LB24-002` |
-| `--limsIds`     | `-l`  | LIMS IDs for filtering         | `LIMS_123,LIMS_456` |
-
-### Authentication Options
-
-| Option       | Short | Environment Variable | Description             |
-| ------------ | ----- | -------------------- | ----------------------- |
-| `--username` | `-u`  | `VARVIS_USER`        | Varvis API username     |
-| `--password` | `-p`  | `VARVIS_PASSWORD`    | Varvis API password     |
-| `--config`   | `-c`  | -                    | Configuration file path |
-
-### File & Output Options
-
-| Option          | Short | Default       | Description                    |
-| --------------- | ----- | ------------- | ------------------------------ |
-| `--destination` | `-d`  | `.`           | Download destination folder    |
-| `--filetypes`   | `-f`  | `bam,bam.bai` | File types (comma-separated)   |
-| `--overwrite`   | `-o`  | `false`       | Overwrite existing files       |
-| `--list`        | `-L`  | `false`       | List files without downloading |
-
-### Filtering & Range Options
-
-| Option     | Short | Description           | Example              |
-| ---------- | ----- | --------------------- | -------------------- |
-| `--filter` | `-F`  | Filter expressions    | `"analysisType=SNV"` |
-| `--range`  | `-g`  | Genomic range         | `"chr1:1-100000"`    |
-| `--bed`    | `-b`  | BED file with regions | `regions.bed`        |
-
-### Archive Management
-
-| Option                      | Short  | Default                     | Description               |
-| --------------------------- | ------ | --------------------------- | ------------------------- | --- | ----- | --- |
-| `--restoreArchived`         | `-ra`  | `ask`                       | Archive mode: `ask        | all | force | no` |
-| `--restorationFile`         | `-rf`  | `awaiting-restoration.json` | Restoration tracking file |
-| `--resumeArchivedDownloads` | `-rad` | `false`                     | Resume archived downloads |
-
-### Logging & Reports
-
-| Option         | Short  | Default | Description             |
-| -------------- | ------ | ------- | ----------------------- | ---- | ---- | ------ |
-| `--loglevel`   | `--ll` | `info`  | Log level: `debug       | info | warn | error` |
-| `--logfile`    | `--lf` | -       | Path to log file        |
-| `--reportfile` | `-r`   | -       | Path to download report |
-
-### Proxy Configuration
-
-| Option            | Short   | Description    |
-| ----------------- | ------- | -------------- |
-| `--proxy`         | `-x`    | Proxy URL      |
-| `--proxyUsername` | `--pxu` | Proxy username |
-| `--proxyPassword` | `--pxp` | Proxy password |
-
-### Utility Options
-
-| Option      | Short | Description              |
-| ----------- | ----- | ------------------------ |
-| `--version` | `-v`  | Show version information |
-| `--help`    | `-h`  | Show help message        |
-
-## Usage Examples
-
-### Basic Downloads
+### Basic Usage
 
 ```bash
-# Download BAM files for specific analysis
-varvis-download -t laborberlin -a 12345
+# Download BAM files for specific analysis IDs
+varvis-download -u username -p password -t target -a "analysis1,analysis2"
 
-# Download multiple analyses
-varvis-download -t laborberlin -a "12345,67890,11111"
+# List available files without downloading
+varvis-download -u username -p password -t target -a "analysis1" --list
 
-# Download specific file types
-varvis-download -t laborberlin -a 12345 -f "vcf.gz,vcf.gz.tbi"
+# Download with custom destination
+varvis-download -u username -p password -t target -a "analysis1" -d "/path/to/download"
 ```
 
-### Authentication
+### Advanced Usage
 
 ```bash
-# Using environment variables (recommended)
-export VARVIS_USER="username"
-export VARVIS_PASSWORD="password"
-varvis-download -t laborberlin -a 12345
+# Download with filters
+varvis-download -u username -p password -t target -s "sample1,sample2" --filter "analysisType=SNV"
 
-# Using command line arguments
-varvis-download -t laborberlin -u username -p password -a 12345
+# Ranged download for specific genomic region
+varvis-download -u username -p password -t target -a "analysis1" --range "chr1:1-100000"
 
-# Using configuration file
-varvis-download --config production.json -a 12345
-```
-
-### Filtering
-
-```bash
-# Filter by analysis type
-varvis-download -t laborberlin -s "LB24-001" -F "analysisType=SNV"
-
-# Multiple filters
-varvis-download -t laborberlin -s "LB24-001" \
-  -F "analysisType=SNV" \
-  -F "quality>=95"
-
-# Sample ID filtering
-varvis-download -t laborberlin -F "sampleId>=LB24-0100"
-```
-
-### Range Downloads
-
-```bash
-# Single genomic range
-varvis-download -t laborberlin -a 12345 -g "chr1:1000000-2000000"
-
-# Multiple ranges
-varvis-download -t laborberlin -a 12345 \
-  -g "chr1:1000000-2000000 chr2:500000-1500000"
-
-# BED file regions
-varvis-download -t laborberlin -a 12345 -b target_regions.bed
-```
-
-### Archive Management
-
-```bash
-# Force restore all archived files
-varvis-download -t laborberlin -a 12345 --restoreArchived force
-
-# Skip archived files
-varvis-download -t laborberlin -a 12345 --restoreArchived no
+# Download with BED file for multiple regions
+varvis-download -u username -p password -t target -a "analysis1" --bed "/path/to/regions.bed"
 
 # Resume archived downloads
 varvis-download --resumeArchivedDownloads
 ```
 
-### Logging and Reports
+### Configuration File
+
+You can use a configuration file to store commonly used options:
 
 ```bash
-# Enable debug logging
-varvis-download -t laborberlin -a 12345 --loglevel debug
-
-# Save logs to file
-varvis-download -t laborberlin -a 12345 --logfile download.log
-
-# Generate download report
-varvis-download -t laborberlin -a 12345 --reportfile report.json
+varvis-download --config /path/to/config.json
 ```
 
-## Exit Codes
-
-| Code | Description                                          |
-| ---- | ---------------------------------------------------- |
-| `0`  | Success                                              |
-| `1`  | General error (authentication, network, file system) |
-| `2`  | Invalid arguments or configuration                   |
-
-## Configuration Files
-
-### Basic Configuration
+Example configuration file:
 
 ```json
 {
-  "username": "your_username",
-  "target": "laborberlin",
-  "destination": "./downloads",
-  "filetypes": ["bam", "bam.bai"],
+  "username": "your-username",
+  "target": "https://your-varvis-instance.com",
+  "destination": "/path/to/downloads",
+  "filetypes": "bam,bam.bai,vcf",
   "loglevel": "info"
 }
 ```
-
-### Advanced Configuration
-
-```json
-{
-  "username": "api_user",
-  "target": "laborberlin",
-  "destination": "./data",
-  "filetypes": ["bam", "bam.bai", "vcf.gz", "vcf.gz.tbi"],
-  "loglevel": "debug",
-  "logfile": "./logs/varvis.log",
-  "reportfile": "./reports/download.json",
-  "overwrite": false,
-  "restoreArchived": "ask",
-  "proxy": "http://proxy.company.com:8080"
-}
-```
-
-## Environment Variables
-
-All command-line options can be set via environment variables using the `VARVIS_` prefix:
-
-| Environment Variable | CLI Option      |
-| -------------------- | --------------- |
-| `VARVIS_USER`        | `--username`    |
-| `VARVIS_PASSWORD`    | `--password`    |
-| `VARVIS_TARGET`      | `--target`      |
-| `VARVIS_DESTINATION` | `--destination` |
-| `VARVIS_LOG_LEVEL`   | `--loglevel`    |
-| `VARVIS_PROXY`       | `--proxy`       |

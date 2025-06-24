@@ -16,7 +16,7 @@
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
-    "docs:generate": "node docs-generator.js",
+    "docs:generate": "node docs/scripts/docs-generator.cjs",
     "docs:api": "npm run docs:generate && npm run docs:build",
     "prepare": "husky"
   },

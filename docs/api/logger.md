@@ -4,159 +4,20 @@ API Reference
 
 
   ##
-  confirmRestore
+  createLogger
 
-    &lt;p&gt;Prompts the user to confirm restoration of an archived file.&lt;/p&gt;
+    &lt;p&gt;Creates a logger with specified configuration.&lt;/p&gt;
 
     ### Parameters | Name | Type | Description | |------|------|-------------|
-      | `file` | `Object` |
-      <p>The archived file object.</p>
-      |
-      | `rl` | `Object` |
-      <p>The readline interface instance.</p>
-      |
-      | `logger` | `Object` |
-      <p>The logger instance.</p>
+      | `argv` | `Object` |
+      <p>The command line arguments.</p>
       |
 
-    ### Returns **Type:** `Promise.&lt;boolean&gt;`
+    ### Returns **Type:** `Object`
 
       <ul>
-<li>Resolves to true if the user confirms, otherwise false.</li>
+<li>The created logger instance.</li>
 </ul>
-
-
-  ---
-
-  ##
-  fetchAnalysisIds
-
-    &lt;p&gt;Fetches analysis IDs based on sample IDs or LIMS IDs.&lt;/p&gt;
-
-    ### Parameters | Name | Type | Description | |------|------|-------------|
-      | `target` | `string` |
-      <p>The target for the Varvis API.</p>
-      |
-      | `token` | `string` |
-      <p>The CSRF token for authentication.</p>
-      |
-      | `agent` | `Object` |
-      <p>The HTTP agent instance.</p>
-      |
-      | `sampleIds` | `Array.&lt;string&gt;` |
-      <p>The sample IDs to filter analyses.</p>
-      |
-      | `limsIds` | `Array.&lt;string&gt;` |
-      <p>The LIMS IDs to filter analyses.</p>
-      |
-      | `filters` | `Array.&lt;string&gt;` |
-      <p>An array of custom filters to apply.</p>
-      |
-      | `logger` | `Object` |
-      <p>The logger instance.</p>
-      |
-
-    ### Returns **Type:** `Promise.&lt;Array.&lt;string&gt;&gt;`
-
-      <ul>
-<li>An array of analysis IDs.</li>
-</ul>
-
-
-  ---
-
-  ##
-  getDownloadLinks
-
-    &lt;p&gt;Fetches the download links for specified file types from the Varvis API for a given analysis ID.&lt;/p&gt;
-
-    ### Parameters | Name | Type | Description | |------|------|-------------|
-      | `analysisId` | `string` |
-      <p>The analysis ID to get download links for.</p>
-      |
-      | `filter` | `Array.&lt;string&gt;` |
-      <p>An optional array of file types to filter by.</p>
-      |
-      | `target` | `string` |
-      <p>The Varvis API target.</p>
-      |
-      | `token` | `string` |
-      <p>The CSRF token for authentication.</p>
-      |
-      | `agent` | `Object` |
-      <p>The HTTP agent instance.</p>
-      |
-      | `logger` | `Object` |
-      <p>The logger instance.</p>
-      |
-      | `restoreArchived` | `string` |
-      <p>Restoration mode for archived files.
-Accepts:
-- &quot;no&quot;: skip restoration,
-- &quot;ask&quot;: prompt for each file,
-- &quot;all&quot;: ask once for all files,
-- &quot;force&quot;: restore automatically.</p>
-      |
-      | `rl` | `Object` |
-      <p>The readline interface instance for prompting.</p>
-      |
-      | `restorationFile` | `string` |
-      <p>Path to the restoration file.</p>
-      |
-      | `options` | `Object` |
-      <p>Options object for restoration context.</p>
-      |
-
-    ### Returns **Type:** `Promise.&lt;Object&gt;`
-
-      <ul>
-<li>An object containing the download links for the specified file types.</li>
-</ul>
-
-
-  ---
-
-  ##
-  listAvailableFiles
-
-    &lt;p&gt;Lists available files for the specified analysis IDs without triggering any restoration logic.&lt;/p&gt;
-
-    ### Parameters | Name | Type | Description | |------|------|-------------|
-      | `analysisId` | `string` |
-      <p>The analysis ID to list files for.</p>
-      |
-      | `target` | `string` |
-      <p>The target for the Varvis API.</p>
-      |
-      | `token` | `string` |
-      <p>The CSRF token for authentication.</p>
-      |
-      | `agent` | `Object` |
-      <p>The HTTP agent instance.</p>
-      |
-      | `logger` | `Object` |
-      <p>The logger instance.</p>
-      |
-
-    ### Returns **Type:** `Promise.&lt;void&gt;`
-
-
-
-  ---
-
-  ##
-  generateReport
-
-    &lt;p&gt;Generates a summary report of the download process.&lt;/p&gt;
-
-    ### Parameters | Name | Type | Description | |------|------|-------------|
-      | `reportfile` | `string` |
-      <p>The path to the report file.</p>
-      |
-      | `logger` | `Object` |
-      <p>The logger instance.</p>
-      |
-
 
 
   ---

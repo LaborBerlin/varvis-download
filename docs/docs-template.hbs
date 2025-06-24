@@ -18,7 +18,7 @@ API Reference
     ### Parameters | Name | Type | Description | |------|------|-------------|
     {{#each params}}
       | `{{name}}` | `{{type.names.[0]}}` |
-      {{description}}
+      {{{description}}}
       |
     {{/each}}
   {{/if}}
@@ -27,7 +27,7 @@ API Reference
     ### Returns **Type:** `{{returns.[0].type.names.[0]}}`
 
     {{#if returns.[0].description}}
-      {{returns.[0].description}}
+      {{{returns.[0].description}}}
     {{/if}}
   {{/if}}
 
@@ -58,7 +58,7 @@ API Reference
     |------|------|-------------|
     {{#each params}}
       | `{{name}}` | `{{type.names.[0]}}` |
-      {{description}}
+      {{{description}}}
       |
     {{/each}}
   {{/if}}
@@ -76,7 +76,7 @@ API Reference
       |------|------|-------------|
       {{#each params}}
         | `{{name}}` | `{{type.names.[0]}}` |
-        {{description}}
+        {{{description}}}
         |
       {{/each}}
     {{/if}}
@@ -85,7 +85,7 @@ API Reference
       #### Returns **Type:** `{{returns.[0].type.names.[0]}}`
 
       {{#if returns.[0].description}}
-        {{returns.[0].description}}
+        {{{returns.[0].description}}}
       {{/if}}
     {{/if}}
 

@@ -4,16 +4,47 @@ API Reference
 
 
   ##
-  confirmRestore
+  spawnPromise
 
-    &lt;p&gt;Prompts the user to confirm restoration of an archived file.&lt;/p&gt;
+    &lt;p&gt;Wraps spawn in a Promise to maintain async/await syntax.&lt;/p&gt;
 
     ### Parameters | Name | Type | Description | |------|------|-------------|
-      | `file` | `Object` |
-      <p>The archived file object.</p>
+      | `command` | `string` |
+      <p>The command to execute.</p>
       |
-      | `rl` | `Object` |
-      <p>The readline interface instance.</p>
+      | `args` | `Array.&lt;string&gt;` |
+      <p>The command arguments.</p>
+      |
+      | `logger` | `Object` |
+      <p>The logger instance.</p>
+      |
+      | `captureOutput` | `boolean` |
+      <p>Whether to capture stdout for return value.</p>
+      |
+
+    ### Returns **Type:** `Promise.&lt;Object&gt;`
+
+      <ul>
+<li>Resolves with result object when the process completes successfully.</li>
+</ul>
+
+
+  ---
+
+  ##
+  checkToolAvailability
+
+    &lt;p&gt;Checks if a tool is available and meets the minimum version.&lt;/p&gt;
+
+    ### Parameters | Name | Type | Description | |------|------|-------------|
+      | `tool` | `string` |
+      <p>The name of the tool (samtools, tabix, or bgzip).</p>
+      |
+      | `versionCommand` | `string` |
+      <p>Command to check the tool version.</p>
+      |
+      | `minVersion` | `string` |
+      <p>The minimal required version.</p>
       |
       | `logger` | `Object` |
       <p>The logger instance.</p>
@@ -22,120 +53,57 @@ API Reference
     ### Returns **Type:** `Promise.&lt;boolean&gt;`
 
       <ul>
-<li>Resolves to true if the user confirms, otherwise false.</li>
+<li>Resolves to true if the tool is available and meets the version requirement.</li>
 </ul>
 
 
   ---
 
   ##
-  fetchAnalysisIds
+  compareVersions
 
-    &lt;p&gt;Fetches analysis IDs based on sample IDs or LIMS IDs.&lt;/p&gt;
+    &lt;p&gt;Compares two versions (e.g., &#x27;1.10&#x27; vs &#x27;1.9&#x27;).&lt;/p&gt;
 
     ### Parameters | Name | Type | Description | |------|------|-------------|
-      | `target` | `string` |
-      <p>The target for the Varvis API.</p>
+      | `version` | `string` |
+      <p>The current version.</p>
       |
-      | `token` | `string` |
-      <p>The CSRF token for authentication.</p>
-      |
-      | `agent` | `Object` |
-      <p>The HTTP agent instance.</p>
-      |
-      | `sampleIds` | `Array.&lt;string&gt;` |
-      <p>The sample IDs to filter analyses.</p>
-      |
-      | `limsIds` | `Array.&lt;string&gt;` |
-      <p>The LIMS IDs to filter analyses.</p>
-      |
-      | `filters` | `Array.&lt;string&gt;` |
-      <p>An array of custom filters to apply.</p>
-      |
-      | `logger` | `Object` |
-      <p>The logger instance.</p>
+      | `minVersion` | `string` |
+      <p>The minimum required version.</p>
       |
 
-    ### Returns **Type:** `Promise.&lt;Array.&lt;string&gt;&gt;`
+    ### Returns **Type:** `boolean`
 
       <ul>
-<li>An array of analysis IDs.</li>
+<li>True if the current version is &gt;= the minimum version.</li>
 </ul>
 
 
   ---
 
   ##
-  getDownloadLinks
+  rangedDownloadBAM
 
-    &lt;p&gt;Fetches the download links for specified file types from the Varvis API for a given analysis ID.&lt;/p&gt;
+    &lt;p&gt;Performs a ranged download for a BAM file using samtools.&lt;/p&gt;
 
     ### Parameters | Name | Type | Description | |------|------|-------------|
-      | `analysisId` | `string` |
-      <p>The analysis ID to get download links for.</p>
+      | `url` | `string` |
+      <p>The URL of the BAM file.</p>
       |
-      | `filter` | `Array.&lt;string&gt;` |
-      <p>An optional array of file types to filter by.</p>
+      | `range` | `string` |
+      <p>The genomic range (e.g., 'chr1:1-100000').</p>
       |
-      | `target` | `string` |
-      <p>The Varvis API target.</p>
+      | `outputFile` | `string` |
+      <p>The output file name.</p>
       |
-      | `token` | `string` |
-      <p>The CSRF token for authentication.</p>
-      |
-      | `agent` | `Object` |
-      <p>The HTTP agent instance.</p>
+      | `indexFile` | `string` |
+      <p>The path to the downloaded .bai index file.</p>
       |
       | `logger` | `Object` |
       <p>The logger instance.</p>
       |
-      | `restoreArchived` | `string` |
-      <p>Restoration mode for archived files.
-Accepts:
-- &quot;no&quot;: skip restoration,
-- &quot;ask&quot;: prompt for each file,
-- &quot;all&quot;: ask once for all files,
-- &quot;force&quot;: restore automatically.</p>
-      |
-      | `rl` | `Object` |
-      <p>The readline interface instance for prompting.</p>
-      |
-      | `restorationFile` | `string` |
-      <p>Path to the restoration file.</p>
-      |
-      | `options` | `Object` |
-      <p>Options object for restoration context.</p>
-      |
-
-    ### Returns **Type:** `Promise.&lt;Object&gt;`
-
-      <ul>
-<li>An object containing the download links for the specified file types.</li>
-</ul>
-
-
-  ---
-
-  ##
-  listAvailableFiles
-
-    &lt;p&gt;Lists available files for the specified analysis IDs without triggering any restoration logic.&lt;/p&gt;
-
-    ### Parameters | Name | Type | Description | |------|------|-------------|
-      | `analysisId` | `string` |
-      <p>The analysis ID to list files for.</p>
-      |
-      | `target` | `string` |
-      <p>The target for the Varvis API.</p>
-      |
-      | `token` | `string` |
-      <p>The CSRF token for authentication.</p>
-      |
-      | `agent` | `Object` |
-      <p>The HTTP agent instance.</p>
-      |
-      | `logger` | `Object` |
-      <p>The logger instance.</p>
+      | `overwrite` | `boolean` |
+      <p>Flag indicating whether to overwrite existing files.</p>
       |
 
     ### Returns **Type:** `Promise.&lt;void&gt;`
@@ -145,18 +113,136 @@ Accepts:
   ---
 
   ##
-  generateReport
+  rangedDownloadVCF
 
-    &lt;p&gt;Generates a summary report of the download process.&lt;/p&gt;
+    &lt;p&gt;Performs a ranged download for a VCF file using tabix, and compresses it using bgzip.&lt;/p&gt;
 
     ### Parameters | Name | Type | Description | |------|------|-------------|
-      | `reportfile` | `string` |
-      <p>The path to the report file.</p>
+      | `url` | `string` |
+      <p>The URL of the VCF file.</p>
+      |
+      | `range` | `string` |
+      <p>The genomic range (e.g., 'chr1:1-100000').</p>
+      |
+      | `outputFile` | `string` |
+      <p>The output file name (compressed as .vcf.gz).</p>
+      |
+      | `logger` | `Object` |
+      <p>The logger instance.</p>
+      |
+      | `overwrite` | `boolean` |
+      <p>Flag indicating whether to overwrite existing files.</p>
+      |
+
+    ### Returns **Type:** `Promise.&lt;void&gt;`
+
+
+
+  ---
+
+  ##
+  indexBAM
+
+    &lt;p&gt;Indexes a BAM file using samtools.&lt;/p&gt;
+
+    ### Parameters | Name | Type | Description | |------|------|-------------|
+      | `bamFile` | `string` |
+      <p>The path to the BAM file.</p>
+      |
+      | `logger` | `Object` |
+      <p>The logger instance.</p>
+      |
+      | `overwrite` | `boolean` |
+      <p>Flag indicating whether to overwrite existing index files.</p>
+      |
+
+    ### Returns **Type:** `Promise.&lt;void&gt;`
+
+
+
+  ---
+
+  ##
+  indexVCF
+
+    &lt;p&gt;Indexes a VCF.gz file using tabix.&lt;/p&gt;
+
+    ### Parameters | Name | Type | Description | |------|------|-------------|
+      | `vcfGzFile` | `string` |
+      <p>The path to the VCF.gz file.</p>
+      |
+      | `logger` | `Object` |
+      <p>The logger instance.</p>
+      |
+      | `overwrite` | `boolean` |
+      <p>Flag indicating whether to overwrite existing index files.</p>
+      |
+
+    ### Returns **Type:** `Promise.&lt;void&gt;`
+
+
+
+  ---
+
+  ##
+  ensureIndexFile
+
+    &lt;p&gt;Ensures that the required index file is downloaded for a BAM or VCF file.&lt;/p&gt;
+
+    ### Parameters | Name | Type | Description | |------|------|-------------|
+      | `fileUrl` | `string` |
+      <p>The URL of the BAM or VCF file.</p>
+      |
+      | `indexUrl` | `string` |
+      <p>The URL of the index file (.bai or .tbi).</p>
+      |
+      | `indexFilePath` | `string` |
+      <p>The local path to the index file.</p>
+      |
+      | `agent` | `Object` |
+      <p>The HTTP agent instance.</p>
+      |
+      | `rl` | `Object` |
+      <p>The readline interface instance.</p>
+      |
+      | `logger` | `Object` |
+      <p>The logger instance.</p>
+      |
+      | `metrics` | `Object` |
+      <p>The metrics object for tracking download stats.</p>
+      |
+      | `overwrite` | `boolean` |
+      <p>Flag indicating whether to overwrite existing files.</p>
+      |
+
+    ### Returns **Type:** `Promise.&lt;void&gt;`
+
+
+
+  ---
+
+  ##
+  generateOutputFileName
+
+    &lt;p&gt;Generates an output file name by appending the genomic range or &amp;quot;multiple-regions&amp;quot; if more than one range is provided.
+If no regions are provided, the original filename is returned. This applies to all file types (BAM, VCF, etc.).&lt;/p&gt;
+
+    ### Parameters | Name | Type | Description | |------|------|-------------|
+      | `fileName` | `string` |
+      <p>The original file name.</p>
+      |
+      | `regions` | `string` |
+      <p>A string representing a single genomic range or an array of multiple regions.</p>
       |
       | `logger` | `Object` |
       <p>The logger instance.</p>
       |
 
+    ### Returns **Type:** `string`
+
+      <ul>
+<li>The new file name with the range appended, or the original file name.</li>
+</ul>
 
 
   ---

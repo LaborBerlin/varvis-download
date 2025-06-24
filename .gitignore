@@ -37,7 +37,7 @@ pnpm-debug.log*
 *.vcf.gz.tbi
 
 # download folder
-/downloads/
+download/
 
 # config files
 *.config.json
@@ -46,7 +46,7 @@ pnpm-debug.log*
 *.log
 
 # development folder
-/development/
+development/
 
 # output files
 awaiting-restoration.json
