@@ -26,11 +26,13 @@ jest.mock('../../js/rangedUtils', () => ({
   ensureIndexFile: jest.fn(),
   generateOutputFileName: jest.fn((fileName, regions) =>
     regions && regions.length > 0
-      ? `${fileName.replace('.bam', '')}.ranged.bam`
+      ? `${fileName.replace(/\.(bam|vcf\.gz)$/, '')}.ranged.${fileName.endsWith('.vcf.gz') ? 'vcf.gz' : 'bam'}`
       : fileName,
   ),
   indexBAM: jest.fn(),
+  indexVCF: jest.fn(),
   rangedDownloadBAM: jest.fn(),
+  rangedDownloadVCF: jest.fn(),
 }));
 
 // Mock fetchUtils getDownloadLinks
@@ -70,7 +72,9 @@ describe('Archive Workflow Integration Tests', () => {
     const {
       ensureIndexFile,
       indexBAM,
+      indexVCF,
       rangedDownloadBAM,
+      rangedDownloadVCF,
     } = require('../../js/rangedUtils');
 
     fetchWithRetry.mockClear();
@@ -78,7 +82,9 @@ describe('Archive Workflow Integration Tests', () => {
     downloadFile.mockClear();
     ensureIndexFile.mockClear();
     indexBAM.mockClear();
+    indexVCF.mockClear();
     rangedDownloadBAM.mockClear();
+    rangedDownloadVCF.mockClear();
   });
 
   afterEach(() => {
@@ -101,6 +107,7 @@ describe('Archive Workflow Integration Tests', () => {
         range: 'chr1:1000-2000',
         bed: '/path/to/regions.bed',
         restorationFile: restorationFile,
+        filetypes: ['bam', 'bam.bai'], // Include filetypes for Bug #32 fix
       };
 
       const file = { fileName, currentlyArchived: true };
@@ -227,6 +234,72 @@ describe('Archive Workflow Integration Tests', () => {
         expect.stringContaining('Updated existing restoration entry'),
       );
     });
+
+    it('should save filetypes correctly in restoration context', async () => {
+      // Arrange
+      const analysisId = 'test-analysis-filetypes';
+      const fileName = 'test-file.bam';
+      const target = 'test-target';
+      const token = 'test-token';
+      const restorationFile = 'test-awaiting-restoration.json';
+      const expectedRestoreTime = '2024-12-25T10:00:00Z';
+
+      const options = {
+        destination: '/custom/destination',
+        overwrite: true,
+        filetypes: ['vcf.gz', 'vcf.gz.tbi'], // Test with VCF filetypes
+      };
+
+      const file = { fileName, currentlyArchived: true };
+
+      // Mock the restore API endpoint
+      fetchWithRetry.mockResolvedValueOnce({
+        json: () =>
+          Promise.resolve({
+            success: true,
+            response: [{ restoreEstimation: expectedRestoreTime }],
+          }),
+      });
+
+      // Mock fs.existsSync to return false (no existing restoration file)
+      fs.existsSync.mockReturnValue(false);
+
+      // Act
+      await triggerRestoreArchivedFile(
+        analysisId,
+        file,
+        target,
+        token,
+        mockAgent,
+        mockLogger,
+        restorationFile,
+        options,
+      );
+
+      // Assert - Check that filetypes are preserved in the restoration context
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        restorationFile,
+        JSON.stringify(
+          [
+            {
+              analysisId,
+              fileName,
+              restoreEstimation: expectedRestoreTime,
+              options,
+            },
+          ],
+          null,
+          2,
+        ),
+      );
+
+      // Verify the options object contains filetypes
+      const writtenData = JSON.parse(fs.writeFileSync.mock.calls[0][1]);
+      expect(writtenData[0].options.filetypes).toEqual([
+        'vcf.gz',
+        'vcf.gz.tbi',
+      ]);
+    });
   });
 
   describe('Test Case 2: Resume Successful Download', () => {
@@ -300,6 +373,94 @@ describe('Archive Workflow Integration Tests', () => {
         expect.stringContaining(
           'Performing ranged download for restored BAM file',
         ),
+      );
+    });
+
+    it('should successfully resume VCF download with restored context', async () => {
+      // Arrange
+      const analysisId = 'test-analysis-vcf';
+      const fileName = 'test-file.vcf.gz';
+      const target = 'test-target';
+      const token = 'test-token';
+      const restorationFile = 'test-awaiting-restoration.json';
+      const destination = '/test/destination';
+
+      const restoredOptions = {
+        destination: '/custom/destination',
+        overwrite: true,
+        range: 'chr1:1000-2000',
+        filetypes: ['vcf.gz', 'vcf.gz.tbi'], // Test VCF filetypes filter
+      };
+
+      // Mock restoration file with past restoration time
+      const pastTime = new Date(Date.now() - 60000).toISOString(); // 1 minute ago
+      const awaitingData = [
+        {
+          analysisId,
+          fileName,
+          restoreEstimation: pastTime,
+          options: restoredOptions,
+        },
+      ];
+
+      fs.existsSync.mockReturnValue(true);
+      fs.readFileSync.mockReturnValue(JSON.stringify(awaitingData));
+
+      // Mock getDownloadLinks to return non-archived VCF file
+      getDownloadLinks.mockResolvedValueOnce({
+        [fileName]: {
+          fileName,
+          downloadLink: `https://${target}.varvis.com/download/${fileName}`,
+          currentlyArchived: false,
+        },
+        [`${fileName}.tbi`]: {
+          fileName: `${fileName}.tbi`,
+          downloadLink: `https://${target}.varvis.com/download/${fileName}.tbi`,
+          currentlyArchived: false,
+        },
+      });
+
+      // Act
+      await resumeArchivedDownloads(
+        restorationFile,
+        destination,
+        target,
+        token,
+        mockAgent,
+        mockLogger,
+        false, // overwrite parameter
+      );
+
+      // Assert
+      // Should write empty array (successful entry removed)
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        restorationFile,
+        JSON.stringify([], null, 2),
+      );
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        expect.stringContaining('Successfully resumed download'),
+      );
+
+      // Should use restored options for VCF ranged download
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'Performing ranged download for restored VCF file',
+        ),
+      );
+
+      // Verify that getDownloadLinks was called with the restored filetypes
+      expect(getDownloadLinks).toHaveBeenCalledWith(
+        analysisId,
+        restoredOptions.filetypes, // Should use the restored filetypes filter
+        target,
+        token,
+        mockAgent,
+        mockLogger,
+        'no',
+        null,
+        null,
+        null,
       );
     });
 
@@ -616,9 +777,15 @@ describe('Archive Workflow Integration Tests', () => {
 
       // Mock downloadFile - first call succeeds, second fails
       const { downloadFile } = require('../../js/fileUtils');
+      const { indexBAM } = require('../../js/rangedUtils');
       downloadFile
-        .mockResolvedValueOnce() // Success for first entry
-        .mockRejectedValueOnce(new Error('Download failed')); // Failure for third entry
+        .mockResolvedValueOnce() // Success for ready-success.bam
+        .mockResolvedValueOnce() // Success for ready-success.bam.bai (index file)
+        .mockRejectedValueOnce(new Error('Download failed')); // Failure for ready-fail.bam
+
+      indexBAM
+        .mockResolvedValueOnce() // Success for ready-success.bam indexing
+        .mockResolvedValueOnce(); // Success for ready-fail.bam indexing (even though download failed)
 
       // Act
       await resumeArchivedDownloads(

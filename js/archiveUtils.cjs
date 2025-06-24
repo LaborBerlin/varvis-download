@@ -175,7 +175,9 @@ async function resumeArchivedDownloads(
     ensureIndexFile,
     generateOutputFileName,
     indexBAM,
+    indexVCF,
     rangedDownloadBAM,
+    rangedDownloadVCF,
   } = require('./rangedUtils.cjs');
   const { downloadFile } = require('./fileUtils.cjs');
   const metrics = require('./fetchUtils.cjs').metrics;
@@ -203,11 +205,12 @@ async function resumeArchivedDownloads(
         restoredOptions.overwrite !== undefined
           ? restoredOptions.overwrite
           : overwrite;
+      const effectiveFiletypes = restoredOptions.filetypes || null; // Use saved filetypes
 
       // Fetch fresh links with "no" restore option to prevent re-triggering restoration
       const fileDict = await getDownloadLinks(
         entry.analysisId,
-        null, // no filter: get all files
+        effectiveFiletypes, // Use restored filetypes filter
         target,
         token,
         agent,
@@ -268,35 +271,35 @@ async function resumeArchivedDownloads(
       // Handle BAM files
       if (entry.fileName.endsWith('.bam')) {
         const indexFileUrl = fileDict[`${entry.fileName}.bai`]?.downloadLink;
-        if (!indexFileUrl) {
+        if (regions.length > 0 && !indexFileUrl) {
           logger.error(
-            `Index file for ${entry.fileName} not found for analysis ${entry.analysisId}. Keeping for retry.`,
+            `Index file for BAM ${entry.fileName} not found for analysis ${entry.analysisId}. Ranged download requires .bai index. Keeping for retry.`,
           );
           updatedData.push(entry);
           continue;
         }
 
-        const indexFileName = generateOutputFileName(
-          `${entry.fileName}.bai`,
-          regions,
-          logger,
-        );
-        const indexFilePath = path.join(effectiveDestination, indexFileName);
-
-        // Ensure index file is downloaded
-        await ensureIndexFile(
-          downloadLink,
-          indexFileUrl,
-          indexFilePath,
-          agent,
-          null, // no rl needed
-          logger,
-          metrics,
-          effectiveOverwrite,
-        );
-
         // Perform ranged or full download based on restored options
         if (regions.length > 0) {
+          const indexFileName = generateOutputFileName(
+            `${entry.fileName}.bai`,
+            regions,
+            logger,
+          );
+          const indexFilePath = path.join(effectiveDestination, indexFileName);
+
+          // Ensure index file is downloaded
+          await ensureIndexFile(
+            downloadLink,
+            indexFileUrl,
+            indexFilePath,
+            agent,
+            null, // no rl needed
+            logger,
+            metrics,
+            effectiveOverwrite,
+          );
+
           // Create temporary BED file for ranged download
           const os = require('os');
           const tempBedPath = path.join(
@@ -346,10 +349,135 @@ async function resumeArchivedDownloads(
             logger,
             metrics,
           );
+
+          // Download index file if available (optional for full downloads)
+          if (indexFileUrl) {
+            const indexFileName = generateOutputFileName(
+              `${entry.fileName}.bai`,
+              regions,
+              logger,
+            );
+            const indexFilePath = path.join(
+              effectiveDestination,
+              indexFileName,
+            );
+            logger.info(
+              `Downloading optional index file: ${entry.fileName}.bai`,
+            );
+            try {
+              await downloadFile(
+                indexFileUrl,
+                indexFilePath,
+                effectiveOverwrite,
+                agent,
+                null, // no rl needed
+                logger,
+                metrics,
+              );
+            } catch (indexError) {
+              logger.warn(
+                `Failed to download index file ${entry.fileName}.bai: ${indexError.message}`,
+              );
+            }
+          }
+
           await indexBAM(outputFile, logger, effectiveOverwrite);
         }
+      } else if (entry.fileName.endsWith('.vcf.gz')) {
+        // Handle VCF files
+        const indexFileUrl = fileDict[`${entry.fileName}.tbi`]?.downloadLink;
+        if (regions.length > 0 && !indexFileUrl) {
+          logger.error(
+            `Index file for VCF ${entry.fileName} not found for analysis ${entry.analysisId}. Ranged download requires .tbi index. Keeping for retry.`,
+          );
+          updatedData.push(entry);
+          continue;
+        }
+
+        // Perform ranged or full download based on restored options
+        if (regions.length > 0) {
+          const indexFileName = generateOutputFileName(
+            `${entry.fileName}.tbi`,
+            regions,
+            logger,
+          );
+          const indexFilePath = path.join(effectiveDestination, indexFileName);
+
+          // Ensure index file is downloaded
+          await ensureIndexFile(
+            downloadLink,
+            indexFileUrl,
+            indexFilePath,
+            agent,
+            null, // no rl needed
+            logger,
+            metrics,
+            effectiveOverwrite,
+          );
+
+          // Perform ranged download for VCF - use the first region for simplicity
+          const range = regions[0]; // tabix uses region format directly
+          logger.info(
+            `Performing ranged download for restored VCF file: ${entry.fileName} with range: ${range}`,
+          );
+          await rangedDownloadVCF(
+            downloadLink,
+            range,
+            outputFile,
+            logger,
+            effectiveOverwrite,
+          );
+          await indexVCF(outputFile, logger, effectiveOverwrite);
+        } else {
+          // Full download
+          logger.info(
+            `Performing full download for restored VCF file: ${entry.fileName}`,
+          );
+          await downloadFile(
+            downloadLink,
+            outputFile,
+            effectiveOverwrite,
+            agent,
+            null, // no rl needed
+            logger,
+            metrics,
+          );
+
+          // Download index file if available (optional for full downloads)
+          if (indexFileUrl) {
+            const indexFileName = generateOutputFileName(
+              `${entry.fileName}.tbi`,
+              regions,
+              logger,
+            );
+            const indexFilePath = path.join(
+              effectiveDestination,
+              indexFileName,
+            );
+            logger.info(
+              `Downloading optional index file: ${entry.fileName}.tbi`,
+            );
+            try {
+              await downloadFile(
+                indexFileUrl,
+                indexFilePath,
+                effectiveOverwrite,
+                agent,
+                null, // no rl needed
+                logger,
+                metrics,
+              );
+            } catch (indexError) {
+              logger.warn(
+                `Failed to download index file ${entry.fileName}.tbi: ${indexError.message}`,
+              );
+            }
+          }
+
+          await indexVCF(outputFile, logger, effectiveOverwrite);
+        }
       } else {
-        // Handle other file types (non-BAM)
+        // Handle other file types (non-BAM, non-VCF)
         logger.info(`Performing download for restored file: ${entry.fileName}`);
         await downloadFile(
           downloadLink,

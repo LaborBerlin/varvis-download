@@ -163,29 +163,45 @@ async function getDownloadLinks(
         let shouldRestore = false;
         if (restoreArchived === 'no') {
           logger.info(
-            `Skipping restoration for archived file ${file.fileName} as per "no" option.`,
+            `Skipping archived file ${file.fileName} due to --restoreArchived=no`,
           );
         } else if (restoreArchived === 'force') {
           shouldRestore = true;
           logger.info(
-            `Force restoring archived file ${file.fileName} without prompting.`,
+            `Force restoring archived file ${file.fileName} due to --restoreArchived=force`,
           );
         } else if (restoreArchived === 'all') {
           if (typeof allDecisionForArchived === 'undefined' && rl) {
+            logger.info(
+              'Prompting for restoration decision for all archived files...',
+            );
             allDecisionForArchived = await new Promise((resolve) => {
               rl.question('Restore all archived files? (y/n): ', (answer) => {
                 resolve(answer.toLowerCase() === 'y');
               });
             });
+            logger.info(
+              `User decision for all archived files: ${allDecisionForArchived ? 'restore' : 'skip'}`,
+            );
           }
           shouldRestore = allDecisionForArchived;
           if (!shouldRestore) {
             logger.info(
-              `Skipping restoration for archived file ${file.fileName} as per "all" option decision.`,
+              `Skipping archived file ${file.fileName} due to --restoreArchived=all decision`,
+            );
+          } else {
+            logger.info(
+              `Restoring archived file ${file.fileName} due to --restoreArchived=all decision`,
             );
           }
         } else if (restoreArchived === 'ask' && rl) {
+          logger.info(
+            `Prompting for restoration of archived file ${file.fileName}...`,
+          );
           shouldRestore = await confirmRestore(file, rl, logger);
+          logger.info(
+            `User decision for ${file.fileName}: ${shouldRestore ? 'restore' : 'skip'}`,
+          );
         }
 
         if (shouldRestore) {

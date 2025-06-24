@@ -315,6 +315,37 @@ const os = require('os'); // Import for generating temp file paths
 async function main() {
   // If resumeArchivedDownloads flag is set, resume archived downloads and exit.
   if (finalConfig.resumeArchivedDownloads) {
+    logger.info('Starting in archive resumption mode.');
+
+    // Interactive password prompt if password is not available
+    let finalPassword = password;
+    if (!finalPassword) {
+      const Mute = require('mute-stream');
+      const mute = new Mute();
+      mute.pipe(process.stdout);
+      const rlWithMute = readline.createInterface({
+        input: process.stdin,
+        output: mute,
+        terminal: true,
+      });
+
+      finalPassword = await new Promise((resolve) => {
+        rlWithMute.question('Please enter your Varvis password: ', (input) => {
+          resolve(input);
+          rlWithMute.close();
+          mute.end();
+          // Print a newline since muted input doesn't show one
+          process.stdout.write('\n');
+        });
+      });
+    }
+
+    // Authenticate before resuming downloads
+    await authService.login(
+      { username: userName, password: finalPassword },
+      target,
+    );
+
     logger.info('Resuming archived downloads as requested.');
     await resumeArchivedDownloadsFunc(
       restorationFile,
@@ -325,6 +356,8 @@ async function main() {
       logger,
       overwrite,
     );
+
+    logger.info('Archive resumption process complete.');
     process.exit(0);
   }
 
@@ -497,6 +530,7 @@ async function main() {
       range: finalConfig.range,
       bed: finalConfig.bed,
       restorationFile: finalConfig.restorationFile,
+      filetypes: filetypes, // Save filetypes for restoration
     };
 
     for (const analysisId of ids) {

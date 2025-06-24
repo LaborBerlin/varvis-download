@@ -42,10 +42,13 @@ Prompts for each archived file:
 
 ### All Mode
 
-Automatically restores all archived files:
+Prompts once for all archived files, then applies decision to all:
 
 ```bash
 ./varvis-download.js -t laborberlin -a 12345 --restoreArchived all
+# Prompts: "Restore all archived files? (y/n): y"
+# Logs: "User decision for all archived files: restore"
+# Logs: "Restoring archived file sample_001.bam due to --restoreArchived=all decision"
 ```
 
 ### Force Mode
@@ -54,6 +57,7 @@ Restores archived files without confirmation:
 
 ```bash
 ./varvis-download.js -t laborberlin -a 12345 --restoreArchived force
+# Logs: "Force restoring archived file sample_001.bam due to --restoreArchived=force"
 ```
 
 ### No Mode
@@ -61,8 +65,18 @@ Restores archived files without confirmation:
 Skips all archived files:
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345 --restoreArchived no
+./varvis-download.js -t laborberlin -a 12345 --restoreArchived no  
+# Logs: "Skipping archived file sample_001.bam due to --restoreArchived=no"
 ```
+
+### Enhanced Logging
+
+All restoration decisions are clearly logged for audit trails:
+
+- **Decision tracking** - Each file shows why it was restored/skipped
+- **User input logging** - Interactive decisions are recorded
+- **Context preservation** - All saved options visible in logs
+- **Resume clarity** - Resume operations show restored context usage
 
 ## Restoration Tracking
 
@@ -77,49 +91,152 @@ The tool maintains a JSON file to track restoration requests:
 
 ### Tracking File Format
 
+The restoration tracking file preserves all context needed to resume downloads exactly as originally requested:
+
 ```json
-{
-  "restorations": [
-    {
-      "analysisId": "12345",
-      "fileName": "sample_001.bam",
-      "requestTime": "2024-06-23T10:30:00Z",
-      "status": "pending",
-      "target": "laborberlin"
+[
+  {
+    "analysisId": "12345",
+    "fileName": "sample_001.bam",
+    "restoreEstimation": "2024-06-24T15:30:00Z",
+    "options": {
+      "destination": "/custom/download/path",
+      "overwrite": true,
+      "range": "chr1:1000000-2000000",
+      "bed": null,
+      "restorationFile": "awaiting-restoration.json",
+      "filetypes": ["bam", "bam.bai"]
     }
-  ],
-  "lastUpdated": "2024-06-23T10:30:00Z"
-}
+  }
+]
 ```
 
-### Status Values
+### State Preservation Features
 
-- `pending` - Restoration requested, waiting
-- `available` - File restored and ready
-- `failed` - Restoration failed
-- `expired` - Restoration expired
+The restoration system preserves complete download context:
+
+- **Destination paths** - Files download to original destination
+- **Overwrite settings** - Original overwrite preferences preserved  
+- **Genomic ranges** - Ranged downloads use original ranges/BED files
+- **File type filters** - Only originally requested file types downloaded
+- **All CLI options** - Complete context restored for consistent behavior
 
 ## Resume Archived Downloads
 
+The resume function automatically detects when restored files become available and downloads them using the exact same context (destination, ranges, file types) as the original request.
+
 ### Basic Resume
 
-Resume previously requested archived downloads:
+Resume previously requested archived downloads using default tracking file:
 
 ```bash
-./varvis-download.js --resumeArchivedDownloads
+./varvis-download.js --resumeArchivedDownloads -t laborberlin -u username -p password
 ```
 
 ### Resume with Custom Tracking File
 
 ```bash
-./varvis-download.js --resumeArchivedDownloads --restorationFile "project-a-restorations.json"
+./varvis-download.js --resumeArchivedDownloads --restorationFile "project-a-restorations.json" -t laborberlin -u username -p password
 ```
 
-### Resume with Specific Target
+### Context Restoration Examples
+
+**Original ranged download request:**
+```bash
+./varvis-download.js -t laborberlin -a 12345 -g "chr1:1000000-2000000" -d "/project/ranged" --restoreArchived force
+```
+
+**Resume will automatically:**
+- Download to `/project/ranged` (preserved destination)
+- Extract only `chr1:1000000-2000000` region (preserved range)
+- Use ranged download workflow (preserved context)
+
+**Original VCF download with custom filetypes:**
+```bash
+./varvis-download.js -t laborberlin -a 12345 -f "vcf.gz,vcf.gz.tbi" -d "/vcf/data" --restoreArchived all
+```
+
+**Resume will automatically:**
+- Download only VCF and index files (preserved filetypes)
+- Save to `/vcf/data` (preserved destination)
+- Use VCF-specific workflow (preserved context)
+
+## Complete Archive Workflow Example
+
+This example demonstrates the full archive workflow with state preservation:
+
+### Step 1: Initial Request with Custom Settings
 
 ```bash
-./varvis-download.js --resumeArchivedDownloads -t laborberlin
+# Request ranged BAM download with custom destination
+./varvis-download.js \
+  -t laborberlin \
+  -a 12345 \
+  -g "chr1:1000000-2000000 chr2:5000000-6000000" \
+  -d "/project/genomics/chr1-2" \
+  -f "bam,bam.bai" \
+  --overwrite \
+  --restoreArchived force \
+  --restorationFile "genomics-project.json"
+
+# Output:
+# ⚠ File sample_001.bam for analysis 12345 is archived.
+# ℹ Force restoring archived file sample_001.bam due to --restoreArchived=force
+# ℹ Restoration initiated for analysis 12345. Expected availability: 2024-06-24T16:30:00Z
 ```
+
+### Step 2: Check Restoration Status
+
+```bash
+# Check what's in the restoration file
+cat genomics-project.json
+```
+
+```json
+[
+  {
+    "analysisId": "12345",
+    "fileName": "sample_001.bam",
+    "restoreEstimation": "2024-06-24T16:30:00Z",
+    "options": {
+      "destination": "/project/genomics/chr1-2",
+      "overwrite": true,
+      "range": "chr1:1000000-2000000 chr2:5000000-6000000",
+      "bed": null,
+      "restorationFile": "genomics-project.json",
+      "filetypes": ["bam", "bam.bai"]
+    }
+  }
+]
+```
+
+### Step 3: Resume When Ready
+
+```bash
+# Resume downloads (run after restoration time)
+./varvis-download.js \
+  --resumeArchivedDownloads \
+  --restorationFile "genomics-project.json" \
+  -t laborberlin \
+  -u username \
+  -p password
+
+# Output:
+# ℹ Starting in archive resumption mode.
+# ℹ Resuming archived downloads as requested.
+# ℹ Resuming download for analysis 12345, file sample_001.bam
+# ℹ Performing ranged download for restored BAM file: sample_001.bam
+# ℹ Successfully resumed download for analysis 12345, file sample_001.bam
+# ℹ Updated restoration file genomics-project.json - 0 entries remaining
+```
+
+### Result
+
+The file downloads exactly as originally requested:
+- **Location**: `/project/genomics/chr1-2/sample_001.ranged.bam`
+- **Content**: Only regions chr1:1000000-2000000 and chr2:5000000-6000000
+- **Type**: BAM with BAI index (as specified in filetypes)
+- **Behavior**: Overwrites existing files (as specified)
 
 ## Automation Workflows
 
