@@ -477,8 +477,8 @@ async function main() {
     // If subsetting is needed, check that external tools are available.
     if (argv.range || argv.bed) {
       const samtoolsMinVersion = '1.17';
-      const tabixMinVersion = '1.20';
-      const bgzipMinVersion = '1.20';
+      const tabixMinVersion = '1.7';
+      const bgzipMinVersion = '1.7';
       const samtoolsOK = await checkToolAvailability(
         'samtools',
         'samtools --version',
@@ -518,8 +518,17 @@ async function main() {
       const bedContent = regions
         .map((region) => {
           const [chr, pos] = region.split(':');
-          const [start, end] = pos.split('-');
-          return `${chr}\t${start}\t${end}`;
+
+          if (!pos) {
+            // Chromosome-only region (e.g., "chr1")
+            // For BAM files with samtools, we need coordinates, so use entire chromosome
+            // For VCF files with tabix, chromosome-only works fine
+            return `${chr}\t1\t300000000`; // Use large end coordinate to cover entire chromosome
+          } else {
+            // Standard chr:start-end format
+            const [start, end] = pos.split('-');
+            return `${chr}\t${start}\t${end}`;
+          }
         })
         .join('\n');
 
@@ -658,6 +667,7 @@ async function main() {
                 outputFile,
                 indexFilePath,
                 logger,
+                metrics,
                 overwrite,
               );
               await indexBAM(outputFile, logger, overwrite);
@@ -738,24 +748,34 @@ async function main() {
               overwrite,
             );
 
-            // Perform ranged download for VCF - use the first region for simplicity
-            try {
-              const range = regions[0]; // tabix uses region format directly
-              logger.info(
-                `Performing ranged download for VCF file: ${fileName} with range: ${range}`,
+            // For tabix, we must process one region at a time.
+            for (const region of regions) {
+              const regionSpecificOutputFile = path.join(
+                destination,
+                generateOutputFileName(fileName, [region], logger), // Pass region as an array
               );
-              await rangedDownloadVCF(
-                downloadLink,
-                range,
-                outputFile,
-                logger,
-                overwrite,
-              );
-              await indexVCF(outputFile, logger, overwrite);
-            } catch (error) {
-              logger.error(
-                `Error during ranged download for ${fileName}: ${error.message}`,
-              );
+
+              try {
+                logger.info(
+                  `Performing ranged download for VCF file: ${fileName} with region: ${region}`,
+                );
+                await rangedDownloadVCF(
+                  downloadLink,
+                  region,
+                  regionSpecificOutputFile,
+                  indexFilePath,
+                  logger,
+                  metrics,
+                  overwrite,
+                );
+
+                // After successful download, index the newly created ranged file.
+                await indexVCF(regionSpecificOutputFile, logger, overwrite);
+              } catch (error) {
+                logger.error(
+                  `Error during ranged download for ${fileName} on region ${region}: ${error.message}`,
+                );
+              }
             }
           } else {
             // Perform full download - index file is optional

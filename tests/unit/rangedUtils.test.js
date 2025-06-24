@@ -17,6 +17,7 @@ const {
 describe('rangedUtils', () => {
   let mockLogger;
   let mockSpawn;
+  let mockMetrics;
 
   beforeEach(() => {
     // Create mock logger
@@ -25,6 +26,12 @@ describe('rangedUtils', () => {
       info: jest.fn(),
       error: jest.fn(),
       warn: jest.fn(),
+    };
+
+    // Create mock metrics
+    mockMetrics = {
+      totalFilesDownloaded: 0,
+      totalFilesSkipped: 0,
     };
 
     // Create mock spawn process
@@ -198,15 +205,15 @@ describe('rangedUtils', () => {
       const url = 'https://example.com/test.vcf.gz';
       const range = 'chr1:1000-2000';
 
-      // Expected tabix arguments for range extraction
-      const expectedTabixArgs = [url, range];
+      // Expected tabix arguments for range extraction with -h flag for header
+      const expectedTabixArgs = ['-h', url, range];
 
       // Expected bgzip arguments for compression
-      const expectedBgzipArgs = ['-c', '/path/to/output.vcf'];
+      const expectedBgzipArgs = ['-c'];
 
       // Test that expected arguments are correctly formatted
-      expect(expectedTabixArgs).toEqual([url, range]);
-      expect(expectedBgzipArgs).toEqual(['-c', '/path/to/output.vcf']);
+      expect(expectedTabixArgs).toEqual(['-h', url, range]);
+      expect(expectedBgzipArgs).toEqual(['-c']);
     });
 
     test('should skip download when file exists and overwrite is false', async () => {
@@ -216,7 +223,9 @@ describe('rangedUtils', () => {
         'https://example.com/test.vcf.gz',
         'chr1:1000-2000',
         '/path/to/output.vcf.gz',
+        '/path/to/index.tbi',
         mockLogger,
+        mockMetrics,
         false, // overwrite = false
       );
 
@@ -229,67 +238,166 @@ describe('rangedUtils', () => {
     test('should proceed with download when overwrite is true', async () => {
       fs.existsSync.mockReturnValue(true); // File exists
 
-      // Mock successful spawn processes
-      mockSpawn.on.mockImplementation((event, callback) => {
-        if (event === 'close') {
-          setTimeout(() => callback(0), 0); // Exit code 0 = success
-        }
-        return mockSpawn;
-      });
+      // Mock spawn to return a process-like object with proper event handling
+      const mockTabixProcess = {
+        stdout: { pipe: jest.fn() },
+        stderr: { on: jest.fn() },
+        on: jest.fn(),
+      };
+      const mockBgzipProcess = {
+        stdin: {},
+        stdout: { pipe: jest.fn() },
+        stderr: { on: jest.fn() },
+        on: jest.fn((event, callback) => {
+          if (event === 'close') {
+            setTimeout(() => callback(0), 0); // Exit code 0 = success
+          }
+        }),
+      };
+      const mockOutputStream = {
+        on: jest.fn((event, callback) => {
+          if (event === 'finish') {
+            setTimeout(() => callback(), 0);
+          }
+        }),
+      };
+
+      spawn
+        .mockReturnValueOnce(mockTabixProcess)
+        .mockReturnValueOnce(mockBgzipProcess);
+      fs.createWriteStream.mockReturnValue(mockOutputStream);
 
       const url = 'https://example.com/test.vcf.gz';
       const range = 'chr1:1000-2000';
       const outputFile = '/path/to/output.vcf.gz';
 
-      await rangedDownloadVCF(url, range, outputFile, mockLogger, true); // overwrite = true
+      await rangedDownloadVCF(
+        url,
+        range,
+        outputFile,
+        '/path/to/index.tbi',
+        mockLogger,
+        mockMetrics,
+        true,
+      ); // overwrite = true
 
-      expect(spawn).toHaveBeenCalledWith('tabix', [url, range]);
+      expect(spawn).toHaveBeenCalledWith(
+        'sh',
+        ['-c', `tabix -h "${url}" ${range}`],
+        {
+          cwd: expect.any(String),
+        },
+      );
+      expect(spawn).toHaveBeenCalledWith('bgzip', ['-c']);
     });
 
-    test('should handle tabix command failure', async () => {
+    test('should handle bgzip command failure', async () => {
       fs.existsSync.mockReturnValue(false);
 
-      // Mock failed spawn process
-      mockSpawn.on.mockImplementation((event, callback) => {
-        if (event === 'close') {
-          setTimeout(() => callback(1), 0); // Exit code 1 = failure
-        }
-        return mockSpawn;
-      });
+      // Mock spawn to return process-like objects
+      const mockTabixProcess = {
+        stdout: { pipe: jest.fn() },
+        stderr: { on: jest.fn() },
+        on: jest.fn(),
+      };
+      const mockBgzipProcess = {
+        stdin: {},
+        stdout: { pipe: jest.fn() },
+        stderr: { on: jest.fn() },
+        on: jest.fn((event, callback) => {
+          if (event === 'close') {
+            setTimeout(() => callback(1), 0); // Exit code 1 = failure
+          }
+        }),
+      };
+      const mockOutputStream = {
+        on: jest.fn(),
+      };
+
+      spawn
+        .mockReturnValueOnce(mockTabixProcess)
+        .mockReturnValueOnce(mockBgzipProcess);
+      fs.createWriteStream.mockReturnValue(mockOutputStream);
 
       const url = 'https://example.com/test.vcf.gz';
       const range = 'chr1:1000-2000';
       const outputFile = '/path/to/output.vcf.gz';
 
       await expect(
-        rangedDownloadVCF(url, range, outputFile, mockLogger, false),
-      ).rejects.toThrow('Process tabix exited with code 1');
+        rangedDownloadVCF(
+          url,
+          range,
+          outputFile,
+          '/path/to/index.tbi',
+          mockLogger,
+          mockMetrics,
+          false,
+        ),
+      ).rejects.toThrow('bgzip process exited with code 1');
     });
 
-    test('should clean up temporary file after compression', async () => {
+    test('should use tabix with -h flag and pipe to bgzip', async () => {
       fs.existsSync.mockReturnValue(false);
 
-      // Mock successful spawn processes
-      mockSpawn.on.mockImplementation((event, callback) => {
-        if (event === 'close') {
-          setTimeout(() => callback(0), 0); // Exit code 0 = success
-        }
-        return mockSpawn;
-      });
+      // Mock spawn to return process-like objects
+      const mockTabixProcess = {
+        stdout: { pipe: jest.fn() },
+        stderr: { on: jest.fn() },
+        on: jest.fn(),
+      };
+      const mockBgzipProcess = {
+        stdin: {},
+        stdout: { pipe: jest.fn() },
+        stderr: { on: jest.fn() },
+        on: jest.fn((event, callback) => {
+          if (event === 'close') {
+            setTimeout(() => callback(0), 0); // Exit code 0 = success
+          }
+        }),
+      };
+      const mockOutputStream = {
+        on: jest.fn((event, callback) => {
+          if (event === 'finish') {
+            setTimeout(() => callback(), 0);
+          }
+        }),
+      };
+
+      spawn
+        .mockReturnValueOnce(mockTabixProcess)
+        .mockReturnValueOnce(mockBgzipProcess);
+      fs.createWriteStream.mockReturnValue(mockOutputStream);
 
       const outputFile = '/path/to/output.vcf.gz';
-      const expectedTempFile = '/path/to/output.vcf';
+      const indexFile = '/path/to/index.tbi';
 
       await rangedDownloadVCF(
         'https://example.com/test.vcf.gz',
         'chr1:1000-2000',
         outputFile,
+        indexFile,
         mockLogger,
+        mockMetrics,
         false,
       );
 
-      // Verify temp file cleanup
-      expect(fs.unlinkSync).toHaveBeenCalledWith(expectedTempFile);
+      // Verify tabix is called with -h flag via shell command
+      expect(spawn).toHaveBeenCalledWith(
+        'sh',
+        ['-c', 'tabix -h "https://example.com/test.vcf.gz" chr1:1000-2000'],
+        { cwd: '/path/to' },
+      );
+
+      // Verify bgzip is called for compression
+      expect(spawn).toHaveBeenCalledWith('bgzip', ['-c']);
+
+      // Verify piping is set up correctly
+      expect(mockTabixProcess.stdout.pipe).toHaveBeenCalledWith(
+        mockBgzipProcess.stdin,
+      );
+      expect(mockBgzipProcess.stdout.pipe).toHaveBeenCalledWith(
+        mockOutputStream,
+      );
     });
   });
 

@@ -125,12 +125,14 @@ async function rangedDownloadBAM(
   outputFile,
   indexFile,
   logger,
+  metrics,
   overwrite = false,
 ) {
   try {
     // Check if the output BAM file already exists and skip download if overwrite is false
     if (fs.existsSync(outputFile) && !overwrite) {
       logger.info(`BAM file already exists: ${outputFile}, skipping download.`);
+      metrics.totalFilesSkipped += 1;
       return;
     }
 
@@ -151,6 +153,7 @@ async function rangedDownloadBAM(
 
     await spawnPromise('samtools', args, logger);
     logger.info(`Downloaded BAM file for regions in BED file to ${outputFile}`);
+    metrics.totalFilesDownloaded += 1;
   } catch (error) {
     logger.error(`Error performing ranged download for BAM: ${error.message}`);
     throw error;
@@ -158,10 +161,11 @@ async function rangedDownloadBAM(
 }
 
 /**
- * Performs a ranged download for a VCF file using tabix, and compresses it using bgzip.
- * @param {string} url - The URL of the VCF file.
+ * Performs a ranged download for a VCF file using a tabix -> bgzip pipeline.
+ * @param {string} url - The URL of the VCF.gz file.
  * @param {string} range - The genomic range (e.g., 'chr1:1-100000').
- * @param {string} outputFile - The output file name (compressed as .vcf.gz).
+ * @param {string} outputFile - The output file name (will be compressed as .vcf.gz).
+ * @param {string} indexFile - The local path to the downloaded .tbi index file.
  * @param {Object} logger - The logger instance.
  * @param {boolean} overwrite - Flag indicating whether to overwrite existing files.
  * @returns {Promise<void>}
@@ -170,37 +174,105 @@ async function rangedDownloadVCF(
   url,
   range,
   outputFile,
+  indexFile,
   logger,
+  metrics,
   overwrite = false,
 ) {
-  try {
-    // Check if the output VCF file already exists and skip if overwrite is false
-    if (fs.existsSync(outputFile) && !overwrite) {
-      logger.info(`VCF file already exists: ${outputFile}, skipping download.`);
-      return;
-    }
-
-    const tempOutputFile = outputFile.replace('.gz', ''); // Temporary file for tabix output
-
-    // Use tabix to extract range and write to temp file
-    logger.info(`Running command: tabix ${url} ${range}`);
-    const tabixResult = await spawnPromise('tabix', [url, range], logger, true);
-    fs.writeFileSync(tempOutputFile, tabixResult.stdout);
-    logger.info(`Downloaded VCF file range to ${tempOutputFile}`);
-
-    // Compress with bgzip
-    const args = ['-c', tempOutputFile];
-    logger.info(`Running command to compress the VCF: bgzip ${args.join(' ')}`);
-    const bgzipResult = await spawnPromise('bgzip', args, logger, true);
-    fs.writeFileSync(outputFile, bgzipResult.stdout);
-    logger.info(`Compressed VCF to ${outputFile}`);
-
-    // Clean up the temporary uncompressed file
-    fs.unlinkSync(tempOutputFile);
-  } catch (error) {
-    logger.error(`Error performing ranged download for VCF: ${error.message}`);
-    throw error;
+  if (fs.existsSync(outputFile) && !overwrite) {
+    logger.info(`VCF file already exists: ${outputFile}, skipping download.`);
+    metrics.totalFilesSkipped += 1;
+    return;
   }
+
+  return new Promise((resolve, reject) => {
+    // For tabix to work with remote URLs:
+    // 1. The index file must already be downloaded (handled by ensureIndexFile)
+    // 2. Execute tabix in the directory containing the index file
+    // 3. The index file must be named exactly as expected by tabix (basename.vcf.gz.tbi)
+
+    // Get the directory where the index file is located
+    const indexDir = path.dirname(indexFile);
+
+    // Command 1: tabix to extract the region with header
+    // CRITICAL: The URL must be quoted to handle special characters in query parameters
+    const tabixCmd = `tabix -h "${url}" ${range}`;
+    logger.info(`Executing in ${indexDir}: ${tabixCmd}`);
+    const tabixProcess = spawn('sh', ['-c', tabixCmd], {
+      cwd: indexDir, // Execute in the directory where the index file is located
+    });
+
+    // Command 2: bgzip to compress the output
+    const bgzipArgs = ['-c'];
+    logger.info(`Piping to: bgzip -c`);
+    const bgzipProcess = spawn('bgzip', bgzipArgs);
+
+    // Create a write stream for the final output file
+    const outputStream = fs.createWriteStream(outputFile);
+
+    // Pipe stdout of tabix to stdin of bgzip
+    tabixProcess.stdout.pipe(bgzipProcess.stdin);
+
+    // Pipe stdout of bgzip to the output file
+    bgzipProcess.stdout.pipe(outputStream);
+
+    // --- Error Handling ---
+    let tabixError = '';
+    tabixProcess.stderr.on('data', (data) => {
+      tabixError += data.toString();
+      logger.debug(`[tabix stderr]: ${data.toString().trim()}`);
+    });
+
+    let bgzipError = '';
+    bgzipProcess.stderr.on('data', (data) => {
+      bgzipError += data.toString();
+      logger.debug(`[bgzip stderr]: ${data.toString().trim()}`);
+    });
+
+    let processError = null;
+
+    const onProcessError = (procName, err) => {
+      if (!processError) processError = `Error in ${procName}: ${err.message}`;
+    };
+
+    tabixProcess.on('error', (err) => onProcessError('tabix', err));
+    bgzipProcess.on('error', (err) => onProcessError('bgzip', err));
+    outputStream.on('error', (err) => onProcessError('outputStream', err));
+
+    // --- Completion Handling ---
+    bgzipProcess.on('close', (code) => {
+      if (code !== 0) {
+        // If bgzip fails, it's a critical error.
+        if (!processError)
+          processError = `bgzip process exited with code ${code}. Stderr: ${bgzipError}`;
+        if (fs.existsSync(outputFile)) {
+          fs.unlinkSync(outputFile); // Clean up partial file
+        }
+        return reject(new Error(processError));
+      }
+
+      // bgzip finished, now wait for the file stream to close.
+      outputStream.on('finish', () => {
+        if (processError) {
+          if (fs.existsSync(outputFile)) {
+            fs.unlinkSync(outputFile);
+          }
+          return reject(new Error(processError));
+        }
+        logger.info(`Ranged VCF download complete: ${outputFile}`);
+        metrics.totalFilesDownloaded += 1;
+        resolve();
+      });
+    });
+
+    tabixProcess.on('close', (code) => {
+      if (code !== 0) {
+        if (!processError)
+          processError = `tabix process exited with code ${code}. Stderr: ${tabixError}`;
+        // Don't reject here; let bgzip finish/fail, then handle the error.
+      }
+    });
+  });
 }
 
 /**
@@ -324,8 +396,22 @@ function generateOutputFileName(fileName, regions, logger) {
     return fileName;
   }
 
-  const extension = path.extname(fileName);
-  const baseName = path.basename(fileName, extension);
+  // Handle compound extensions like .vcf.gz, .bam.bai properly
+  let extension, baseName;
+
+  if (fileName.endsWith('.vcf.gz')) {
+    extension = '.vcf.gz';
+    baseName = fileName.slice(0, -7); // Remove .vcf.gz
+  } else if (fileName.endsWith('.vcf.gz.tbi')) {
+    extension = '.vcf.gz.tbi';
+    baseName = fileName.slice(0, -11); // Remove .vcf.gz.tbi
+  } else if (fileName.endsWith('.bam.bai')) {
+    extension = '.bam.bai';
+    baseName = fileName.slice(0, -8); // Remove .bam.bai
+  } else {
+    extension = path.extname(fileName);
+    baseName = path.basename(fileName, extension);
+  }
 
   let suffix;
   if (Array.isArray(regions) && regions.length > 1) {

@@ -159,4 +159,225 @@ describe('E2E Integration Tests against Varvis Playground', () => {
     console.log('✓ Listed URLs:', consoleUrls.length);
     console.log('✓ URL file created:', urlFilePath);
   });
+
+  test('should download full VCF files and verify content structure', async () => {
+    // Arrange - Download complete VCF files for baseline
+    const args = [
+      `--target ${TARGET_SERVER}`,
+      `--username ${process.env.VARVIS_PLAYGROUND_USER}`,
+      `--password ${process.env.VARVIS_PLAYGROUND_PASS}`,
+      `--analysisIds ${ANALYSIS_ID}`,
+      '--filetypes vcf.gz,vcf.gz.tbi',
+      `--destination ${TEMP_DOWNLOAD_DIR}`,
+      '--overwrite',
+    ].join(' ');
+
+    // Act
+    const result = await runCli(args);
+
+    // Debug output if test fails
+    if (result.code !== 0) {
+      console.log('Full VCF CLI Command:', args);
+      console.log('Exit Code:', result.code);
+      console.log('STDOUT:', result.stdout);
+      console.log('STDERR:', result.stderr);
+    }
+
+    // Assert
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('Download complete.');
+
+    // Find full VCF files dynamically
+    const downloadedFiles = fs.readdirSync(TEMP_DOWNLOAD_DIR);
+    const fullVcfFiles = downloadedFiles.filter(
+      (file) => file.endsWith('.vcf.gz') && !file.includes('chr'), // Full files don't have region in name
+    );
+    const fullVcfIndexFiles = downloadedFiles.filter(
+      (file) => file.endsWith('.vcf.gz.tbi') && !file.includes('chr'),
+    );
+
+    // Verify full VCF files were created
+    expect(fullVcfFiles.length).toBeGreaterThan(0);
+    expect(fullVcfIndexFiles.length).toBeGreaterThan(0);
+
+    // Verify files have significant content
+    const fullVcfPath = path.join(TEMP_DOWNLOAD_DIR, fullVcfFiles[0]);
+    const fullVcfIndexPath = path.join(TEMP_DOWNLOAD_DIR, fullVcfIndexFiles[0]);
+    expect(fs.statSync(fullVcfPath).size).toBeGreaterThan(50000); // Full VCF should be substantial
+    expect(fs.statSync(fullVcfIndexPath).size).toBeGreaterThan(100); // Index should exist
+
+    // Log the actual filenames for reference
+    console.log('✓ Downloaded full VCF files:', fullVcfFiles);
+    console.log('✓ Downloaded full VCF index files:', fullVcfIndexFiles);
+  });
+
+  test('should perform ranged VCF download with correct filename format', async () => {
+    // Skip this test if tabix or bgzip are not available
+    const { spawn } = require('child_process');
+
+    const checkTool = (tool) => {
+      return new Promise((resolve) => {
+        const process = spawn(tool, ['--version']);
+        process.on('close', (code) => {
+          resolve(code === 0);
+        });
+        process.on('error', () => {
+          resolve(false);
+        });
+      });
+    };
+
+    const tabixAvailable = await checkTool('tabix');
+    const bgzipAvailable = await checkTool('bgzip');
+
+    if (!tabixAvailable || !bgzipAvailable) {
+      console.log(
+        '⚠ Skipping VCF ranged download test: tabix or bgzip not available',
+      );
+      return;
+    }
+
+    // Arrange
+    const args = [
+      `--target ${TARGET_SERVER}`,
+      `--username ${process.env.VARVIS_PLAYGROUND_USER}`,
+      `--password ${process.env.VARVIS_PLAYGROUND_PASS}`,
+      `--analysisIds ${ANALYSIS_ID}`,
+      '--filetypes vcf.gz,vcf.gz.tbi',
+      `--destination ${TEMP_DOWNLOAD_DIR}`,
+      '--range chr1:1000000-2000000', // Test with a specific genomic range
+      '--overwrite',
+    ].join(' ');
+
+    // Act
+    const result = await runCli(args);
+
+    // Debug output if test fails
+    if (result.code !== 0) {
+      console.log('Ranged VCF CLI Command:', args);
+      console.log('Exit Code:', result.code);
+      console.log('STDOUT:', result.stdout);
+      console.log('STDERR:', result.stderr);
+    }
+
+    // Assert
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('Download complete.');
+    expect(result.stdout).toContain('Ranged VCF download complete');
+
+    // Find ranged VCF files dynamically with correct filename format
+    const downloadedFiles = fs.readdirSync(TEMP_DOWNLOAD_DIR);
+    const rangedVcfFiles = downloadedFiles.filter(
+      (file) =>
+        file.includes('chr1_1000000_2000000') && file.endsWith('.vcf.gz'),
+    );
+    const rangedVcfIndexFiles = downloadedFiles.filter(
+      (file) =>
+        file.includes('chr1_1000000_2000000') && file.endsWith('.vcf.gz.tbi'),
+    );
+
+    // Verify ranged VCF files were created
+    expect(rangedVcfFiles.length).toBeGreaterThan(0);
+    expect(rangedVcfIndexFiles.length).toBeGreaterThan(0);
+
+    // Verify correct filename format: basename.region.vcf.gz (not basename.vcf.region.gz)
+    rangedVcfFiles.forEach((file) => {
+      expect(file).toMatch(/\.chr1_1000000_2000000\.vcf\.gz$/);
+      expect(file).not.toMatch(/\.vcf\.chr1_1000000_2000000\.gz$/);
+    });
+
+    rangedVcfIndexFiles.forEach((file) => {
+      expect(file).toMatch(/\.chr1_1000000_2000000\.vcf\.gz\.tbi$/);
+      expect(file).not.toMatch(/\.vcf\.chr1_1000000_2000000\.gz\.tbi$/);
+    });
+
+    // Verify files have content (ranged files should be smaller than full files)
+    const rangedVcfPath = path.join(TEMP_DOWNLOAD_DIR, rangedVcfFiles[0]);
+    const rangedVcfIndexPath = path.join(
+      TEMP_DOWNLOAD_DIR,
+      rangedVcfIndexFiles[0],
+    );
+    expect(fs.statSync(rangedVcfPath).size).toBeGreaterThan(1000);
+    expect(fs.statSync(rangedVcfPath).size).toBeLessThan(50000); // Should be smaller than full file
+    expect(fs.statSync(rangedVcfIndexPath).size).toBeGreaterThan(50);
+
+    // Log the actual filenames for reference
+    console.log('✓ Downloaded ranged VCF files:', rangedVcfFiles);
+    console.log('✓ Downloaded ranged VCF index files:', rangedVcfIndexFiles);
+    console.log('✓ Verified correct filename format: basename.region.vcf.gz');
+  });
+
+  test('should handle multiple genomic regions creating separate VCF files', async () => {
+    // Skip this test if tabix or bgzip are not available
+    const { spawn } = require('child_process');
+
+    const checkTool = (tool) => {
+      return new Promise((resolve) => {
+        const process = spawn(tool, ['--version']);
+        process.on('close', (code) => {
+          resolve(code === 0);
+        });
+        process.on('error', () => {
+          resolve(false);
+        });
+      });
+    };
+
+    const tabixAvailable = await checkTool('tabix');
+    const bgzipAvailable = await checkTool('bgzip');
+
+    if (!tabixAvailable || !bgzipAvailable) {
+      console.log(
+        '⚠ Skipping multi-region VCF test: tabix or bgzip not available',
+      );
+      return;
+    }
+
+    // Arrange - Test multiple regions
+    const args = [
+      `--target ${TARGET_SERVER}`,
+      `--username ${process.env.VARVIS_PLAYGROUND_USER}`,
+      `--password ${process.env.VARVIS_PLAYGROUND_PASS}`,
+      `--analysisIds ${ANALYSIS_ID}`,
+      '--filetypes vcf.gz,vcf.gz.tbi',
+      `--destination ${TEMP_DOWNLOAD_DIR}`,
+      '--range "chr1:1000000-1500000 chr1:2000000-2500000"', // Multiple regions
+      '--overwrite',
+    ].join(' ');
+
+    // Act
+    const result = await runCli(args);
+
+    // Debug output if test fails
+    if (result.code !== 0) {
+      console.log('Multi-region VCF CLI Command:', args);
+      console.log('Exit Code:', result.code);
+      console.log('STDOUT:', result.stdout);
+      console.log('STDERR:', result.stderr);
+    }
+
+    // Assert
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('Download complete.');
+
+    // Find files for both regions
+    const downloadedFiles = fs.readdirSync(TEMP_DOWNLOAD_DIR);
+    const region1Files = downloadedFiles.filter(
+      (file) =>
+        file.includes('chr1_1000000_1500000') && file.endsWith('.vcf.gz'),
+    );
+    const region2Files = downloadedFiles.filter(
+      (file) =>
+        file.includes('chr1_2000000_2500000') && file.endsWith('.vcf.gz'),
+    );
+
+    // Verify both regions created files
+    expect(region1Files.length).toBeGreaterThan(0);
+    expect(region2Files.length).toBeGreaterThan(0);
+
+    // Log the results
+    console.log('✓ Region 1 files:', region1Files);
+    console.log('✓ Region 2 files:', region2Files);
+    console.log('✓ Successfully created separate files for multiple regions');
+  });
 });

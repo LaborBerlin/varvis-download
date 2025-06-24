@@ -61,11 +61,17 @@ varvis-download -u username -p password -t target -a "analysis1" -d "/path/to/do
 # Download with filters
 varvis-download -u username -p password -t target -s "sample1,sample2" --filter "analysisType=SNV"
 
-# Ranged download for specific genomic region
-varvis-download -u username -p password -t target -a "analysis1" --range "chr1:1-100000"
+# Ranged download for specific genomic region (BAM files)
+varvis-download -u username -p password -t target -a "analysis1" --range "chr1:1-100000" -f "bam,bam.bai"
+
+# Ranged download for VCF files (uses tabix + bgzip pipeline)
+varvis-download -u username -p password -t target -a "analysis1" --range "chr1:155000000-156000000" -f "vcf.gz,vcf.gz.tbi"
+
+# Multiple regions (creates separate files for each region)
+varvis-download -u username -p password -t target -a "analysis1" --range "chr1:1000000-2000000 chr17:41000000-42000000" -f "vcf.gz,vcf.gz.tbi"
 
 # Download with BED file for multiple regions
-varvis-download -u username -p password -t target -a "analysis1" --bed "/path/to/regions.bed"
+varvis-download -u username -p password -t target -a "analysis1" --bed "/path/to/regions.bed" -f "vcf.gz,vcf.gz.tbi"
 
 # Resume archived downloads
 varvis-download --resumeArchivedDownloads
@@ -82,6 +88,21 @@ varvis-download -u username -p password -t target -a "analysis1" --list-urls | w
 # Use with aria2c for accelerated downloads
 varvis-download -u username -p password -t target -a "analysis1" --list-urls | aria2c -i -
 ```
+
+### Genomic Range Downloads
+
+**VCF Range Downloads**:
+- Requires `tabix` v1.7+ and `bgzip` v1.7+
+- Automatically downloads `.tbi` index files
+- Uses `tabix -h | bgzip` pipeline for proper VCF format
+- Creates files with format: `basename.region.vcf.gz`
+- Each region creates a separate output file
+
+**BAM Range Downloads**:
+- Requires `samtools` v1.17+
+- Automatically downloads `.bai` index files
+- Uses `samtools view -b` for region extraction
+- Single output file for all regions in BED file
 
 ### Configuration File
 

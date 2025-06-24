@@ -234,6 +234,33 @@ chr2    25000000     26000000     DNMT3A_region
 chr17   41196311     41277500     BRCA1_full
 ```
 
+**VCF Range Downloads**:
+
+VCF ranged downloads use a robust `tabix -h | bgzip` pipeline that automatically downloads the required index files and executes tabix in the correct directory:
+
+```bash
+# Single region creates: sample.chr1_1000000_2000000.vcf.gz
+./varvis-download.js -t laborberlin -a 12345 -g "chr1:1000000-2000000" -f "vcf.gz,vcf.gz.tbi"
+
+# Multiple regions create separate files for each region
+./varvis-download.js -t laborberlin -a 12345 -g "chr1:1000000-2000000 chr2:500000-1500000" -f "vcf.gz,vcf.gz.tbi"
+# Output: sample.chr1_1000000_2000000.vcf.gz, sample.chr2_500000_1500000.vcf.gz
+```
+
+**VCF Pipeline Process**:
+
+1. **Index Download**: Downloads the `.tbi` index file first
+2. **Directory Execution**: Executes `tabix` in the directory containing the index file
+3. **URL Quoting**: Properly quotes the VCF URL to handle query parameters
+4. **Header Inclusion**: Uses `tabix -h` to include VCF headers in the output
+5. **Compression**: Pipes through `bgzip -c` for proper VCF.gz format
+6. **Re-indexing**: Creates new `.tbi` index for the ranged file
+
+**Requirements for VCF Range Downloads**:
+- `tabix` v1.7+ (for remote URL support with -h flag)
+- `bgzip` v1.7+ (for compression pipeline)
+- Both VCF file and index file must be available
+
 ## Performance Optimization
 
 ### Concurrent Downloads

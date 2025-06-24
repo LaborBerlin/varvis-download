@@ -333,6 +333,50 @@ For slow connections, use smaller file types first:
 ./varvis-download.js -t laborberlin -a 12345 -f "bam,vcf.gz"
 ```
 
+## Genomic Range Downloads
+
+### VCF Range Extraction
+
+Extract specific genomic regions from VCF files:
+
+```bash
+# Extract a single region with proper file naming
+./varvis-download.js -t laborberlin -a 12345 -g "chr1:155000000-156000000" -f "vcf.gz,vcf.gz.tbi"
+# Creates: sample.chr1_155000000_156000000.vcf.gz
+
+# Extract multiple regions (creates separate files)
+./varvis-download.js -t laborberlin -a 12345 -g "chr1:155000000-156000000 chr17:41000000-42000000" -f "vcf.gz,vcf.gz.tbi"
+# Creates: sample.chr1_155000000_156000000.vcf.gz, sample.chr17_41000000_42000000.vcf.gz
+
+# Use BED file for complex regions
+echo -e "chr1\t155000000\t156000000\tchr17\t41000000\t42000000" > regions.bed
+./varvis-download.js -t laborberlin -a 12345 -b regions.bed -f "vcf.gz,vcf.gz.tbi"
+```
+
+### BAM Range Extraction
+
+Extract specific regions from BAM files:
+
+```bash
+# Extract a genomic region from BAM files
+./varvis-download.js -t laborberlin -a 12345 -g "chr1:155000000-156000000" -f "bam,bam.bai"
+
+# Multiple regions with BED file
+./varvis-download.js -t laborberlin -a 12345 -b target_regions.bed -f "bam,bam.bai"
+```
+
+### Range Download Requirements
+
+**For VCF files**:
+- Requires `tabix` v1.7+ and `bgzip` v1.7+
+- Automatically downloads `.tbi` index files
+- Uses `tabix -h | bgzip` pipeline for proper VCF format
+
+**For BAM files**:
+- Requires `samtools` v1.17+
+- Automatically downloads `.bai` index files
+- Uses `samtools view -b` for region extraction
+
 ## Next Steps
 
 - **[Advanced Filtering](/examples/filtering)** - Complex search expressions

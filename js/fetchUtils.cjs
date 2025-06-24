@@ -6,6 +6,7 @@ const { fetchWithRetry } = require('./apiClient.cjs');
 const metrics = {
   startTime: Date.now(),
   totalFilesDownloaded: 0,
+  totalFilesSkipped: 0,
   totalBytesDownloaded: 0,
   downloadSpeeds: [],
 };
@@ -313,13 +314,19 @@ async function listAvailableFiles(analysisId, target, token, agent, logger) {
 function generateReport(reportfile, logger) {
   const totalTime = (Date.now() - metrics.startTime) / 1000; // in seconds
   const averageSpeed =
-    metrics.downloadSpeeds.reduce((a, b) => a + b, 0) /
-    metrics.downloadSpeeds.length;
+    metrics.downloadSpeeds.length > 0
+      ? metrics.downloadSpeeds.reduce((a, b) => a + b, 0) /
+        metrics.downloadSpeeds.length
+      : 0;
 
+  const totalFilesProcessed =
+    metrics.totalFilesDownloaded + metrics.totalFilesSkipped;
   const report = `
     Download Summary Report:
     ------------------------
-    Total Files Downloaded: ${metrics.totalFilesDownloaded}
+    Total Files Processed: ${totalFilesProcessed}
+    Files Downloaded: ${metrics.totalFilesDownloaded}
+    Files Skipped (already exist): ${metrics.totalFilesSkipped}
     Total Bytes Downloaded: ${metrics.totalBytesDownloaded}
     Average Download Speed: ${averageSpeed.toFixed(2)} bytes/sec
     Total Time Taken: ${totalTime.toFixed(2)} seconds
