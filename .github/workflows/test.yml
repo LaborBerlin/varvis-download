@@ -73,3 +73,32 @@ jobs:
 
       - name: Test genomic range functionality
         run: npm test -- --testNamePattern="range|genomic"
+
+  integration-test:
+    name: End-to-End Integration Tests
+    runs-on: ubuntu-latest
+
+    # Only run on push to main or pull requests to main
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.base_ref == 'main'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Install Bioinformatics Tools
+        run: sudo apt-get update && sudo apt-get install -y samtools tabix
+
+      - name: Run Integration Tests
+        env:
+          VARVIS_PLAYGROUND_USER: ${{ secrets.VARVIS_PLAYGROUND_USER }}
+          VARVIS_PLAYGROUND_PASS: ${{ secrets.VARVIS_PLAYGROUND_PASS }}
+        run: npm run test:integration

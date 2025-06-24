@@ -10,6 +10,7 @@
   "main": "varvis-download.cjs",
   "scripts": {
     "test": "jest",
+    "test:integration": "jest --config=jest.integration.config.cjs --runInBand",
     "format": "prettier --write .",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -53,6 +54,7 @@
   "devDependencies": {
     "documentation": "^14.0.3",
     "dotenv": "^16.5.0",
+    "dotenv-cli": "^8.0.0",
     "eslint": "^9.29.0",
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-prettier": "^5.5.0",

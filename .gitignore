@@ -7,6 +7,7 @@ node_modules
 # local env files
 .env.local
 .env.*.local
+.env.test
 
 # Log files
 npm-debug.log*
@@ -59,3 +60,6 @@ CLAUDE.md
 docs/.vitepress/dist/
 docs/.vitepress/cache/
 docs/.vitepress/.temp/
+
+# Integration test temporary files
+tests/integration/e2e/temp_downloads/
