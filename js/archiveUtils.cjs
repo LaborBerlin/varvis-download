@@ -32,7 +32,7 @@ async function triggerRestoreArchivedFile(
     postData.append('disableArchive', 'false');
 
     // Use apiClient to avoid circular dependency.
-    const { fetchWithRetry } = require('./apiClient');
+    const { fetchWithRetry } = require('./apiClient.cjs');
 
     const response = await fetchWithRetry(
       `https://${target}.varvis.com/archive/analysis/restore`,
@@ -170,15 +170,15 @@ async function resumeArchivedDownloads(
   }
 
   // Lazy-require necessary functions
-  const { getDownloadLinks } = require('./fetchUtils');
+  const { getDownloadLinks } = require('./fetchUtils.cjs');
   const {
     ensureIndexFile,
     generateOutputFileName,
     indexBAM,
     rangedDownloadBAM,
-  } = require('./rangedUtils');
-  const { downloadFile } = require('./fileUtils');
-  const metrics = require('./fetchUtils').metrics;
+  } = require('./rangedUtils.cjs');
+  const { downloadFile } = require('./fileUtils.cjs');
+  const metrics = require('./fetchUtils.cjs').metrics;
 
   let updatedData = [];
   const now = new Date();

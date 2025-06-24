@@ -22,7 +22,7 @@ const CONFIG = {
   get tempDir() {
     return path.resolve(__dirname, '../.temp');
   },
-  patterns: ['../../js/**/*.js', '../../varvis-download.js'],
+  patterns: ['../../js/**/*.cjs', '../../varvis-download.cjs'],
   excludePatterns: ['../../js/**/*.test.js', '../../tests/**/*.js'],
 };
 
@@ -44,7 +44,7 @@ function _getSourceFiles() {
   const files = [];
 
   // Add main CLI file
-  const mainCliPath = path.resolve(__dirname, '../../varvis-download.js');
+  const mainCliPath = path.resolve(__dirname, '../../varvis-download.cjs');
   if (fs.existsSync(mainCliPath)) {
     files.push(mainCliPath);
   }
@@ -54,7 +54,7 @@ function _getSourceFiles() {
   if (fs.existsSync(sourceDir)) {
     const jsFiles = fs
       .readdirSync(sourceDir)
-      .filter((file) => file.endsWith('.js') && !file.endsWith('.test.js'))
+      .filter((file) => file.endsWith('.cjs') && !file.endsWith('.test.cjs'))
       .map((file) => path.join(sourceDir, file));
     files.push(...jsFiles);
   }
@@ -69,10 +69,27 @@ function _getSourceFiles() {
  */
 async function _generateJSDocData(filePath) {
   try {
+    // For .cjs files, create a temporary .js file for JSDoc processing
+    let actualFilePath = filePath;
+    let tempFilePath = null;
+
+    if (filePath.endsWith('.cjs')) {
+      tempFilePath = filePath.replace('.cjs', '.temp.js');
+      const content = fs.readFileSync(filePath, 'utf8');
+      fs.writeFileSync(tempFilePath, content);
+      actualFilePath = tempFilePath;
+    }
+
     const templateData = await jsdoc2md.getTemplateData({
-      files: filePath,
-      configure: path.resolve(__dirname, '../../jsdoc.conf.json'),
+      files: actualFilePath,
+      'no-cache': true,
     });
+
+    // Clean up temporary file
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      fs.unlinkSync(tempFilePath);
+    }
+
     return templateData;
   } catch (error) {
     console.warn(
@@ -117,7 +134,7 @@ function generateCLIReference() {
   console.log('Generating CLI reference documentation...');
 
   // Extract CLI options by reading the main CLI file
-  const cliFilePath = path.resolve(__dirname, '../../varvis-download.js');
+  const cliFilePath = path.resolve(__dirname, '../../varvis-download.cjs');
   if (!fs.existsSync(cliFilePath)) {
     console.warn(
       `CLI file not found at ${cliFilePath}, skipping CLI reference generation`,
@@ -509,7 +526,7 @@ function getModuleDescription(filePath) {
     }
 
     // Fallback descriptions based on filename
-    const baseName = path.basename(filePath, '.js');
+    const baseName = path.basename(filePath, '.cjs');
     const descriptions = {
       authService: 'Authentication service for Varvis API',
       apiClient: 'HTTP client with retry logic and agent management',
@@ -541,7 +558,7 @@ async function generateAPIDocumentation() {
   const modules = [];
 
   for (const filePath of sourceFiles) {
-    const moduleName = path.basename(filePath, '.js');
+    const moduleName = path.basename(filePath, '.cjs');
     console.log(`Processing ${moduleName}...`);
 
     try {

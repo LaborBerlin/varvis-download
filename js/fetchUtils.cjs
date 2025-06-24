@@ -1,7 +1,7 @@
 const fs = require('fs');
-const { applyFilters } = require('./filterUtils');
-const { triggerRestoreArchivedFile } = require('./archiveUtils');
-const { fetchWithRetry } = require('./apiClient');
+const { applyFilters } = require('./filterUtils.cjs');
+const { triggerRestoreArchivedFile } = require('./archiveUtils.cjs');
+const { fetchWithRetry } = require('./apiClient.cjs');
 
 const metrics = {
   startTime: Date.now(),

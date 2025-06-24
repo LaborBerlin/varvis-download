@@ -1,7 +1,7 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { downloadFile } = require('./fileUtils');
+const { downloadFile } = require('./fileUtils.cjs');
 
 // Define minimum required versions for external tools
 

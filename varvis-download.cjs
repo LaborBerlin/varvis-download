@@ -6,7 +6,7 @@ require('dotenv').config();
 const { CookieJar } = require('tough-cookie');
 const { CookieClient } = require('http-cookie-agent/undici');
 const yargs = require('yargs');
-const fs = require('fs'); // Import the fs module
+const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 const { ProxyAgent, Agent } = require('undici');
@@ -22,17 +22,17 @@ const {
   loadConfig,
   loadLogo,
   getLastModifiedDate,
-} = require('./js/configUtils');
-const createLogger = require('./js/logger');
-const AuthService = require('./js/authService');
+} = require('./js/configUtils.cjs');
+const createLogger = require('./js/logger.cjs');
+const AuthService = require('./js/authService.cjs');
 const {
   fetchAnalysisIds,
   getDownloadLinks,
   listAvailableFiles,
   generateReport,
   metrics,
-} = require('./js/fetchUtils');
-const { downloadFile } = require('./js/fileUtils');
+} = require('./js/fetchUtils.cjs');
+const { downloadFile } = require('./js/fileUtils.cjs');
 const {
   checkToolAvailability,
   ensureIndexFile,
@@ -41,11 +41,11 @@ const {
   indexBAM,
   indexVCF,
   generateOutputFileName,
-} = require('./js/rangedUtils');
+} = require('./js/rangedUtils.cjs');
 // Rename the imported function to avoid collision.
 const {
   resumeArchivedDownloads: resumeArchivedDownloadsFunc,
-} = require('./js/archiveUtils');
+} = require('./js/archiveUtils.cjs');
 
 // Command line arguments setup
 const argv = yargs

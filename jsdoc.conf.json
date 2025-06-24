@@ -1,8 +1,8 @@
 {
   "source": {
-    "include": ["./js/", "./varvis-download.js"],
-    "exclude": ["./js/**/*.test.js", "./tests/"],
-    "includePattern": "\\.(js)$"
+    "include": ["./js/", "./varvis-download.cjs"],
+    "exclude": ["./js/**/*.test.cjs", "./tests/"],
+    "includePattern": "\\.(cjs)$"
   },
   "opts": {
     "recurse": true

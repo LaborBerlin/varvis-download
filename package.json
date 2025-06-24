@@ -7,7 +7,7 @@
     "type": "git",
     "url": "https://github.com/LaborBerlin/varvis-download.git"
   },
-  "main": "varvis-download.js",
+  "main": "varvis-download.cjs",
   "scripts": {
     "test": "jest",
     "format": "prettier --write .",
@@ -45,7 +45,7 @@
     "yargs": "^17.7.2"
   },
   "bin": {
-    "varvis-download": "./varvis-download.js"
+    "varvis-download": "./varvis-download.cjs"
   },
   "devDependencies": {
     "documentation": "^14.0.3",
@@ -63,6 +63,6 @@
     "vitepress": "^1.6.3"
   },
   "lint-staged": {
-    "*.js": "eslint --fix"
+    "*.{js,cjs}": "eslint --fix"
   }
 }
