@@ -115,6 +115,31 @@ Available files:
   - sample_001.vcf.gz.tbi (2.1 MB)
 ```
 
+### Generate Download URLs
+
+Get direct download URLs for external tools:
+
+```bash
+# Print URLs to console
+./varvis-download.js -t laborberlin -a 12345 --list-urls
+
+# Save URLs to file
+./varvis-download.js -t laborberlin -a 12345 --list-urls --url-file download_urls.txt
+
+# Use with external download tools
+./varvis-download.js -t laborberlin -a 12345 --list-urls | wget -i -
+./varvis-download.js -t laborberlin -a 12345 --list-urls | aria2c -i -
+```
+
+Example URL output:
+
+```
+https://laborberlin.varvis.com/download/analysis/12345/sample_001.bam?token=abc123
+https://laborberlin.varvis.com/download/analysis/12345/sample_001.bam.bai?token=abc123
+https://laborberlin.varvis.com/download/analysis/12345/sample_001.vcf.gz?token=abc123
+https://laborberlin.varvis.com/download/analysis/12345/sample_001.vcf.gz.tbi?token=abc123
+```
+
 ### Overwrite Existing Files
 
 By default, existing files are skipped. To overwrite:

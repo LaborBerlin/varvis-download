@@ -179,6 +179,18 @@ const argv = yargs
     type: 'boolean',
     default: false,
   })
+  .option('list-urls', {
+    alias: 'U',
+    describe:
+      'List the direct download URLs for the selected files instead of downloading them. Useful for piping to other tools.',
+    type: 'boolean',
+    default: false,
+  })
+  .option('url-file', {
+    describe:
+      'Path to a file to save the download URLs when using --list-urls.',
+    type: 'string',
+  })
   .option('version', {
     alias: 'v',
     type: 'boolean',
@@ -234,6 +246,8 @@ const finalConfig = {
     'awaiting-restoration.json',
   resumeArchivedDownloads:
     argv.resumeArchivedDownloads || config.resumeArchivedDownloads || false,
+  listUrls: argv.listUrls || config.listUrls || false,
+  urlFile: argv.urlFile || config.urlFile || null,
 };
 
 // Validate the final configuration
@@ -308,6 +322,36 @@ const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 });
+
+/**
+ * Handles the output of download URLs, printing to console and/or writing to a file.
+ * @param {string[]} urls - An array of URL strings to output.
+ * @param {string|null} filePath - The path to the output file, or null to only use console.
+ * @param {Object} logger - The logger instance.
+ */
+function handleUrlListing(urls, filePath, logger) {
+  if (urls.length === 0) {
+    logger.info('No files matching the criteria were found. No URLs to list.');
+    return;
+  }
+
+  const urlOutput = urls.join('\n');
+
+  // Always print to console. We use console.log directly to ensure clean output for piping.
+  console.log(urlOutput);
+
+  // Optionally write to a file
+  if (filePath) {
+    try {
+      fs.writeFileSync(filePath, urlOutput + '\n');
+      logger.info(`Successfully saved ${urls.length} URLs to ${filePath}`);
+    } catch (error) {
+      logger.error(
+        `Failed to write URLs to file ${filePath}: ${error.message}`,
+      );
+    }
+  }
+}
 
 // Main function to orchestrate the login and download process
 const os = require('os'); // Import for generating temp file paths
@@ -533,6 +577,9 @@ async function main() {
       filetypes: filetypes, // Save filetypes for restoration
     };
 
+    // Collect all URLs if --list-urls flag is set
+    const allUrls = [];
+
     for (const analysisId of ids) {
       logger.info(`Processing analysis ID: ${analysisId}`);
       // Pass the restoreArchived flag, rl, restorationFile, and options to getDownloadLinks
@@ -549,6 +596,16 @@ async function main() {
         optionsForRestoration,
       );
       logger.debug(`Fetched download links for analysis ID ${analysisId}`);
+
+      // Collect URLs for --list-urls functionality
+      if (finalConfig.listUrls) {
+        Object.values(fileDict).forEach((file) => {
+          if (file.downloadLink) {
+            allUrls.push(file.downloadLink);
+          }
+        });
+        continue; // Skip to next analysis ID when listing URLs
+      }
 
       // Filter for primary data files first (BAM, VCF.GZ)
       const primaryFiles = Object.entries(fileDict).filter(
@@ -748,6 +805,12 @@ async function main() {
           }
         }
       }
+    }
+
+    // Handle URL listing if --list-urls flag is set
+    if (finalConfig.listUrls) {
+      handleUrlListing(allUrls, finalConfig.urlFile, logger);
+      process.exit(0); // Exit successfully after listing URLs
     }
 
     logger.info('Download complete.');

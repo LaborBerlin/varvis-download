@@ -161,6 +161,55 @@ Analysis 12345: Processing...
 Download complete: 3 files, 1.33 GB in 2m 15s
 ```
 
+### URL Listing Mode
+
+Generate download URLs without downloading files:
+
+```bash
+# List URLs to console
+./varvis-download.js -t laborberlin -a 12345 --list-urls
+
+# Save URLs to a file
+./varvis-download.js -t laborberlin -a 12345 --list-urls --url-file download_urls.txt
+
+# Pipe URLs to external download tools
+./varvis-download.js -t laborberlin -a 12345 --list-urls | wget -i -
+./varvis-download.js -t laborberlin -a 12345 --list-urls | aria2c -i -
+```
+
+**Use cases for URL listing**:
+
+- **Debugging**: Verify correct URLs are generated before downloading
+- **External tools**: Use wget, aria2c, or curl for downloading
+- **Parallel downloads**: Split URLs across multiple download processes
+- **Scripting**: Generate URLs for custom download workflows
+- **Manual selection**: Review URLs before downloading specific files
+
+**Example URL output**:
+
+```
+https://laborberlin.varvis.com/download/analysis/12345/LB24-001-ready.bam?token=abc123
+https://laborberlin.varvis.com/download/analysis/12345/LB24-001-ready.bam.bai?token=abc123
+https://laborberlin.varvis.com/download/analysis/12345/LB24-001-ready.vcf.gz?token=abc123
+https://laborberlin.varvis.com/download/analysis/12345/LB24-001-ready.vcf.gz.tbi?token=abc123
+```
+
+**Integration with external tools**:
+
+```bash
+# Parallel download with wget
+./varvis-download.js -t laborberlin -a 12345 --list-urls | wget -i - -P ./downloads/ --progress=bar
+
+# Accelerated download with aria2c
+./varvis-download.js -t laborberlin -a 12345 --list-urls | aria2c -i - -d ./downloads/ -j 8 -x 8
+
+# Custom processing with curl
+./varvis-download.js -t laborberlin -a 12345 --list-urls | while read url; do
+  filename=$(basename "$url" | cut -d'?' -f1)
+  curl -L "$url" -o "./downloads/$filename"
+done
+```
+
 ### Range Download Mode
 
 Download specific genomic regions:

@@ -35,6 +35,8 @@ varvis-download [options]
 | `--restoreArchived, ra` | `string` | `ask` | Restore archived files. Accepts "no", "ask" (default), "all", or "force". |
 | `--restorationFile, rf` | `string` | `awaiting-restoration.json` | Path and name for the awaiting-restoration JSON file |
 | `--resumeArchivedDownloads, rad` | `boolean` | `false` | Resume downloads for archived files from the awaiting-restoration JSON file if restoreEstimation has passed. |
+| `--list-urls, U` | `boolean` | `false` | List the direct download URLs for the selected files instead of downloading them. Useful for piping to other tools. |
+| `--url-file` | `string` | - | Path to a file to save the download URLs when using --list-urls. |
 | `--version, v` | `boolean` | `false` | Show version information |
 | `--help, h` | `boolean` | `false` | Show help |
 
@@ -67,6 +69,18 @@ varvis-download -u username -p password -t target -a "analysis1" --bed "/path/to
 
 # Resume archived downloads
 varvis-download --resumeArchivedDownloads
+
+# List download URLs instead of downloading
+varvis-download -u username -p password -t target -a "analysis1" --list-urls
+
+# Save URLs to a file for later use
+varvis-download -u username -p password -t target -a "analysis1" --list-urls --url-file urls.txt
+
+# Pipe URLs to wget for parallel downloading
+varvis-download -u username -p password -t target -a "analysis1" --list-urls | wget -i -
+
+# Use with aria2c for accelerated downloads
+varvis-download -u username -p password -t target -a "analysis1" --list-urls | aria2c -i -
 ```
 
 ### Configuration File

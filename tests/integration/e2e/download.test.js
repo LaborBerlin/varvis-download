@@ -96,4 +96,67 @@ describe('E2E Integration Tests against Varvis Playground', () => {
     console.log('✓ Downloaded VCF files:', vcfFiles);
     console.log('✓ Downloaded VCF index files:', vcfIndexFiles);
   });
+
+  test('should list download URLs to console and file instead of downloading', async () => {
+    // Arrange
+    const urlFilePath = path.join(TEMP_DOWNLOAD_DIR, 'urls.txt');
+    const args = [
+      `--target ${TARGET_SERVER}`,
+      `--username ${process.env.VARVIS_PLAYGROUND_USER}`,
+      `--password ${process.env.VARVIS_PLAYGROUND_PASS}`,
+      `--analysisIds ${ANALYSIS_ID}`,
+      '--filetypes vcf.gz,vcf.gz.tbi',
+      '--list-urls', // The new flag
+      `--url-file ${urlFilePath}`,
+    ].join(' ');
+
+    // Act
+    const result = await runCli(args);
+
+    // Debug output if test fails
+    if (result.code !== 0) {
+      console.log('CLI Command:', args);
+      console.log('Exit Code:', result.code);
+      console.log('STDOUT:', result.stdout);
+      console.log('STDERR:', result.stderr);
+    }
+
+    // Assert CLI output
+    expect(result.code).toBe(0);
+    expect(result.stderr).toBe('');
+
+    // Check console output for the URLs
+    const consoleUrls = result.stdout
+      .trim()
+      .split('\n')
+      .filter((line) => line.includes('download/'));
+    expect(consoleUrls.length).toBeGreaterThan(0); // Should have at least VCF URLs
+
+    // Verify URLs look like actual download URLs
+    consoleUrls.forEach((url) => {
+      expect(url).toMatch(/https?:\/\/.*\/download\//);
+    });
+
+    // Assert file output
+    expect(fs.existsSync(urlFilePath)).toBe(true);
+    const fileContent = fs.readFileSync(urlFilePath, 'utf-8');
+    const fileUrls = fileContent
+      .trim()
+      .split('\n')
+      .filter((line) => line.includes('download/'));
+    expect(fileUrls.length).toBe(consoleUrls.length);
+
+    // Verify file URLs match console URLs
+    expect(fileUrls).toEqual(consoleUrls);
+
+    // Ensure no actual files were downloaded (only VCF files from previous test should exist)
+    const downloadedFiles = fs.readdirSync(TEMP_DOWNLOAD_DIR);
+
+    // Should not have downloaded any new files in this test
+    expect(downloadedFiles).toContain('urls.txt'); // URL file should exist
+
+    // Log the URLs for reference
+    console.log('✓ Listed URLs:', consoleUrls.length);
+    console.log('✓ URL file created:', urlFilePath);
+  });
 });
