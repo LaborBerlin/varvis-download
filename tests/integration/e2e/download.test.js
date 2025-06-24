@@ -2,6 +2,22 @@ const fs = require('fs');
 const path = require('path');
 const { runCli } = require('./cli-runner');
 
+// Load environment variables early (for cases where setupFiles haven't run yet)
+const envTestPath = path.resolve(__dirname, '../../../.env.test');
+if (fs.existsSync(envTestPath)) {
+  const envContent = fs.readFileSync(envTestPath, 'utf8');
+  envContent.split('\n').forEach((line) => {
+    const trimmedLine = line.trim();
+    if (trimmedLine && !trimmedLine.startsWith('#')) {
+      const [key, ...valueParts] = trimmedLine.split('=');
+      if (key && valueParts.length > 0) {
+        const value = valueParts.join('=');
+        process.env[key] = value;
+      }
+    }
+  });
+}
+
 const TEMP_DOWNLOAD_DIR = path.resolve(__dirname, 'temp_downloads');
 const TARGET_SERVER = 'playground';
 const ANALYSIS_ID = '30';
