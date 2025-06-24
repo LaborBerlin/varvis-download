@@ -7,8 +7,7 @@
     "type": "git",
     "url": "https://github.com/LaborBerlin/varvis-download.git"
   },
-  "main": "varvis-download.cjs",
-  "scripts": {
+  "main": "varvis-download.cjs",  "scripts": {
     "test": "jest",
     "format": "prettier --write .",
     "lint": "eslint .",
@@ -18,7 +17,10 @@
     "docs:preview": "vitepress preview docs",
     "docs:generate": "node docs/scripts/docs-generator.cjs",
     "docs:api": "npm run docs:generate && npm run docs:build",
-    "prepare": "husky"
+    "prepare": "husky",
+    "version:patch": "npm version patch",
+    "version:minor": "npm version minor",
+    "version:major": "npm version major"
   },
   "keywords": [
     "api",
