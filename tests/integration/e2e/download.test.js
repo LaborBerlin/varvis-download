@@ -26,19 +26,6 @@ const ANALYSIS_ID = '30';
 describe('E2E Integration Tests against Varvis Playground', () => {
   // Check for credentials before running any tests
   beforeAll(() => {
-    // Debug: Log available environment variables
-    console.log('DEBUG: Available environment variables:');
-    console.log(
-      'VARVIS_PLAYGROUND_USER:',
-      process.env.VARVIS_PLAYGROUND_USER ? '[SET]' : '[NOT SET]',
-    );
-    console.log(
-      'VARVIS_PLAYGROUND_PASS:',
-      process.env.VARVIS_PLAYGROUND_PASS ? '[SET]' : '[NOT SET]',
-    );
-    console.log('NODE_ENV:', process.env.NODE_ENV);
-    console.log('CI:', process.env.CI);
-
     if (
       !process.env.VARVIS_PLAYGROUND_USER ||
       !process.env.VARVIS_PLAYGROUND_PASS
