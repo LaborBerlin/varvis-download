@@ -2,7 +2,7 @@
 const path = require('path');
 const fs = require('fs');
 
-// Load .env.test file explicitly
+// Load .env.test file explicitly (for local development)
 const envTestPath = path.resolve(__dirname, '../../../.env.test');
 if (fs.existsSync(envTestPath)) {
   const envContent = fs.readFileSync(envTestPath, 'utf8');
@@ -18,7 +18,15 @@ if (fs.existsSync(envTestPath)) {
   });
   console.log('✓ Loaded .env.test file for integration tests');
 } else {
-  console.warn(
-    '⚠ .env.test file not found. Integration tests will fail without credentials.',
-  );
+  // Check if credentials are available as environment variables (for CI/CD)
+  if (
+    process.env.VARVIS_PLAYGROUND_USER &&
+    process.env.VARVIS_PLAYGROUND_PASS
+  ) {
+    console.log('✓ Using credentials from environment variables');
+  } else {
+    console.warn(
+      '⚠ No .env.test file found and no environment variables set. Integration tests will fail without credentials.',
+    );
+  }
 }

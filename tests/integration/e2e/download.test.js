@@ -57,8 +57,6 @@ describe('E2E Integration Tests against Varvis Playground', () => {
 
     // Assert
     expect(result.code).toBe(0); // Success exit code
-    // Allow deprecation warnings in stderr but no other errors
-    expect(result.stderr).toMatch(/punycode.*deprecated/);
     expect(result.stdout).toContain('Download complete.');
 
     // Find downloaded VCF files dynamically
