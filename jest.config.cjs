@@ -13,4 +13,20 @@ module.exports = {
   testTimeout: 30000,
   clearMocks: true,
   restoreMocks: true,
+
+  // Global test setup
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+
+  // Coverage reporting
+  coverageReporters: ['text', 'lcov', 'html', 'json-summary'],
+
+  // Coverage thresholds
+  coverageThreshold: {
+    global: {
+      statements: 60,
+      branches: 50,
+      functions: 60,
+      lines: 60,
+    },
+  },
 };
