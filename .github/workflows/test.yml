@@ -53,13 +53,19 @@ jobs:
       - name: Generate test coverage
         run: npm test -- --coverage
 
+      - name: Check coverage thresholds
+        run: |
+          echo "Coverage thresholds are enforced by Jest configuration"
+          cat coverage/coverage-summary.json | jq '.total'
+
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           file: ./coverage/lcov.info
           flags: unittests
           name: codecov-umbrella
-          fail_ci_if_error: false
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   bioinformatics-tools:
     runs-on: ubuntu-latest
