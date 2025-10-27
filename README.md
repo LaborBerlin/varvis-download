@@ -17,8 +17,8 @@ A command-line interface (CLI) tool for downloading BAM, BAI, and VCF files from
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) v20.16.0 or higher
-- NPM or Yarn for package management
+- [Node.js](https://nodejs.org/) v18.0.0 or higher
+- NPM v8.0.0 or higher
 - **External Tools** (for range-based downloads):
   - `samtools` v1.17+
   - `tabix` v1.20+
@@ -228,36 +228,52 @@ If no password is provided via environment variables or CLI arguments, the tool 
 
 ## Development
 
+### Quick Commands (Recommended)
+
+Use Make for streamlined workflows:
+
+```bash
+make help           # Show all available commands
+make dev            # Setup: install dependencies, lint, and test
+make ci             # Run all quality checks (lint, format, type-check, test)
+```
+
 ### Testing
 
 ```bash
-# Run all tests
-npm test
+# Using Make (recommended)
+make test           # Run all tests
+make test-unit      # Unit tests only
+make test-int       # Integration tests only
 
-# Run tests with coverage
-npm test -- --coverage
+# Using npm
+npm test                     # Run all tests
+npm test -- --coverage       # With coverage report
+npm run test:integration     # Integration tests
 ```
 
-### Code Quality & Formatting
+### Code Quality
 
 ```bash
-# Format code with Prettier
-npm run format
+# Using Make (recommended)
+make lint           # Check code quality
+make lint-fix       # Auto-fix issues
+make format         # Format with Prettier
+make type-check     # Verify types
 
-# Run ESLint for code quality checks
-npm run lint
-
-# Auto-fix ESLint issues where possible
-npm run lint:fix
+# Using npm
+npm run lint        # Check code quality
+npm run lint:fix    # Auto-fix ESLint issues
+npm run format      # Format with Prettier
+npm run type-check  # TypeScript type checking
 ```
 
 ### Version Management
 
 ```bash
-# Semantic versioning
-npm version patch   # 0.17.1 -> 0.17.2
-npm version minor   # 0.17.1 -> 0.18.0
-npm version major   # 0.17.1 -> 1.0.0
+npm version patch   # Bug fixes: 0.21.0 → 0.21.1
+npm version minor   # New features: 0.21.0 → 0.22.0
+npm version major   # Breaking changes: 0.21.0 → 1.0.0
 ```
 
 ## API Reference
@@ -328,10 +344,19 @@ Downloads a file with progress tracking and metrics collection.
 
 Contributions are welcome! Please:
 
-1. Run `npm run lint:fix` to ensure code quality and formatting
-2. Add tests for new functionality
+1. Run `make ci` to verify all quality checks pass
+2. Add tests for new functionality (all tests must pass)
 3. Follow semantic versioning for API changes
 4. Update documentation for new features
+
+**Development workflow:**
+
+```bash
+make dev            # Setup and run initial checks
+# ... make your changes ...
+make lint-fix       # Auto-fix code quality issues
+make ci             # Verify everything passes before committing
+```
 
 ## License
 
