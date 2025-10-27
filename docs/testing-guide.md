@@ -11,12 +11,14 @@ This guide explains the testing philosophy, structure, and best practices for th
 We follow the Classical School approach to testing:
 
 **Mock Only I/O Boundaries:**
+
 - ✅ Network calls (undici HTTP requests)
 - ✅ File system operations (fs/promises)
 - ✅ Child processes (spawn/exec for samtools, tabix, bgzip)
 - ✅ System time (Date.now() for predictable tests)
 
 **Test Real Implementations:**
+
 - ✅ Pure functions (string parsing, data transformations)
 - ✅ Business logic (filtering, validation, calculations)
 - ✅ Data structures (object manipulation, array operations)
@@ -80,7 +82,7 @@ test('should download file with progress tracking', async () => {
   // Assert: Verify the outcome
   expect(result.success).toBe(true);
   expect(mockLogger.info).toHaveBeenCalledWith(
-    expect.stringContaining('Downloaded')
+    expect.stringContaining('Downloaded'),
   );
 });
 ```
@@ -101,7 +103,10 @@ test('should filter SNV analyses', () => {
 #### Mock Factories (Dynamic Mocks)
 
 ```javascript
-const { createMockAgent, createMockLogger } = require('../helpers/mockFactories');
+const {
+  createMockAgent,
+  createMockLogger,
+} = require('../helpers/mockFactories');
 
 test('should handle API errors', async () => {
   const mockAgent = createMockAgent({
@@ -150,13 +155,13 @@ test('should handle archived files', () => {
 
 We increase coverage incrementally to maintain quality:
 
-| Phase | Target | Focus Areas |
-|-------|--------|-------------|
-| Phase 0 | 40% | Foundation (helpers, setup) |
-| Phase 1 | 50% | Quick wins (logger, apiClient) |
-| Phase 2 | 60% | Core utilities (fileUtils, fetchUtils) |
-| Phase 3 | 70% | Business logic (rangedUtils, archiveUtils) |
-| Final | 80% | Integration tests, edge cases |
+| Phase   | Target | Focus Areas                                |
+| ------- | ------ | ------------------------------------------ |
+| Phase 0 | 40%    | Foundation (helpers, setup)                |
+| Phase 1 | 50%    | Quick wins (logger, apiClient)             |
+| Phase 2 | 60%    | Core utilities (fileUtils, fetchUtils)     |
+| Phase 3 | 70%    | Business logic (rangedUtils, archiveUtils) |
+| Final   | 80%    | Integration tests, edge cases              |
 
 ### Current Thresholds (jest.config.cjs)
 
@@ -227,6 +232,7 @@ npm run test:integration
 ### CI/CD
 
 Tests run automatically on GitHub Actions for:
+
 - Push to `main` or `develop` branches
 - Pull requests to `main` or `develop`
 
@@ -294,7 +300,8 @@ test('should create download directory', async () => {
   const fs = require('node:fs/promises');
   await fs.writeFile(path.join(dir, 'test.txt'), 'content');
 
-  const exists = await fs.access(path.join(dir, 'test.txt'))
+  const exists = await fs
+    .access(path.join(dir, 'test.txt'))
     .then(() => true)
     .catch(() => false);
 
@@ -331,6 +338,7 @@ test('should process stream data', async () => {
 ## Questions?
 
 If you have questions about testing approach or need help writing tests:
+
 1. Check this guide first
 2. Look at existing test files for examples
 3. Review `plan/test-implementation-detailed.md` for comprehensive examples
