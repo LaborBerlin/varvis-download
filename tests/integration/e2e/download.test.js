@@ -21,6 +21,8 @@ if (fs.existsSync(envTestPath)) {
 const TEMP_DOWNLOAD_DIR = path.resolve(__dirname, 'temp_downloads');
 const TARGET_SERVER = 'playground';
 const ANALYSIS_ID = '30';
+// Pattern to identify URL lines in output (filters out log messages)
+const URL_LINE_PATTERN = /^https?:\/\//;
 // Note: Actual filenames will be determined dynamically from download output
 
 describe('E2E Integration Tests against Varvis Playground', () => {
@@ -133,7 +135,7 @@ describe('E2E Integration Tests against Varvis Playground', () => {
     const consoleUrls = result.stdout
       .trim()
       .split('\n')
-      .filter((line) => line.match(/^https?:\/\//)); // Only actual URLs, not log messages
+      .filter((line) => line.match(URL_LINE_PATTERN)); // Only actual URLs, not log messages
     expect(consoleUrls.length).toBeGreaterThan(0); // Should have at least VCF URLs
 
     // Verify URLs look like actual download URLs (S3 signed URLs or download endpoints)
@@ -148,7 +150,7 @@ describe('E2E Integration Tests against Varvis Playground', () => {
     const fileUrls = fileContent
       .trim()
       .split('\n')
-      .filter((line) => line.match(/^https?:\/\//)); // Only actual URLs, not log messages
+      .filter((line) => line.match(URL_LINE_PATTERN)); // Only actual URLs, not log messages
     expect(fileUrls.length).toBe(consoleUrls.length);
 
     // Verify file URLs match console URLs
@@ -208,7 +210,7 @@ describe('E2E Integration Tests against Varvis Playground', () => {
     // Verify files have significant content
     const fullVcfPath = path.join(TEMP_DOWNLOAD_DIR, fullVcfFiles[0]);
     const fullVcfIndexPath = path.join(TEMP_DOWNLOAD_DIR, fullVcfIndexFiles[0]);
-    expect(fs.statSync(fullVcfPath).size).toBeGreaterThan(40000); // Full VCF should be substantial (actual ~49KB)
+    expect(fs.statSync(fullVcfPath).size).toBeGreaterThan(40000); // Allow ~20% buffer below typical 49KB size for compression variations; full VCF should be substantial (actual ~49KB)
     expect(fs.statSync(fullVcfIndexPath).size).toBeGreaterThan(100); // Index should exist
 
     // Log the actual filenames for reference

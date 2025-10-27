@@ -4,8 +4,9 @@
  * Configures environment and global mocks
  */
 
-// Increase default timeout for integration tests
-jest.setTimeout(30000);
+// Default timeout for integration tests (in milliseconds)
+const DEFAULT_TEST_TIMEOUT_MS = 30000;
+jest.setTimeout(DEFAULT_TEST_TIMEOUT_MS);
 
 // Mock console methods to reduce test noise
 // Store original methods for restoration if needed
