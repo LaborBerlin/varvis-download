@@ -32,7 +32,7 @@ export default {
       'error',
       {
         tolerance: 4.5, // Higher tolerance to reduce false positives
-        ignoreContent: ['^VARVIS_'], // Ignore env var names
+        ignoreContent: /^VARVIS_/, // Ignore env var names
         ignoreModules: true,
         ignoreIdentifiers: ['token', 'csrf', 'agent', 'password', 'username'], // Variable names that are not secrets
       },
