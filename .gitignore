@@ -49,6 +49,9 @@ download/
 # development folder
 development/
 
+# plan folder
+plan/
+
 # output files
 awaiting-restoration.json
 
