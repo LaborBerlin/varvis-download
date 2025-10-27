@@ -46,6 +46,9 @@ download/
 # log files
 *.log
 
+# Test coverage
+coverage/
+
 # TypeScript
 *.tsbuildinfo
 
