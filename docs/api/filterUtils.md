@@ -1,8 +1,8 @@
 # API Reference
 
+##
 
-  ##
-  parseFilterExpression
+parseFilterExpression
 
     Parses a filter expression like &#x27;analysisType&#x3D;SNV&#x27; or &#x27;sampleId&gt;LB24-0001&#x27;
 
@@ -15,11 +15,11 @@
 
       - An object containing field, operator, and value (e.g., { field: 'analysisType', operator: '=', value: 'SNV' })
 
+---
 
-  ---
+##
 
-  ##
-  applyFilter
+applyFilter
 
     Applies a single filter to a list of analyses
 
@@ -35,11 +35,11 @@
 
       - Filtered list of analyses
 
+---
 
-  ---
+##
 
-  ##
-  applyFilters
+applyFilters
 
     Applies multiple filters to a list of analyses
 
@@ -55,7 +55,4 @@
 
       - Filtered list of analyses
 
-
-  ---
-
-
+---

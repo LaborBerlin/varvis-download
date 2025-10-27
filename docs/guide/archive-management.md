@@ -65,7 +65,7 @@ Restores archived files without confirmation:
 Skips all archived files:
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345 --restoreArchived no  
+./varvis-download.js -t laborberlin -a 12345 --restoreArchived no
 # Logs: "Skipping archived file sample_001.bam due to --restoreArchived=no"
 ```
 
@@ -116,7 +116,7 @@ The restoration tracking file preserves all context needed to resume downloads e
 The restoration system preserves complete download context:
 
 - **Destination paths** - Files download to original destination
-- **Overwrite settings** - Original overwrite preferences preserved  
+- **Overwrite settings** - Original overwrite preferences preserved
 - **Genomic ranges** - Ranged downloads use original ranges/BED files
 - **File type filters** - Only originally requested file types downloaded
 - **All CLI options** - Complete context restored for consistent behavior
@@ -142,21 +142,25 @@ Resume previously requested archived downloads using default tracking file:
 ### Context Restoration Examples
 
 **Original ranged download request:**
+
 ```bash
 ./varvis-download.js -t laborberlin -a 12345 -g "chr1:1000000-2000000" -d "/project/ranged" --restoreArchived force
 ```
 
 **Resume will automatically:**
+
 - Download to `/project/ranged` (preserved destination)
 - Extract only `chr1:1000000-2000000` region (preserved range)
 - Use ranged download workflow (preserved context)
 
 **Original VCF download with custom filetypes:**
+
 ```bash
 ./varvis-download.js -t laborberlin -a 12345 -f "vcf.gz,vcf.gz.tbi" -d "/vcf/data" --restoreArchived all
 ```
 
 **Resume will automatically:**
+
 - Download only VCF and index files (preserved filetypes)
 - Save to `/vcf/data` (preserved destination)
 - Use VCF-specific workflow (preserved context)
@@ -233,6 +237,7 @@ cat genomics-project.json
 ### Result
 
 The file downloads exactly as originally requested:
+
 - **Location**: `/project/genomics/chr1-2/sample_001.ranged.bam`
 - **Content**: Only regions chr1:1000000-2000000 and chr2:5000000-6000000
 - **Type**: BAM with BAI index (as specified in filetypes)

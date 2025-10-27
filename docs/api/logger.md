@@ -1,8 +1,8 @@
 # API Reference
 
+##
 
-  ##
-  createLogger
+createLogger
 
     Creates a logger with specified configuration.
 
@@ -15,7 +15,4 @@
 
       - The created logger instance.
 
-
-  ---
-
-
+---

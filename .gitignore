@@ -46,6 +46,9 @@ download/
 # log files
 *.log
 
+# TypeScript
+*.tsbuildinfo
+
 # development folder
 development/
 

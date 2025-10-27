@@ -1,5 +1,5 @@
-const { spawn } = require('child_process');
-const fs = require('fs');
+const { spawn } = require('node:child_process');
+const fs = require('node:fs');
 
 // Mock child_process.spawn
 jest.mock('child_process');

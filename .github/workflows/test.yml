@@ -10,25 +10,42 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [18.x, 20.x, 22.x]
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: '22'
           cache: 'npm'
+
+      - name: Cache Quality Tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/eslint
+            *.tsbuildinfo
+            node_modules/.cache
+          key: ${{ runner.os }}-quality-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.js') }}
+          restore-keys: |
+            ${{ runner.os }}-quality-
 
       - name: Install dependencies
         run: npm ci
 
+      - name: Security audit
+        run: npm audit --omit=dev --audit-level=moderate
+        continue-on-error: true
+
       - name: Run linter
         run: npm run lint
+
+      - name: Check code formatting
+        run: npx prettier --check .
+
+      - name: Type check JavaScript
+        run: npm run type-check
 
       - name: Run tests
         run: npm test

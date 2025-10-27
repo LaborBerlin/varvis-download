@@ -11,3 +11,6 @@ yarn.lock
 
 # Ignore logs if they are created
 *.log
+
+# Ignore Handlebars templates (have their own formatting requirements)
+*.hbs

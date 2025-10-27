@@ -5,27 +5,27 @@
 {{/if}}
 
 {{#functions}}
-  ##
-  {{name}}
+  ## {{name}}
 
   {{#if description}}
     {{description}}
   {{/if}}
 
   {{#if params}}
-    ### Parameters | Name | Type | Description | |------|------|-------------|
+    ### Parameters
+    | Name | Type | Description |
+    |------|------|-------------|
     {{#each params}}
-      | `{{name}}` | `{{type.names.[0]}}` |
-      {{{description}}}
-      |
+    | `{{name}}` | `{{type.names.[0]}}` | {{{description}}} |
     {{/each}}
   {{/if}}
 
   {{#if returns}}
-    ### Returns **Type:** `{{returns.[0].type.names.[0]}}`
+    ### Returns
+    **Type:** `{{returns.[0].type.names.[0]}}`
 
     {{#if returns.[0].description}}
-      {{{returns.[0].description}}}
+    {{{returns.[0].description}}}
     {{/if}}
   {{/if}}
 
@@ -44,46 +44,43 @@
 {{/functions}}
 
 {{#classes}}
-  ## Class:
-  {{name}}
+  ## Class: {{name}}
 
   {{#if description}}
     {{description}}
   {{/if}}
 
   {{#if params}}
-    ### Constructor Parameters | Name | Type | Description |
+    ### Constructor Parameters
+    | Name | Type | Description |
     |------|------|-------------|
     {{#each params}}
-      | `{{name}}` | `{{type.names.[0]}}` |
-      {{{description}}}
-      |
+    | `{{name}}` | `{{type.names.[0]}}` | {{{description}}} |
     {{/each}}
   {{/if}}
 
   {{#methods}}
-    ###
-    {{name}}()
+    ### {{name}}()
 
     {{#if description}}
       {{description}}
     {{/if}}
 
     {{#if params}}
-      #### Parameters | Name | Type | Description |
+      #### Parameters
+      | Name | Type | Description |
       |------|------|-------------|
       {{#each params}}
-        | `{{name}}` | `{{type.names.[0]}}` |
-        {{{description}}}
-        |
+      | `{{name}}` | `{{type.names.[0]}}` | {{{description}}} |
       {{/each}}
     {{/if}}
 
     {{#if returns}}
-      #### Returns **Type:** `{{returns.[0].type.names.[0]}}`
+      #### Returns
+      **Type:** `{{returns.[0].type.names.[0]}}`
 
       {{#if returns.[0].description}}
-        {{{returns.[0].description}}}
+      {{{returns.[0].description}}}
       {{/if}}
     {{/if}}
 

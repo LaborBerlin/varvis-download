@@ -368,11 +368,13 @@ Extract specific regions from BAM files:
 ### Range Download Requirements
 
 **For VCF files**:
+
 - Requires `tabix` v1.7+ and `bgzip` v1.7+
 - Automatically downloads `.tbi` index files
 - Uses `tabix -h | bgzip` pipeline for proper VCF format
 
 **For BAM files**:
+
 - Requires `samtools` v1.17+
 - Automatically downloads `.bai` index files
 - Uses `samtools view -b` for region extraction

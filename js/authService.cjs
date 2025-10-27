@@ -6,8 +6,8 @@ const { fetch } = require('undici');
 class AuthService {
   /**
    * Creates an instance of AuthService.
-   * @param {Object} logger - The logger instance.
-   * @param {Object} agent - The HTTP agent instance.
+   * @param {object} logger - The logger instance.
+   * @param {object} agent  - The HTTP agent instance.
    */
   constructor(logger, agent) {
     this.logger = logger;
@@ -17,8 +17,8 @@ class AuthService {
 
   /**
    * Fetches the CSRF token required for login.
-   * @param {string} target - The target for the Varvis API.
-   * @returns {Promise<string>} - The CSRF token.
+   * @param   {string}          target - The target for the Varvis API.
+   * @returns {Promise<string>}        - The CSRF token.
    */
   async getCsrfToken(target) {
     try {
@@ -43,11 +43,11 @@ class AuthService {
 
   /**
    * Logs in to the Varvis API and retrieves the CSRF token.
-   * @param {Object} user - The user credentials.
-   * @param {string} user.username - The username.
-   * @param {string} user.password - The password.
-   * @param {string} target - The target for the Varvis API.
-   * @returns {Promise<Object>} - The login response containing the CSRF token.
+   * @param   {object}          user          - The user credentials.
+   * @param   {string}          user.username - The username.
+   * @param   {string}          user.password - The password.
+   * @param   {string}          target        - The target for the Varvis API.
+   * @returns {Promise<object>}               - The login response containing the CSRF token.
    */
   async login(user, target) {
     try {

@@ -2,8 +2,8 @@
 
 /**
  * Parses a filter expression like 'analysisType=SNV' or 'sampleId>LB24-0001'
- * @param {string} filterExpression - The filter expression (e.g., analysisType=SNV)
- * @returns {Object} - An object containing field, operator, and value (e.g., { field: 'analysisType', operator: '=', value: 'SNV' })
+ * @param   {string} filterExpression - The filter expression (e.g., analysisType=SNV)
+ * @returns {object}                  - An object containing field, operator, and value (e.g., { field: 'analysisType', operator: '=', value: 'SNV' })
  */
 function parseFilterExpression(filterExpression) {
   const regex = /^(\w+)(!=|[><=])(.+)$/;
@@ -20,9 +20,9 @@ function parseFilterExpression(filterExpression) {
 
 /**
  * Applies a single filter to a list of analyses
- * @param {Array} analyses - List of analyses returned by the API
- * @param {Object} filter - Parsed filter object (e.g., { field: 'analysisType', operator: '=', value: 'SNV' })
- * @returns {Array} - Filtered list of analyses
+ * @param   {Array}  analyses - List of analyses returned by the API
+ * @param   {object} filter   - Parsed filter object (e.g., { field: 'analysisType', operator: '=', value: 'SNV' })
+ * @returns {Array}           - Filtered list of analyses
  */
 function applyFilter(analyses, filter) {
   const { field, operator, value } = filter;
@@ -46,9 +46,9 @@ function applyFilter(analyses, filter) {
 
 /**
  * Applies multiple filters to a list of analyses
- * @param {Array} analyses - List of analyses returned by the API
- * @param {Array} filterExpressions - Array of filter expressions (e.g., ['analysisType=SNV', 'sampleId>LB24-0001'])
- * @returns {Array} - Filtered list of analyses
+ * @param   {Array} analyses          - List of analyses returned by the API
+ * @param   {Array} filterExpressions - Array of filter expressions (e.g., ['analysisType=SNV', 'sampleId>LB24-0001'])
+ * @returns {Array}                   - Filtered list of analyses
  */
 function applyFilters(analyses, filterExpressions) {
   let filteredAnalyses = analyses;

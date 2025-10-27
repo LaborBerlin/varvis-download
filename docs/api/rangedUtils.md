@@ -1,8 +1,8 @@
 # API Reference
 
+##
 
-  ##
-  spawnPromise
+spawnPromise
 
     Wraps spawn in a Promise to maintain async/await syntax.
 
@@ -24,11 +24,11 @@
 
       - Resolves with result object when the process completes successfully.
 
+---
 
-  ---
+##
 
-  ##
-  checkToolAvailability
+checkToolAvailability
 
     Checks if a tool is available and meets the minimum version.
 
@@ -50,11 +50,11 @@
 
       - Resolves to true if the tool is available and meets the version requirement.
 
+---
 
-  ---
+##
 
-  ##
-  compareVersions
+compareVersions
 
     Compares two versions (e.g., &#x27;1.10&#x27; vs &#x27;1.9&#x27;).
 
@@ -70,11 +70,11 @@
 
       - True if the current version is >= the minimum version.
 
+---
 
-  ---
+##
 
-  ##
-  rangedDownloadBAM
+rangedDownloadBAM
 
     Performs a ranged download for a BAM file using samtools.
 
@@ -100,12 +100,11 @@
 
     ### Returns **Type:** `Promise.&lt;void&gt;`
 
+---
 
+##
 
-  ---
-
-  ##
-  rangedDownloadVCF
+rangedDownloadVCF
 
     Performs a ranged download for a VCF file using tabix, and compresses it using bgzip.
 
@@ -128,12 +127,11 @@
 
     ### Returns **Type:** `Promise.&lt;void&gt;`
 
+---
 
+##
 
-  ---
-
-  ##
-  indexBAM
+indexBAM
 
     Indexes a BAM file using samtools.
 
@@ -150,12 +148,11 @@
 
     ### Returns **Type:** `Promise.&lt;void&gt;`
 
+---
 
+##
 
-  ---
-
-  ##
-  indexVCF
+indexVCF
 
     Indexes a VCF.gz file using tabix.
 
@@ -172,12 +169,11 @@
 
     ### Returns **Type:** `Promise.&lt;void&gt;`
 
+---
 
+##
 
-  ---
-
-  ##
-  ensureIndexFile
+ensureIndexFile
 
     Ensures that the required index file is downloaded for a BAM or VCF file.
 
@@ -209,14 +205,15 @@
 
     ### Returns **Type:** `Promise.&lt;void&gt;`
 
+---
 
+##
 
-  ---
+generateOutputFileName
 
-  ##
-  generateOutputFileName
+    Generates an output file name by appending the genomic range or &quot;multiple-regions&quot; if more than one range is provided.
 
-    Generates an output file name by appending the genomic range or &quot;multiple-regions&quot; if more than one range is provided.If no regions are provided, the original filename is returned. This applies to all file types (BAM, VCF, etc.).
+If no regions are provided, the original filename is returned. This applies to all file types (BAM, VCF, etc.).
 
     ### Parameters | Name | Type | Description | |------|------|-------------|
       | `fileName` | `string` |
@@ -233,7 +230,4 @@
 
       - The new file name with the range appended, or the original file name.
 
-
-  ---
-
-
+---

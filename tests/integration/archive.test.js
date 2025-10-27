@@ -1,4 +1,4 @@
-const fs = require('fs');
+const fs = require('node:fs');
 const nock = require('nock');
 const { fetchWithRetry } = require('../../js/apiClient');
 const {

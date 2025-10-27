@@ -7,8 +7,8 @@
  * in the source code and creates markdown files for VitePress.
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 const jsdoc2md = require('jsdoc-to-markdown');
 
 // Configuration
@@ -521,7 +521,7 @@ function getModuleDescription(filePath) {
     for (let i = 0; i < Math.min(lines.length, 20); i++) {
       const line = lines[i].trim();
       if (line.startsWith('* ') && !line.includes('@') && line.length > 5) {
-        return line.substring(2).trim();
+        return line.slice(2).trim();
       }
     }
 

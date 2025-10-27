@@ -2,10 +2,11 @@ const winston = require('winston');
 
 /**
  * Creates a logger with specified configuration.
- * @param {Object} argv - The command line arguments.
- * @returns {Object} - The created logger instance.
+ * @param   {object} argv - The command line arguments.
+ * @returns {object}      - The created logger instance.
  */
 function createLogger(argv) {
+  /** @type {any[]} */
   const transports = [new winston.transports.Console()];
 
   if (argv.logfile) {

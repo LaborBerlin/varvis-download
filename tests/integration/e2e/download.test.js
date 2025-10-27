@@ -1,5 +1,5 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 const { runCli } = require('./cli-runner');
 
 // Load environment variables early (for cases where setupFiles haven't run yet)
@@ -213,7 +213,7 @@ describe('E2E Integration Tests against Varvis Playground', () => {
 
   test('should perform ranged VCF download with correct filename format', async () => {
     // Skip this test if tabix or bgzip are not available
-    const { spawn } = require('child_process');
+    const { spawn } = require('node:child_process');
 
     const checkTool = (tool) => {
       return new Promise((resolve) => {
@@ -309,7 +309,7 @@ describe('E2E Integration Tests against Varvis Playground', () => {
 
   test('should handle multiple genomic regions creating separate VCF files', async () => {
     // Skip this test if tabix or bgzip are not available
-    const { spawn } = require('child_process');
+    const { spawn } = require('node:child_process');
 
     const checkTool = (tool) => {
       return new Promise((resolve) => {

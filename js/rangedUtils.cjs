@@ -1,17 +1,17 @@
-const { spawn } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+const { spawn } = require('node:child_process');
+const fs = require('node:fs');
+const path = require('node:path');
 const { downloadFile } = require('./fileUtils.cjs');
 
 // Define minimum required versions for external tools
 
 /**
  * Wraps spawn in a Promise to maintain async/await syntax.
- * @param {string} command - The command to execute.
- * @param {Array<string>} args - The command arguments.
- * @param {Object} logger - The logger instance.
- * @param {boolean} captureOutput - Whether to capture stdout for return value.
- * @returns {Promise<Object>} - Resolves with result object when the process completes successfully.
+ * @param   {string}          command       - The command to execute.
+ * @param   {Array<string>}   args          - The command arguments.
+ * @param   {object}          logger        - The logger instance.
+ * @param   {boolean}         captureOutput - Whether to capture stdout for return value.
+ * @returns {Promise<object>}               - Resolves with result object when the process completes successfully.
  */
 function spawnPromise(command, args, logger, captureOutput = false) {
   return new Promise((resolve, reject) => {
@@ -47,11 +47,11 @@ function spawnPromise(command, args, logger, captureOutput = false) {
 
 /**
  * Checks if a tool is available and meets the minimum version.
- * @param {string} tool - The name of the tool (samtools, tabix, or bgzip).
- * @param {string} versionCommand - Command to check the tool version.
- * @param {string} minVersion - The minimal required version.
- * @param {Object} logger - The logger instance.
- * @returns {Promise<boolean>} - Resolves to true if the tool is available and meets the version requirement.
+ * @param   {string}           tool           - The name of the tool (samtools, tabix, or bgzip).
+ * @param   {string}           versionCommand - Command to check the tool version.
+ * @param   {string}           minVersion     - The minimal required version.
+ * @param   {object}           logger         - The logger instance.
+ * @returns {Promise<boolean>}                - Resolves to true if the tool is available and meets the version requirement.
  */
 async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
   try {
@@ -86,9 +86,9 @@ async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
 
 /**
  * Compares two versions (e.g., '1.10' vs '1.9').
- * @param {string} version - The current version.
- * @param {string} minVersion - The minimum required version.
- * @returns {boolean} - True if the current version is >= the minimum version.
+ * @param   {string}  version    - The current version.
+ * @param   {string}  minVersion - The minimum required version.
+ * @returns {boolean}            - True if the current version is >= the minimum version.
  */
 function compareVersions(version, minVersion) {
   const versionParts = version.split('.').map(Number);
@@ -111,12 +111,13 @@ function compareVersions(version, minVersion) {
 
 /**
  * Performs a ranged download for a BAM file using samtools.
- * @param {string} url - The URL of the BAM file.
- * @param {string} range - The genomic range (e.g., 'chr1:1-100000').
- * @param {string} outputFile - The output file name.
- * @param {string} indexFile - The path to the downloaded .bai index file.
- * @param {Object} logger - The logger instance.
- * @param {boolean} overwrite - Flag indicating whether to overwrite existing files.
+ * @param   {string}                   url        - The URL of the BAM file.
+ * @param   {string}                   bedFile    - Path to BED file with regions.
+ * @param   {string}                   outputFile - The output file name.
+ * @param   {string}                   indexFile  - The path to the downloaded .bai index file.
+ * @param   {import('winston').Logger} logger     - The logger instance.
+ * @param   {object}                   metrics    - Metrics object for tracking stats.
+ * @param   {boolean}                  overwrite  - Flag indicating whether to overwrite existing files.
  * @returns {Promise<void>}
  */
 async function rangedDownloadBAM(
@@ -162,12 +163,13 @@ async function rangedDownloadBAM(
 
 /**
  * Performs a ranged download for a VCF file using a tabix -> bgzip pipeline.
- * @param {string} url - The URL of the VCF.gz file.
- * @param {string} range - The genomic range (e.g., 'chr1:1-100000').
- * @param {string} outputFile - The output file name (will be compressed as .vcf.gz).
- * @param {string} indexFile - The local path to the downloaded .tbi index file.
- * @param {Object} logger - The logger instance.
- * @param {boolean} overwrite - Flag indicating whether to overwrite existing files.
+ * @param   {string}                   url        - The URL of the VCF.gz file.
+ * @param   {string}                   range      - The genomic range (e.g., 'chr1:1-100000').
+ * @param   {string}                   outputFile - The output file name (will be compressed as .vcf.gz).
+ * @param   {string}                   indexFile  - The local path to the downloaded .tbi index file.
+ * @param   {import('winston').Logger} logger     - The logger instance.
+ * @param   {object}                   metrics    - Metrics object for tracking stats.
+ * @param   {boolean}                  overwrite  - Flag indicating whether to overwrite existing files.
  * @returns {Promise<void>}
  */
 async function rangedDownloadVCF(
@@ -277,9 +279,9 @@ async function rangedDownloadVCF(
 
 /**
  * Indexes a BAM file using samtools.
- * @param {string} bamFile - The path to the BAM file.
- * @param {Object} logger - The logger instance.
- * @param {boolean} overwrite - Flag indicating whether to overwrite existing index files.
+ * @param   {string}        bamFile   - The path to the BAM file.
+ * @param   {object}        logger    - The logger instance.
+ * @param   {boolean}       overwrite - Flag indicating whether to overwrite existing index files.
  * @returns {Promise<void>}
  */
 async function indexBAM(bamFile, logger, overwrite = false) {
@@ -302,9 +304,9 @@ async function indexBAM(bamFile, logger, overwrite = false) {
 
 /**
  * Indexes a VCF.gz file using tabix.
- * @param {string} vcfGzFile - The path to the VCF.gz file.
- * @param {Object} logger - The logger instance.
- * @param {boolean} overwrite - Flag indicating whether to overwrite existing index files.
+ * @param   {string}        vcfGzFile - The path to the VCF.gz file.
+ * @param   {object}        logger    - The logger instance.
+ * @param   {boolean}       overwrite - Flag indicating whether to overwrite existing index files.
  * @returns {Promise<void>}
  */
 async function indexVCF(vcfGzFile, logger, overwrite = false) {
@@ -327,14 +329,14 @@ async function indexVCF(vcfGzFile, logger, overwrite = false) {
 
 /**
  * Ensures that the required index file is downloaded for a BAM or VCF file.
- * @param {string} fileUrl - The URL of the BAM or VCF file.
- * @param {string} indexUrl - The URL of the index file (.bai or .tbi).
- * @param {string} indexFilePath - The local path to the index file.
- * @param {Object} agent - The HTTP agent instance.
- * @param {Object} rl - The readline interface instance.
- * @param {Object} logger - The logger instance.
- * @param {Object} metrics - The metrics object for tracking download stats.
- * @param {boolean} overwrite - Flag indicating whether to overwrite existing files.
+ * @param   {string}        fileUrl       - The URL of the BAM or VCF file.
+ * @param   {string}        indexUrl      - The URL of the index file (.bai or .tbi).
+ * @param   {string}        indexFilePath - The local path to the index file.
+ * @param   {object}        agent         - The HTTP agent instance.
+ * @param   {object}        rl            - The readline interface instance.
+ * @param   {object}        logger        - The logger instance.
+ * @param   {object}        metrics       - The metrics object for tracking download stats.
+ * @param   {boolean}       overwrite     - Flag indicating whether to overwrite existing files.
  * @returns {Promise<void>}
  */
 async function ensureIndexFile(
@@ -373,10 +375,10 @@ async function ensureIndexFile(
 /**
  * Generates an output file name by appending the genomic range or "multiple-regions" if more than one range is provided.
  * If no regions are provided, the original filename is returned. This applies to all file types (BAM, VCF, etc.).
- * @param {string} fileName - The original file name.
- * @param {string | string[]} regions - A string representing a single genomic range or an array of multiple regions.
- * @param {Object} logger - The logger instance.
- * @returns {string} - The new file name with the range appended, or the original file name.
+ * @param   {string}            fileName - The original file name.
+ * @param   {string | string[]} regions  - A string representing a single genomic range or an array of multiple regions.
+ * @param   {object}            logger   - The logger instance.
+ * @returns {string}                     - The new file name with the range appended, or the original file name.
  */
 function generateOutputFileName(fileName, regions, logger) {
   logger.debug(
