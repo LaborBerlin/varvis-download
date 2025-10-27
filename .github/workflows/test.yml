@@ -24,11 +24,28 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
+      - name: Cache Quality Tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/eslint
+            *.tsbuildinfo
+            node_modules/.cache
+          key: ${{ runner.os }}-quality-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.js') }}
+          restore-keys: |
+            ${{ runner.os }}-quality-
+
       - name: Install dependencies
         run: npm ci
 
       - name: Run linter
         run: npm run lint
+
+      - name: Check code formatting
+        run: npx prettier --check .
+
+      - name: Type check JavaScript
+        run: npm run type-check
 
       - name: Run tests
         run: npm test

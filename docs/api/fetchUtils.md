@@ -1,8 +1,8 @@
 # API Reference
 
+##
 
-  ##
-  confirmRestore
+confirmRestore
 
     Prompts the user to confirm restoration of an archived file.
 
@@ -21,11 +21,11 @@
 
       - Resolves to true if the user confirms, otherwise false.
 
+---
 
-  ---
+##
 
-  ##
-  fetchAnalysisIds
+fetchAnalysisIds
 
     Fetches analysis IDs based on sample IDs or LIMS IDs.
 
@@ -56,11 +56,11 @@
 
       - An array of analysis IDs.
 
+---
 
-  ---
+##
 
-  ##
-  getDownloadLinks
+getDownloadLinks
 
     Fetches the download links for specified file types from the Varvis API for a given analysis ID.
 
@@ -84,27 +84,29 @@
       The logger instance.
       |
       | `restoreArchived` | `string` |
-      Restoration mode for archived files.  Accepts:    - "no": skip restoration,    - "ask": prompt for each file,    - "all": ask once for all files,    - "force": restore automatically.
-      |
-      | `rl` | `Object` |
-      The readline interface instance for prompting.
-      |
-      | `restorationFile` | `string` |
-      Path to the restoration file.
-      |
-      | `options` | `Object` |
-      Options object for restoration context.
-      |
+      Restoration mode for archived files.
+
+Accepts: - "no": skip restoration, - "ask": prompt for each file, - "all": ask once for all files, - "force": restore automatically.
+|
+| `rl` | `Object` |
+The readline interface instance for prompting.
+|
+| `restorationFile` | `string` |
+Path to the restoration file.
+|
+| `options` | `Object` |
+Options object for restoration context.
+|
 
     ### Returns **Type:** `Promise.&lt;Object&gt;`
 
       - An object containing the download links for the specified file types.
 
+---
 
-  ---
+##
 
-  ##
-  listAvailableFiles
+listAvailableFiles
 
     Lists available files for the specified analysis IDs without triggering any restoration logic.
 
@@ -127,12 +129,11 @@
 
     ### Returns **Type:** `Promise.&lt;void&gt;`
 
+---
 
+##
 
-  ---
-
-  ##
-  generateReport
+generateReport
 
     Generates a summary report of the download process.
 
@@ -144,8 +145,4 @@
       The logger instance.
       |
 
-
-
-  ---
-
-
+---

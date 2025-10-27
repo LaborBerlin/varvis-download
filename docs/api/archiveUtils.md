@@ -1,8 +1,8 @@
 # API Reference
 
+##
 
-  ##
-  triggerRestoreArchivedFile
+triggerRestoreArchivedFile
 
     Triggers restoration for an archived analysis file using the internal restore endpoint.
 
@@ -34,14 +34,15 @@
 
     ### Returns **Type:** `Promise.&lt;void&gt;`
 
+---
 
+##
 
-  ---
+appendToAwaitingRestoration
 
-  ##
-  appendToAwaitingRestoration
+    Appends or updates restoration information in an awaiting-restoration JSON file.
 
-    Appends or updates restoration information in an awaiting-restoration JSON file.The entry is identified by matching analysisId, fileName, and options.
+The entry is identified by matching analysisId, fileName, and options.
 
     ### Parameters | Name | Type | Description | |------|------|-------------|
       | `restorationInfo` | `Object` |
@@ -56,14 +57,16 @@
 
     ### Returns **Type:** `Promise.&lt;void&gt;`
 
+---
 
+##
 
-  ---
+resumeArchivedDownloads
 
-  ##
-  resumeArchivedDownloads
+    Resumes downloads for archived files as specified in the awaiting-restoration JSON file.
 
-    Resumes downloads for archived files as specified in the awaiting-restoration JSON file.For each entry, if the current time is past the restoreEstimation, it attempts to download the fileusing the restored context options. On success, the entry is removed; otherwise, it is kept for later resumption.
+For each entry, if the current time is past the restoreEstimation, it attempts to download the file
+using the restored context options. On success, the entry is removed; otherwise, it is kept for later resumption.
 
     ### Parameters | Name | Type | Description | |------|------|-------------|
       | `restorationFile` | `string` |
@@ -90,8 +93,4 @@
 
     ### Returns **Type:** `Promise.&lt;void&gt;`
 
-
-
-  ---
-
-
+---

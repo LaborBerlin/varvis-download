@@ -1,8 +1,8 @@
 # API Reference
 
+##
 
-  ##
-  confirmOverwrite
+confirmOverwrite
 
     Prompts the user to confirm file overwrite if the file already exists.
 
@@ -21,11 +21,11 @@
 
       - True if the user confirms overwrite, otherwise false.
 
+---
 
-  ---
+##
 
-  ##
-  downloadFile
+downloadFile
 
     Downloads a file from the given URL to the specified output path with progress reporting.
 
@@ -54,8 +54,4 @@
 
     ### Returns **Type:** `Promise.&lt;void&gt;`
 
-
-
-  ---
-
-
+---

@@ -1,10 +1,10 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 /**
  * Loads configuration from a specified file.
- * @param {string} configFilePath - The path to the configuration file.
- * @returns {Object} - The parsed configuration object.
+ * @param   {string} configFilePath - The path to the configuration file.
+ * @returns {object}                - The parsed configuration object.
  */
 function loadConfig(configFilePath) {
   if (fs.existsSync(configFilePath)) {
@@ -27,8 +27,8 @@ function loadLogo() {
 
 /**
  * Gets the last modified date of a specified file.
- * @param {string} filePath - The path to the file.
- * @returns {string} - The last modified date in YYYY-MM-DD format.
+ * @param   {string} filePath - The path to the file.
+ * @returns {string}          - The last modified date in YYYY-MM-DD format.
  */
 function getLastModifiedDate(filePath) {
   const stats = fs.statSync(filePath);

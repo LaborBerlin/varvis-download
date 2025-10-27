@@ -1,8 +1,8 @@
 # API Reference
 
+##
 
-  ##
-  loadConfig
+loadConfig
 
     Loads configuration from a specified file.
 
@@ -15,11 +15,11 @@
 
       - The parsed configuration object.
 
+---
 
-  ---
+##
 
-  ##
-  loadLogo
+loadLogo
 
     Reads the ASCII logo from the logo.txt file.
 
@@ -28,11 +28,11 @@
 
       - The ASCII logo.
 
+---
 
-  ---
+##
 
-  ##
-  getLastModifiedDate
+getLastModifiedDate
 
     Gets the last modified date of a specified file.
 
@@ -45,7 +45,4 @@
 
       - The last modified date in YYYY-MM-DD format.
 
-
-  ---
-
-
+---

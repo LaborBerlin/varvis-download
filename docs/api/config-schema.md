@@ -12,22 +12,22 @@ By default, the tool looks for a configuration file named `.config.json` in the 
 
 ## Schema
 
-| Property | Type | Required | Default | Description |
-|----------|------|----------|---------|-------------|
-| `username` | `string` | No | - | Varvis API username |
-| `password` | `string` | No | - | Varvis API password |
-| `target` | `string` | No | - | Target for the Varvis API (can be full URL or alias) |
-| `destination` | `string` | No | `.` | Destination folder for downloaded files |
-| `proxy` | `string` | No | - | Proxy URL for HTTP requests |
-| `proxyUsername` | `string` | No | - | Username for proxy authentication |
-| `proxyPassword` | `string` | No | - | Password for proxy authentication |
-| `overwrite` | `boolean` | No | `false` | Whether to overwrite existing files |
-| `filetypes` | `string` | No | `bam,bam.bai` | Comma-separated list of file types to download |
-| `loglevel` | `string` | No | `info` | Logging level (info, warn, error, debug) |
-| `logfile` | `string` | No | - | Path to the log file |
-| `reportfile` | `string` | No | - | Path to the report file |
-| `restoreArchived` | `string` | No | `ask` | Restore archived files behavior ("no", "ask", "all", "force") |
-| `restorationFile` | `string` | No | `awaiting-restoration.json` | Path for the restoration tracking file |
+| Property          | Type      | Required | Default                     | Description                                                   |
+| ----------------- | --------- | -------- | --------------------------- | ------------------------------------------------------------- |
+| `username`        | `string`  | No       | -                           | Varvis API username                                           |
+| `password`        | `string`  | No       | -                           | Varvis API password                                           |
+| `target`          | `string`  | No       | -                           | Target for the Varvis API (can be full URL or alias)          |
+| `destination`     | `string`  | No       | `.`                         | Destination folder for downloaded files                       |
+| `proxy`           | `string`  | No       | -                           | Proxy URL for HTTP requests                                   |
+| `proxyUsername`   | `string`  | No       | -                           | Username for proxy authentication                             |
+| `proxyPassword`   | `string`  | No       | -                           | Password for proxy authentication                             |
+| `overwrite`       | `boolean` | No       | `false`                     | Whether to overwrite existing files                           |
+| `filetypes`       | `string`  | No       | `bam,bam.bai`               | Comma-separated list of file types to download                |
+| `loglevel`        | `string`  | No       | `info`                      | Logging level (info, warn, error, debug)                      |
+| `logfile`         | `string`  | No       | -                           | Path to the log file                                          |
+| `reportfile`      | `string`  | No       | -                           | Path to the report file                                       |
+| `restoreArchived` | `string`  | No       | `ask`                       | Restore archived files behavior ("no", "ask", "all", "force") |
+| `restorationFile` | `string`  | No       | `awaiting-restoration.json` | Path for the restoration tracking file                        |
 
 ## Example Configuration Files
 

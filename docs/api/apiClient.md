@@ -1,8 +1,8 @@
 # API Reference
 
+##
 
-  ##
-  createApiClient
+createApiClient
 
     Creates and configures an API client instance.
 
@@ -18,11 +18,11 @@
 
       - The configured API client instance.
 
+---
 
-  ---
+##
 
-  ##
-  fetchWithRetry
+fetchWithRetry
 
     Retries a fetch operation with a specified number of attempts.
 
@@ -41,13 +41,10 @@
 
       - The fetch response.
 
+---
 
-  ---
+## Class:
 
-
-  ## Class:
-  ApiClient
+ApiClient
 
     API Client class for handling HTTP requests with retry logic and agent management.
-
-

@@ -1,8 +1,13 @@
-import js from '@eslint/js';
-import prettier from 'eslint-plugin-prettier';
-import prettierConfig from 'eslint-config-prettier';
+import baseConfig from './eslint.config.base.js';
+import jsdocConfig from './eslint.config.jsdoc.js';
+import unicornConfig from './eslint.config.unicorn.js';
+import testsConfig from './eslint.config.tests.js';
 
+/**
+ * Main ESLint configuration - composes modular configs
+ */
 export default [
+  // Global ignores
   {
     ignores: [
       'development/',
@@ -12,68 +17,32 @@ export default [
       'docs/.vitepress/',
       'dist/',
       'build/',
+      'coverage/',
+      'plan/',
     ],
   },
-  js.configs.recommended,
+
+  // Base configuration
+  baseConfig,
+
+  // JSDoc validation
+  jsdocConfig,
+
+  // Modern JavaScript patterns
+  unicornConfig,
+
+  // Test-specific configuration
+  testsConfig,
+
+  // ESLint config files use ES modules
   {
-    files: ['**/*.{js,cjs}'],
-    languageOptions: {
-      ecmaVersion: 'latest',
-      sourceType: 'commonjs',
-      globals: {
-        console: 'readonly',
-        process: 'readonly',
-        Buffer: 'readonly',
-        __dirname: 'readonly',
-        __filename: 'readonly',
-        global: 'readonly',
-        module: 'readonly',
-        require: 'readonly',
-        exports: 'readonly',
-        setTimeout: 'readonly',
-        setInterval: 'readonly',
-        clearTimeout: 'readonly',
-        clearInterval: 'readonly',
-        URLSearchParams: 'readonly',
-      },
-    },
-    plugins: {
-      prettier,
-    },
-    rules: {
-      ...prettierConfig.rules,
-      'prettier/prettier': 'error',
-      'no-unused-vars': [
-        'warn',
-        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
-      ],
-      'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
-      'no-useless-escape': 'warn',
-    },
-  },
-  {
-    files: ['eslint.config.js'],
+    files: ['eslint.config*.js'],
     languageOptions: {
       sourceType: 'module',
     },
   },
-  {
-    files: ['test/**/*.js', '**/*.test.js', 'tests/**/*.js'],
-    languageOptions: {
-      globals: {
-        describe: 'readonly',
-        test: 'readonly',
-        it: 'readonly',
-        expect: 'readonly',
-        beforeEach: 'readonly',
-        afterEach: 'readonly',
-        beforeAll: 'readonly',
-        afterAll: 'readonly',
-        jest: 'readonly',
-        setTimeout: 'readonly',
-      },
-    },
-  },
+
+  // Documentation script files
   {
     files: ['docs/scripts/**/*.cjs'],
     languageOptions: {
@@ -93,6 +62,9 @@ export default [
         clearTimeout: 'readonly',
         clearInterval: 'readonly',
       },
+    },
+    rules: {
+      'jsdoc/require-jsdoc': 'off', // Internal doc scripts
     },
   },
 ];

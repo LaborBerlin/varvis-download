@@ -1,4 +1,4 @@
-const fs = require('fs');
+const fs = require('node:fs');
 const { applyFilters } = require('./filterUtils.cjs');
 const { triggerRestoreArchivedFile } = require('./archiveUtils.cjs');
 const { fetchWithRetry } = require('./apiClient.cjs');
@@ -16,10 +16,10 @@ let allDecisionForArchived;
 
 /**
  * Prompts the user to confirm restoration of an archived file.
- * @param {Object} file - The archived file object.
- * @param {Object} rl - The readline interface instance.
- * @param {Object} logger - The logger instance.
- * @returns {Promise<boolean>} - Resolves to true if the user confirms, otherwise false.
+ * @param   {object}                   file    - The archived file object.
+ * @param   {object}                   rl      - The readline interface instance.
+ * @param   {import('winston').Logger} _logger - The logger instance (unused).
+ * @returns {Promise<boolean>}                 - Resolves to true if the user confirms, otherwise false.
  */
 async function confirmRestore(file, rl, _logger) {
   return new Promise((resolve) => {
@@ -34,14 +34,14 @@ async function confirmRestore(file, rl, _logger) {
 
 /**
  * Fetches analysis IDs based on sample IDs or LIMS IDs.
- * @param {string} target - The target for the Varvis API.
- * @param {string} token - The CSRF token for authentication.
- * @param {Object} agent - The HTTP agent instance.
- * @param {Array<string>} sampleIds - The sample IDs to filter analyses.
- * @param {Array<string>} limsIds - The LIMS IDs to filter analyses.
- * @param {Array<string>} filters - An array of custom filters to apply.
- * @param {Object} logger - The logger instance.
- * @returns {Promise<string[]>} - An array of analysis IDs.
+ * @param   {string}            target    - The target for the Varvis API.
+ * @param   {string}            token     - The CSRF token for authentication.
+ * @param   {object}            agent     - The HTTP agent instance.
+ * @param   {Array<string>}     sampleIds - The sample IDs to filter analyses.
+ * @param   {Array<string>}     limsIds   - The LIMS IDs to filter analyses.
+ * @param   {Array<string>}     filters   - An array of custom filters to apply.
+ * @param   {object}            logger    - The logger instance.
+ * @returns {Promise<string[]>}           - An array of analysis IDs.
  */
 async function fetchAnalysisIds(
   target,
@@ -65,6 +65,7 @@ async function fetchAnalysisIds(
       logger,
     );
 
+    /** @type {any} */
     let analyses = await response.json();
     analyses = analyses.response;
 
@@ -110,22 +111,22 @@ async function fetchAnalysisIds(
 
 /**
  * Fetches the download links for specified file types from the Varvis API for a given analysis ID.
- * @param {string} analysisId - The analysis ID to get download links for.
- * @param {Array<string>} filter - An optional array of file types to filter by.
- * @param {string} target - The Varvis API target.
- * @param {string} token - The CSRF token for authentication.
- * @param {Object} agent - The HTTP agent instance.
- * @param {Object} logger - The logger instance.
- * @param {string} [restoreArchived="ask"] - Restoration mode for archived files.
- *   Accepts:
- *     - "no": skip restoration,
- *     - "ask": prompt for each file,
- *     - "all": ask once for all files,
- *     - "force": restore automatically.
- * @param {Object} [rl] - The readline interface instance for prompting.
- * @param {string} [restorationFile] - Path to the restoration file.
- * @param {Object} [options] - Options object for restoration context.
- * @returns {Promise<Object>} - An object containing the download links for the specified file types.
+ * @param   {string}          analysisId              - The analysis ID to get download links for.
+ * @param   {Array<string>}   filter                  - An optional array of file types to filter by.
+ * @param   {string}          target                  - The Varvis API target.
+ * @param   {string}          token                   - The CSRF token for authentication.
+ * @param   {object}          agent                   - The HTTP agent instance.
+ * @param   {object}          logger                  - The logger instance.
+ * @param   {string}          [restoreArchived="ask"] - Restoration mode for archived files.
+ *                                                    Accepts:
+ *                                                    - "no": skip restoration,
+ *                                                    - "ask": prompt for each file,
+ *                                                    - "all": ask once for all files,
+ *                                                    - "force": restore automatically.
+ * @param   {object}          [rl]                    - The readline interface instance for prompting.
+ * @param   {string}          [restorationFile]       - Path to the restoration file.
+ * @param   {object}          [options]               - Options object for restoration context.
+ * @returns {Promise<object>}                         - An object containing the download links for the specified file types.
  */
 async function getDownloadLinks(
   analysisId,
@@ -151,6 +152,7 @@ async function getDownloadLinks(
       3,
       logger,
     );
+    /** @type {any} */
     const data = await response.json();
     const apiFileLinks = data.response.apiFileLinks;
 
@@ -275,11 +277,11 @@ async function getDownloadLinks(
 
 /**
  * Lists available files for the specified analysis IDs without triggering any restoration logic.
- * @param {string} analysisId - The analysis ID to list files for.
- * @param {string} target - The target for the Varvis API.
- * @param {string} token - The CSRF token for authentication.
- * @param {Object} agent - The HTTP agent instance.
- * @param {Object} logger - The logger instance.
+ * @param   {string}        analysisId - The analysis ID to list files for.
+ * @param   {string}        target     - The target for the Varvis API.
+ * @param   {string}        token      - The CSRF token for authentication.
+ * @param   {object}        agent      - The HTTP agent instance.
+ * @param   {object}        logger     - The logger instance.
  * @returns {Promise<void>}
  */
 async function listAvailableFiles(analysisId, target, token, agent, logger) {
@@ -309,7 +311,7 @@ async function listAvailableFiles(analysisId, target, token, agent, logger) {
 /**
  * Generates a summary report of the download process.
  * @param {string} reportfile - The path to the report file.
- * @param {Object} logger - The logger instance.
+ * @param {object} logger     - The logger instance.
  */
 function generateReport(reportfile, logger) {
   const totalTime = (Date.now() - metrics.startTime) / 1000; // in seconds

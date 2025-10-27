@@ -1,6 +1,6 @@
 // jest.env.js - Custom environment setup for integration tests
-const path = require('path');
-const fs = require('fs');
+const path = require('node:path');
+const fs = require('node:fs');
 
 // Load .env.test file explicitly (for local development)
 const envTestPath = path.resolve(__dirname, '../../../.env.test');

@@ -7,6 +7,10 @@
     "type": "git",
     "url": "https://github.com/LaborBerlin/varvis-download.git"
   },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
   "main": "varvis-download.cjs",
   "scripts": {
     "test": "jest",
@@ -14,6 +18,8 @@
     "format": "prettier --write .",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "type-check": "tsc --noEmit",
+    "type-check:watch": "tsc --noEmit --watch",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
@@ -52,12 +58,16 @@
     "varvis-download": "./varvis-download.cjs"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.18.12",
     "documentation": "^14.0.3",
     "dotenv": "^16.5.0",
     "dotenv-cli": "^8.0.0",
     "eslint": "^9.29.0",
     "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-jsdoc": "^61.1.9",
     "eslint-plugin-prettier": "^5.5.0",
+    "eslint-plugin-unicorn": "^62.0.0",
     "husky": "^9.1.7",
     "jest": "^30.0.2",
     "jsdoc": "^4.0.4",
@@ -65,6 +75,7 @@
     "lint-staged": "^16.1.2",
     "nock": "^14.0.5",
     "prettier": "^3.6.0",
+    "typescript": "^5.9.3",
     "vitepress": "^1.6.3"
   },
   "lint-staged": {

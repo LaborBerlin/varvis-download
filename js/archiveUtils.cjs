@@ -1,16 +1,16 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 /**
  * Triggers restoration for an archived analysis file using the internal restore endpoint.
- * @param {string} analysisId - The analysis ID of the archived file.
- * @param {Object} file - The file object from the API response (should include fileName).
- * @param {string} target - The target for the Varvis API.
- * @param {string} token - The CSRF token for authentication.
- * @param {Object} agent - The HTTP agent instance.
- * @param {Object} logger - The logger instance.
- * @param {string} [restorationFile="awaiting-restoration.json"] - Optional path/name for the awaiting restoration JSON file.
- * @param {Object} [options={}] - Options object for restoration context.
+ * @param   {string}        analysisId                                    - The analysis ID of the archived file.
+ * @param   {object}        file                                          - The file object from the API response (should include fileName).
+ * @param   {string}        target                                        - The target for the Varvis API.
+ * @param   {string}        token                                         - The CSRF token for authentication.
+ * @param   {object}        agent                                         - The HTTP agent instance.
+ * @param   {object}        logger                                        - The logger instance.
+ * @param   {string}        [restorationFile="awaiting-restoration.json"] - Optional path/name for the awaiting restoration JSON file.
+ * @param   {object}        [options={}]                                  - Options object for restoration context.
  * @returns {Promise<void>}
  */
 async function triggerRestoreArchivedFile(
@@ -48,6 +48,7 @@ async function triggerRestoreArchivedFile(
       3,
       logger,
     );
+    /** @type {any} */
     const result = await response.json();
     if (result.success) {
       const restoreEstimation =
@@ -82,9 +83,9 @@ async function triggerRestoreArchivedFile(
 /**
  * Appends or updates restoration information in an awaiting-restoration JSON file.
  * The entry is identified by matching analysisId, fileName, and options.
- * @param {Object} restorationInfo - An object containing restoration details (analysisId, fileName, restoreEstimation, options).
- * @param {Object} logger - The logger instance.
- * @param {string} [restorationFile="awaiting-restoration.json"] - Optional path/name for the awaiting restoration JSON file.
+ * @param   {object}        restorationInfo                               - An object containing restoration details (analysisId, fileName, restoreEstimation, options).
+ * @param   {object}        logger                                        - The logger instance.
+ * @param   {string}        [restorationFile="awaiting-restoration.json"] - Optional path/name for the awaiting restoration JSON file.
  * @returns {Promise<void>}
  */
 async function appendToAwaitingRestoration(
@@ -131,13 +132,13 @@ async function appendToAwaitingRestoration(
  * Resumes downloads for archived files as specified in the awaiting-restoration JSON file.
  * For each entry, if the current time is past the restoreEstimation, it attempts to download the file
  * using the restored context options. On success, the entry is removed; otherwise, it is kept for later resumption.
- * @param {string} restorationFile - The path/name of the awaiting-restoration JSON file.
- * @param {string} destination - The destination folder for downloads.
- * @param {string} target - The Varvis API target.
- * @param {string} token - The CSRF token for authentication.
- * @param {Object} agent - The HTTP agent instance.
- * @param {Object} logger - The logger instance.
- * @param {boolean} overwrite - Flag indicating whether to overwrite existing files.
+ * @param   {string}        restorationFile - The path/name of the awaiting-restoration JSON file.
+ * @param   {string}        destination     - The destination folder for downloads.
+ * @param   {string}        target          - The Varvis API target.
+ * @param   {string}        token           - The CSRF token for authentication.
+ * @param   {object}        agent           - The HTTP agent instance.
+ * @param   {object}        logger          - The logger instance.
+ * @param   {boolean}       overwrite       - Flag indicating whether to overwrite existing files.
  * @returns {Promise<void>}
  */
 async function resumeArchivedDownloads(
@@ -301,7 +302,7 @@ async function resumeArchivedDownloads(
           );
 
           // Create temporary BED file for ranged download
-          const os = require('os');
+          const os = require('node:os');
           const tempBedPath = path.join(
             os.tmpdir(),
             `restore-regions-${Date.now()}.bed`,

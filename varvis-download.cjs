@@ -6,9 +6,10 @@ require('dotenv').config();
 const { CookieJar } = require('tough-cookie');
 const { CookieClient } = require('http-cookie-agent/undici');
 const yargs = require('yargs');
-const fs = require('fs');
-const path = require('path');
-const readline = require('readline');
+const fs = require('node:fs');
+const path = require('node:path');
+const readline = require('node:readline');
+const Mute = require('mute-stream');
 const { ProxyAgent, Agent } = require('undici');
 const {
   version,
@@ -48,7 +49,9 @@ const {
 } = require('./js/archiveUtils.cjs');
 
 // Command line arguments setup
-const argv = yargs
+/** @type {any} */
+let argv;
+argv = yargs
   .usage('$0 <command> [args]')
   .version(false)
   .option('config', {
@@ -292,11 +295,13 @@ const restorationFile = finalConfig.restorationFile;
 
 // Setup HTTP agent for proxy and cookie handling
 const jar = new CookieJar();
+/** @type {any} */
 const agentOptions = proxy ? { uri: proxy } : {};
 if (proxyUsername && proxyPassword) {
   agentOptions.auth = `${proxyUsername}:${proxyPassword}`;
 }
 
+/** @type {any} */
 const agent = proxy
   ? new ProxyAgent({
       ...agentOptions,
@@ -325,9 +330,9 @@ const rl = readline.createInterface({
 
 /**
  * Handles the output of download URLs, printing to console and/or writing to a file.
- * @param {string[]} urls - An array of URL strings to output.
+ * @param {string[]}    urls     - An array of URL strings to output.
  * @param {string|null} filePath - The path to the output file, or null to only use console.
- * @param {Object} logger - The logger instance.
+ * @param {object}      logger   - The logger instance.
  */
 function handleUrlListing(urls, filePath, logger) {
   if (urls.length === 0) {
@@ -354,8 +359,13 @@ function handleUrlListing(urls, filePath, logger) {
 }
 
 // Main function to orchestrate the login and download process
-const os = require('os'); // Import for generating temp file paths
+const os = require('node:os'); // Import for generating temp file paths
 
+/**
+ * Main function to orchestrate the CLI workflow.
+ * Handles authentication, file discovery, download/list operations, and archive restoration.
+ * @returns {Promise<void>}
+ */
 async function main() {
   // If resumeArchivedDownloads flag is set, resume archived downloads and exit.
   if (finalConfig.resumeArchivedDownloads) {
@@ -364,7 +374,6 @@ async function main() {
     // Interactive password prompt if password is not available
     let finalPassword = password;
     if (!finalPassword) {
-      const Mute = require('mute-stream');
       const mute = new Mute();
       mute.pipe(process.stdout);
       const rlWithMute = readline.createInterface({
@@ -417,7 +426,6 @@ async function main() {
     // Interactive password prompt if password is not available
     let finalPassword = password;
     if (!finalPassword) {
-      const Mute = require('mute-stream');
       const mute = new Mute();
       mute.pipe(process.stdout);
       const rlWithMute = readline.createInterface({

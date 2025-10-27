@@ -1,8 +1,8 @@
 # API Reference
 
+##
 
-  ##
-  getCsrfToken
+getCsrfToken
 
     Fetches the CSRF token required for login.
 
@@ -15,11 +15,11 @@
 
       - The CSRF token.
 
+---
 
-  ---
+##
 
-  ##
-  login
+login
 
     Logs in to the Varvis API and retrieves the CSRF token.
 
@@ -41,13 +41,10 @@
 
       - The login response containing the CSRF token.
 
+---
 
-  ---
+## Class:
 
-
-  ## Class:
-  AuthService
+AuthService
 
     AuthService class handles authentication with the Varvis API.
-
-

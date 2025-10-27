@@ -257,6 +257,7 @@ VCF ranged downloads use a robust `tabix -h | bgzip` pipeline that automatically
 6. **Re-indexing**: Creates new `.tbi` index for the ranged file
 
 **Requirements for VCF Range Downloads**:
+
 - `tabix` v1.7+ (for remote URL support with -h flag)
 - `bgzip` v1.7+ (for compression pipeline)
 - Both VCF file and index file must be available

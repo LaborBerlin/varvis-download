@@ -10,35 +10,35 @@ varvis-download [options]
 
 ## Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--config, c` | `string` | `.config.json` | Path to the configuration file |
-| `--username, u` | `string` | - | Varvis API username |
-| `--password, p` | `string` | - | Varvis API password |
-| `--target, t` | `string` | - | Target for the Varvis API |
-| `--analysisIds, a` | `string` | - | Analysis IDs to download files for (comma-separated) |
-| `--sampleIds, s` | `string` | - | Sample IDs to filter analyses (comma-separated) |
-| `--limsIds, l` | `string` | - | LIMS IDs to filter analyses (comma-separated) |
-| `--list, L` | `boolean` | `false` | List available files for the specified analysis IDs |
-| `--destination, d` | `string` | `.` | Destination folder for the downloaded files |
-| `--proxy, x` | `string` | - | Proxy URL |
-| `--proxyUsername, pxu` | `string` | - | Proxy username |
-| `--proxyPassword, pxp` | `string` | - | Proxy password |
-| `--overwrite, o` | `boolean` | `false` | Overwrite existing files |
-| `--filetypes, f` | `string` | `bam,bam.bai` | File types to download (comma-separated) |
-| `--loglevel, ll` | `string` | `info` | Logging level (info, warn, error, debug) |
-| `--logfile, lf` | `string` | - | Path to the log file |
-| `--reportfile, r` | `string` | - | Path to the report file |
-| `--filter, F` | `array` | `[]` | Filter expressions (e.g., "analysisType=SNV", "sampleId>LB24-0001") |
-| `--range, g` | `string` | - | Genomic range for ranged download (e.g., chr1:1-100000) |
-| `--bed, b` | `string` | - | Path to BED file containing multiple regions |
-| `--restoreArchived, ra` | `string` | `ask` | Restore archived files. Accepts "no", "ask" (default), "all", or "force". |
-| `--restorationFile, rf` | `string` | `awaiting-restoration.json` | Path and name for the awaiting-restoration JSON file |
-| `--resumeArchivedDownloads, rad` | `boolean` | `false` | Resume downloads for archived files from the awaiting-restoration JSON file if restoreEstimation has passed. |
-| `--list-urls, U` | `boolean` | `false` | List the direct download URLs for the selected files instead of downloading them. Useful for piping to other tools. |
-| `--url-file` | `string` | - | Path to a file to save the download URLs when using --list-urls. |
-| `--version, v` | `boolean` | `false` | Show version information |
-| `--help, h` | `boolean` | `false` | Show help |
+| Option                           | Type      | Default                     | Description                                                                                                         |
+| -------------------------------- | --------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `--config, c`                    | `string`  | `.config.json`              | Path to the configuration file                                                                                      |
+| `--username, u`                  | `string`  | -                           | Varvis API username                                                                                                 |
+| `--password, p`                  | `string`  | -                           | Varvis API password                                                                                                 |
+| `--target, t`                    | `string`  | -                           | Target for the Varvis API                                                                                           |
+| `--analysisIds, a`               | `string`  | -                           | Analysis IDs to download files for (comma-separated)                                                                |
+| `--sampleIds, s`                 | `string`  | -                           | Sample IDs to filter analyses (comma-separated)                                                                     |
+| `--limsIds, l`                   | `string`  | -                           | LIMS IDs to filter analyses (comma-separated)                                                                       |
+| `--list, L`                      | `boolean` | `false`                     | List available files for the specified analysis IDs                                                                 |
+| `--destination, d`               | `string`  | `.`                         | Destination folder for the downloaded files                                                                         |
+| `--proxy, x`                     | `string`  | -                           | Proxy URL                                                                                                           |
+| `--proxyUsername, pxu`           | `string`  | -                           | Proxy username                                                                                                      |
+| `--proxyPassword, pxp`           | `string`  | -                           | Proxy password                                                                                                      |
+| `--overwrite, o`                 | `boolean` | `false`                     | Overwrite existing files                                                                                            |
+| `--filetypes, f`                 | `string`  | `bam,bam.bai`               | File types to download (comma-separated)                                                                            |
+| `--loglevel, ll`                 | `string`  | `info`                      | Logging level (info, warn, error, debug)                                                                            |
+| `--logfile, lf`                  | `string`  | -                           | Path to the log file                                                                                                |
+| `--reportfile, r`                | `string`  | -                           | Path to the report file                                                                                             |
+| `--filter, F`                    | `array`   | `[]`                        | Filter expressions (e.g., "analysisType=SNV", "sampleId>LB24-0001")                                                 |
+| `--range, g`                     | `string`  | -                           | Genomic range for ranged download (e.g., chr1:1-100000)                                                             |
+| `--bed, b`                       | `string`  | -                           | Path to BED file containing multiple regions                                                                        |
+| `--restoreArchived, ra`          | `string`  | `ask`                       | Restore archived files. Accepts "no", "ask" (default), "all", or "force".                                           |
+| `--restorationFile, rf`          | `string`  | `awaiting-restoration.json` | Path and name for the awaiting-restoration JSON file                                                                |
+| `--resumeArchivedDownloads, rad` | `boolean` | `false`                     | Resume downloads for archived files from the awaiting-restoration JSON file if restoreEstimation has passed.        |
+| `--list-urls, U`                 | `boolean` | `false`                     | List the direct download URLs for the selected files instead of downloading them. Useful for piping to other tools. |
+| `--url-file`                     | `string`  | -                           | Path to a file to save the download URLs when using --list-urls.                                                    |
+| `--version, v`                   | `boolean` | `false`                     | Show version information                                                                                            |
+| `--help, h`                      | `boolean` | `false`                     | Show help                                                                                                           |
 
 ## Examples
 
@@ -92,6 +92,7 @@ varvis-download -u username -p password -t target -a "analysis1" --list-urls | a
 ### Genomic Range Downloads
 
 **VCF Range Downloads**:
+
 - Requires `tabix` v1.7+ and `bgzip` v1.7+
 - Automatically downloads `.tbi` index files
 - Uses `tabix -h | bgzip` pipeline for proper VCF format
@@ -99,6 +100,7 @@ varvis-download -u username -p password -t target -a "analysis1" --list-urls | a
 - Each region creates a separate output file
 
 **BAM Range Downloads**:
+
 - Requires `samtools` v1.17+
 - Automatically downloads `.bai` index files
 - Uses `samtools view -b` for region extraction

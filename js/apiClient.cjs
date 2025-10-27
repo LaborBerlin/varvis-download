@@ -6,8 +6,8 @@ const { fetch } = require('undici');
 class ApiClient {
   /**
    * Creates an instance of ApiClient.
-   * @param {Object} agent - The HTTP agent instance.
-   * @param {Object} logger - The logger instance.
+   * @param {object} agent  - The HTTP agent instance.
+   * @param {object} logger - The logger instance.
    */
   constructor(agent, logger) {
     this.agent = agent;
@@ -16,10 +16,10 @@ class ApiClient {
 
   /**
    * Retries a fetch operation with a specified number of attempts.
-   * @param {string} url - The URL to fetch.
-   * @param {Object} options - The fetch options.
-   * @param {number} retries - The number of retry attempts.
-   * @returns {Promise<Response>} - The fetch response.
+   * @param   {string}            url     - The URL to fetch.
+   * @param   {object}            options - The fetch options.
+   * @param   {number}            retries - The number of retry attempts.
+   * @returns {Promise<Response>}         - The fetch response.
    */
   async fetchWithRetry(url, options, retries = 3) {
     for (let attempt = 1; attempt <= retries; attempt++) {
@@ -48,15 +48,22 @@ class ApiClient {
 
 /**
  * Creates and configures an API client instance.
- * @param {Object} agent - The HTTP agent instance.
- * @param {Object} logger - The logger instance.
- * @returns {ApiClient} - The configured API client instance.
+ * @param   {object}    agent  - The HTTP agent instance.
+ * @param   {object}    logger - The logger instance.
+ * @returns {ApiClient}        - The configured API client instance.
  */
 function createApiClient(agent, logger) {
   return new ApiClient(agent, logger);
 }
 
-// Legacy function export for backwards compatibility
+/**
+ * Legacy function export for backwards compatibility
+ * @param   {string}                             url     - The URL to fetch
+ * @param   {import('undici').RequestInit}       options - Fetch options (must include dispatcher)
+ * @param   {number}                             retries - Number of retry attempts
+ * @param   {import('winston').Logger}           logger  - Logger instance
+ * @returns {Promise<import('undici').Response>}         - Fetch response
+ */
 async function fetchWithRetry(url, options, retries = 3, logger) {
   // Extract agent from options if present
   const agent = options.dispatcher;
