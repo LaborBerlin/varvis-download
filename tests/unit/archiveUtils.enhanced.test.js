@@ -299,7 +299,10 @@ describe('archiveUtils (enhanced)', () => {
           downloadLink: 'https://example.com/sample.bam',
           currentlyArchived: false,
         },
+        // Note: Deliberately not including sample.bam.bai to test missing index
       });
+
+      generateOutputFileName.mockReturnValue('sample.bam');
 
       await resumeArchivedDownloads(
         'test-restoration.json',
@@ -339,7 +342,10 @@ describe('archiveUtils (enhanced)', () => {
           downloadLink: 'https://example.com/sample.vcf.gz',
           currentlyArchived: false,
         },
+        // Note: Deliberately not including sample.vcf.gz.tbi to test missing index
       });
+
+      generateOutputFileName.mockReturnValue('sample.vcf.gz');
 
       await resumeArchivedDownloads(
         'test-restoration.json',
