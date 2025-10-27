@@ -23,5 +23,6 @@ export default {
     'jsdoc/require-param': 'off',
     'jsdoc/require-returns': 'off',
     'no-unused-vars': 'off', // Jest fixtures may appear unused
+    'security/detect-child-process': 'off', // Tests legitimately spawn child processes
   },
 };

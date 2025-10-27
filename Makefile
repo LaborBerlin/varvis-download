@@ -1,4 +1,4 @@
-.PHONY: help install clean test test-int test-cov lint lint-fix format format-check type-check docs-dev docs-build ci dev
+.PHONY: help install clean test test-int test-cov lint lint-fix format format-check type-check docs-dev docs-build audit audit-all audit-fix security ci dev
 
 # Default target
 .DEFAULT_GOAL := help
@@ -72,6 +72,29 @@ docs-build: ## Build documentation site
 	@echo "$(BLUE)Building documentation...$(RESET)"
 	npm run docs:api
 	@echo "$(GREEN)✓ Documentation built$(RESET)"
+
+# Security
+audit: ## Check for vulnerabilities (production dependencies only)
+	@echo "$(BLUE)Running npm audit (production)...$(RESET)"
+	@npm audit --omit=dev --audit-level=moderate || true
+	@echo ""
+	@echo "$(YELLOW)Note: Run 'make audit-all' to include dev dependencies$(RESET)"
+
+audit-all: ## Check for vulnerabilities (all dependencies)
+	@echo "$(BLUE)Running npm audit (all dependencies)...$(RESET)"
+	@npm audit --audit-level=moderate || true
+
+audit-fix: ## Automatically fix vulnerabilities
+	@echo "$(BLUE)Fixing vulnerabilities...$(RESET)"
+	npm audit fix
+	@echo "$(GREEN)✓ Vulnerabilities fixed$(RESET)"
+	@echo "$(YELLOW)Note: Some vulnerabilities may require manual intervention$(RESET)"
+
+security: audit lint ## Run all security checks (audit + ESLint security rules)
+	@echo ""
+	@echo "$(GREEN)═══════════════════════════════════════════════$(RESET)"
+	@echo "$(GREEN)  ✓ Security audit complete!                  $(RESET)"
+	@echo "$(GREEN)═══════════════════════════════════════════════$(RESET)"
 
 # Compound Tasks
 ci: lint format-check type-check test ## Run all CI checks locally

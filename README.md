@@ -268,6 +268,22 @@ npm run format      # Format with Prettier
 npm run type-check  # TypeScript type checking
 ```
 
+### Security
+
+```bash
+# Using Make (recommended)
+make audit          # Check vulnerabilities (production only)
+make audit-all      # Check all dependencies
+make audit-fix      # Auto-fix vulnerabilities
+make security       # Full security audit (npm + ESLint)
+```
+
+The project includes:
+
+- **npm audit**: Dependency vulnerability scanning
+- **ESLint security rules**: SAST for common security issues
+- **Secret detection**: Prevents secrets in code
+
 ### Version Management
 
 ```bash

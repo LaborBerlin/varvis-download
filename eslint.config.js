@@ -1,6 +1,7 @@
 import baseConfig from './eslint.config.base.js';
 import jsdocConfig from './eslint.config.jsdoc.js';
 import unicornConfig from './eslint.config.unicorn.js';
+import securityConfig from './eslint.config.security.js';
 import testsConfig from './eslint.config.tests.js';
 
 /**
@@ -30,6 +31,9 @@ export default [
 
   // Modern JavaScript patterns
   unicornConfig,
+
+  // Security rules
+  securityConfig,
 
   // Test-specific configuration
   testsConfig,
