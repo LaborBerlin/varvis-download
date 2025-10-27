@@ -17,8 +17,8 @@ A command-line interface (CLI) tool for downloading BAM, BAI, and VCF files from
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) v18.0.0 or higher
-- NPM v8.0.0 or higher
+- [Node.js](https://nodejs.org/) v22.0.0 or higher
+- NPM v10.0.0 or higher
 - **External Tools** (for range-based downloads):
   - `samtools` v1.17+
   - `tabix` v1.20+
