@@ -4,6 +4,8 @@ const {
   generateOutputFileName,
   ensureIndexFile,
   rangedDownloadBAM,
+  indexBAM,
+  indexVCF,
 } = require('../../js/rangedUtils.cjs');
 const { createMockLogger } = require('../helpers/mockFactories');
 const { spawn } = require('node:child_process');
@@ -423,6 +425,223 @@ describe('rangedUtils (enhanced)', () => {
 
       expect(mockLogger.error).toHaveBeenCalledWith(
         expect.stringContaining('Error performing ranged download for BAM'),
+      );
+    });
+  });
+
+  describe('indexBAM', () => {
+    beforeEach(() => {
+      fs.existsSync.mockReturnValue(false);
+    });
+
+    test('should skip indexing when index file exists and overwrite is false', async () => {
+      fs.existsSync.mockReturnValue(true);
+
+      await indexBAM('/path/to/sample.bam', mockLogger, false);
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Index file already exists: /path/to/sample.bam.bai, skipping indexing.',
+      );
+      expect(spawn).not.toHaveBeenCalled();
+    });
+
+    test('should index BAM file when index does not exist', async () => {
+      fs.existsSync.mockReturnValue(false);
+
+      const mockProcess = {
+        stdout: { on: jest.fn() },
+        stderr: { on: jest.fn() },
+        on: jest.fn(),
+      };
+
+      spawn.mockReturnValue(mockProcess);
+
+      setImmediate(() => {
+        const closeCallback = mockProcess.on.mock.calls.find(
+          (call) => call[0] === 'close',
+        )?.[1];
+        if (closeCallback) {
+          closeCallback(0);
+        }
+      });
+
+      await indexBAM('/path/to/sample.bam', mockLogger);
+
+      expect(spawn).toHaveBeenCalledWith('samtools', [
+        'index',
+        '/path/to/sample.bam',
+      ]);
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Indexing BAM file: /path/to/sample.bam',
+      );
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Indexed BAM file: /path/to/sample.bam',
+      );
+    });
+
+    test('should index BAM file when overwrite is true', async () => {
+      fs.existsSync.mockReturnValue(true);
+
+      const mockProcess = {
+        stdout: { on: jest.fn() },
+        stderr: { on: jest.fn() },
+        on: jest.fn(),
+      };
+
+      spawn.mockReturnValue(mockProcess);
+
+      setImmediate(() => {
+        const closeCallback = mockProcess.on.mock.calls.find(
+          (call) => call[0] === 'close',
+        )?.[1];
+        if (closeCallback) {
+          closeCallback(0);
+        }
+      });
+
+      await indexBAM('/path/to/sample.bam', mockLogger, true);
+
+      expect(spawn).toHaveBeenCalled();
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Indexed BAM file: /path/to/sample.bam',
+      );
+    });
+
+    test('should handle indexing error', async () => {
+      fs.existsSync.mockReturnValue(false);
+
+      const mockProcess = {
+        stdout: { on: jest.fn() },
+        stderr: { on: jest.fn() },
+        on: jest.fn(),
+      };
+
+      spawn.mockReturnValue(mockProcess);
+
+      setImmediate(() => {
+        const closeCallback = mockProcess.on.mock.calls.find(
+          (call) => call[0] === 'close',
+        )?.[1];
+        if (closeCallback) {
+          closeCallback(1);
+        }
+      });
+
+      await expect(
+        indexBAM('/path/to/sample.bam', mockLogger),
+      ).rejects.toThrow();
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Error indexing BAM file'),
+      );
+    });
+  });
+
+  describe('indexVCF', () => {
+    beforeEach(() => {
+      fs.existsSync.mockReturnValue(false);
+    });
+
+    test('should skip indexing when index file exists and overwrite is false', async () => {
+      fs.existsSync.mockReturnValue(true);
+
+      await indexVCF('/path/to/sample.vcf.gz', mockLogger, false);
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Index file already exists: /path/to/sample.vcf.gz.tbi, skipping indexing.',
+      );
+      expect(spawn).not.toHaveBeenCalled();
+    });
+
+    test('should index VCF.gz file when index does not exist', async () => {
+      fs.existsSync.mockReturnValue(false);
+
+      const mockProcess = {
+        stdout: { on: jest.fn() },
+        stderr: { on: jest.fn() },
+        on: jest.fn(),
+      };
+
+      spawn.mockReturnValue(mockProcess);
+
+      setImmediate(() => {
+        const closeCallback = mockProcess.on.mock.calls.find(
+          (call) => call[0] === 'close',
+        )?.[1];
+        if (closeCallback) {
+          closeCallback(0);
+        }
+      });
+
+      await indexVCF('/path/to/sample.vcf.gz', mockLogger);
+
+      expect(spawn).toHaveBeenCalledWith('tabix', [
+        '-p',
+        'vcf',
+        '/path/to/sample.vcf.gz',
+      ]);
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Indexing VCF.gz file: /path/to/sample.vcf.gz',
+      );
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Indexed VCF.gz file: /path/to/sample.vcf.gz',
+      );
+    });
+
+    test('should index VCF.gz file when overwrite is true', async () => {
+      fs.existsSync.mockReturnValue(true);
+
+      const mockProcess = {
+        stdout: { on: jest.fn() },
+        stderr: { on: jest.fn() },
+        on: jest.fn(),
+      };
+
+      spawn.mockReturnValue(mockProcess);
+
+      setImmediate(() => {
+        const closeCallback = mockProcess.on.mock.calls.find(
+          (call) => call[0] === 'close',
+        )?.[1];
+        if (closeCallback) {
+          closeCallback(0);
+        }
+      });
+
+      await indexVCF('/path/to/sample.vcf.gz', mockLogger, true);
+
+      expect(spawn).toHaveBeenCalled();
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Indexed VCF.gz file: /path/to/sample.vcf.gz',
+      );
+    });
+
+    test('should handle indexing error', async () => {
+      fs.existsSync.mockReturnValue(false);
+
+      const mockProcess = {
+        stdout: { on: jest.fn() },
+        stderr: { on: jest.fn() },
+        on: jest.fn(),
+      };
+
+      spawn.mockReturnValue(mockProcess);
+
+      setImmediate(() => {
+        const closeCallback = mockProcess.on.mock.calls.find(
+          (call) => call[0] === 'close',
+        )?.[1];
+        if (closeCallback) {
+          closeCallback(1);
+        }
+      });
+
+      await expect(
+        indexVCF('/path/to/sample.vcf.gz', mockLogger),
+      ).rejects.toThrow();
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Error indexing VCF.gz file'),
       );
     });
   });
