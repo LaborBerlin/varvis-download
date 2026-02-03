@@ -1,6 +1,31 @@
 const fs = require('node:fs');
 
 /**
+ * Deep equality comparison for objects that is order-independent.
+ * @param   {object}  obj1 - First object to compare.
+ * @param   {object}  obj2 - Second object to compare.
+ * @returns {boolean}      - True if objects are deeply equal.
+ */
+function deepEqual(obj1, obj2) {
+  if (obj1 === obj2) return true;
+  if (typeof obj1 !== typeof obj2) return false;
+  if (obj1 === null || obj2 === null) return obj1 === obj2;
+  if (typeof obj1 !== 'object') return obj1 === obj2;
+
+  const keys1 = Object.keys(obj1).sort();
+  const keys2 = Object.keys(obj2).sort();
+
+  if (keys1.length !== keys2.length) return false;
+  if (keys1.join(',') !== keys2.join(',')) return false;
+
+  for (const key of keys1) {
+    if (!deepEqual(obj1[key], obj2[key])) return false;
+  }
+
+  return true;
+}
+
+/**
  * Reads the restoration state from a JSON file.
  * @param   {string}     restorationFile - The path to the awaiting-restoration JSON file.
  * @param   {object}     logger          - The logger instance.
@@ -14,13 +39,20 @@ function readRestorationState(restorationFile, logger) {
 
   try {
     const data = JSON.parse(fs.readFileSync(restorationFile, 'utf-8'));
-    if (!Array.isArray(data) || data.length === 0) {
+    if (!Array.isArray(data)) {
+      logger.warn(
+        `Restoration file ${restorationFile} does not contain a valid array`,
+      );
+      return null;
+    }
+    if (data.length === 0) {
+      logger.debug(`Restoration file ${restorationFile} is empty`);
       return null;
     }
     return data;
   } catch (error) {
     logger.error(
-      `Error reading restoration file ${restorationFile}: ${error.message}`,
+      `Failed to parse restoration file ${restorationFile}: ${error.message}`,
     );
     return null;
   }
@@ -53,7 +85,15 @@ async function appendToAwaitingRestoration(
   let data = [];
   if (fs.existsSync(restorationFile)) {
     try {
-      data = JSON.parse(fs.readFileSync(restorationFile, 'utf-8'));
+      const parsed = JSON.parse(fs.readFileSync(restorationFile, 'utf-8'));
+      // Validate that parsed data is an array before using array methods
+      if (Array.isArray(parsed)) {
+        data = parsed;
+      } else {
+        logger.warn(
+          'Restoration file does not contain a valid array. Starting fresh.',
+        );
+      }
     } catch {
       logger.error(
         'Failed to parse awaiting-restoration file. Starting fresh.',
@@ -61,12 +101,12 @@ async function appendToAwaitingRestoration(
     }
   }
   // Check if an entry with the same analysisId, fileName, and options exists.
+  // Use deep equality for options comparison to handle different property orders.
   const index = data.findIndex(
     (entry) =>
       entry.analysisId === restorationInfo.analysisId &&
       entry.fileName === restorationInfo.fileName &&
-      JSON.stringify(entry.options || {}) ===
-        JSON.stringify(restorationInfo.options || {}),
+      deepEqual(entry.options || {}, restorationInfo.options || {}),
   );
   if (index !== -1) {
     // Overwrite existing entry.

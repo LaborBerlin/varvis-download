@@ -117,7 +117,7 @@ describe('archiveUtils (enhanced)', () => {
       );
 
       expect(mockLogger.info).toHaveBeenCalledWith(
-        'No restoration file found at missing-restoration.json or file is empty. Nothing to resume.',
+        'No restoration entries could be loaded from missing-restoration.json. Nothing to resume.',
       );
     });
 
@@ -136,7 +136,7 @@ describe('archiveUtils (enhanced)', () => {
       );
 
       expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining('Error reading restoration file'),
+        expect.stringContaining('Failed to parse restoration file'),
       );
     });
 
@@ -155,7 +155,7 @@ describe('archiveUtils (enhanced)', () => {
       );
 
       expect(mockLogger.info).toHaveBeenCalledWith(
-        'No restoration file found at empty-restoration.json or file is empty. Nothing to resume.',
+        'No restoration entries could be loaded from empty-restoration.json. Nothing to resume.',
       );
     });
 

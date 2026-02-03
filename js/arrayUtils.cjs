@@ -7,12 +7,12 @@
 /**
  * Normalizes array inputs that may contain comma-separated strings.
  * Handles both CLI arguments (which may pass comma-separated values as single strings)
- * and config file arrays.
+ * and config file arrays. Non-string values (e.g., numbers) pass through unchanged.
  *
- * @param   {Array|undefined} cliValue     - Value from CLI arguments.
- * @param   {Array|undefined} configValue  - Value from config file.
- * @param   {Array}           defaultValue - Default value if both are undefined.
- * @returns {string[]}                     - Normalized array of strings.
+ * @param   {Array<string|number>|undefined} cliValue     - Value from CLI arguments.
+ * @param   {Array<string|number>|undefined} configValue  - Value from config file.
+ * @param   {Array<string|number>}           defaultValue - Default value if both are undefined.
+ * @returns {Array<string|number>}                        - Normalized array of values.
  * @example
  * // CLI passes "id1,id2" as single array element
  * normalizeArrayInput(['id1,id2'], undefined, [])
@@ -27,6 +27,11 @@
  * // Mixed: some elements have commas, some don't
  * normalizeArrayInput(['id1,id2', 'id3'], undefined, [])
  * // Returns: ['id1', 'id2', 'id3']
+ *
+ * @example
+ * // Numeric IDs pass through unchanged
+ * normalizeArrayInput([123, 456], undefined, [])
+ * // Returns: [123, 456]
  */
 function normalizeArrayInput(cliValue, configValue, defaultValue = []) {
   const raw = cliValue || configValue || defaultValue;

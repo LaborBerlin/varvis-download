@@ -202,7 +202,7 @@ describe('promptUtils', () => {
   describe('createReadlineInterface', () => {
     test('should create a readline interface', () => {
       const readline = require('node:readline');
-      const rl = createReadlineInterface();
+      createReadlineInterface();
 
       expect(readline.createInterface).toHaveBeenCalledWith({
         input: process.stdin,

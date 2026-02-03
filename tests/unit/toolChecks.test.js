@@ -71,6 +71,20 @@ describe('toolChecks', () => {
       expect(compareVersions('1', '2')).toBe(false);
       expect(compareVersions('1', '1')).toBe(true);
     });
+
+    test('should handle version suffixes like rc1, beta, alpha', () => {
+      // Version with suffix should still extract numeric part
+      expect(compareVersions('1.18-rc1', '1.17')).toBe(true);
+      expect(compareVersions('1.18-beta', '1.17')).toBe(true);
+      expect(compareVersions('2.0-alpha', '1.99')).toBe(true);
+      expect(compareVersions('1.16-rc1', '1.17')).toBe(false);
+    });
+
+    test('should return false when version cannot be parsed', () => {
+      // Completely non-numeric versions should fail
+      expect(compareVersions('abc', '1.0')).toBe(false);
+      expect(compareVersions('1.0', 'xyz')).toBe(false);
+    });
   });
 
   describe('spawnPromise', () => {
@@ -280,6 +294,107 @@ describe('toolChecks', () => {
       );
 
       expect(spawn).toHaveBeenCalledWith('tool', ['--version', '--verbose']);
+    });
+
+    test('should handle version with suffix in output', async () => {
+      mockSpawnProcess.stdout.on.mockImplementation((event, callback) => {
+        if (event === 'data') {
+          callback(Buffer.from('samtools 1.18-rc1'));
+        }
+      });
+      mockSpawnProcess.on.mockImplementation((event, callback) => {
+        if (event === 'close') {
+          setTimeout(() => callback(0), 0);
+        }
+        return mockSpawnProcess;
+      });
+
+      const result = await checkToolAvailability(
+        'samtools',
+        'samtools --version',
+        '1.17',
+        mockLogger,
+      );
+
+      expect(result).toBe(true);
+    });
+
+    test('should return false for empty output', async () => {
+      mockSpawnProcess.stdout.on.mockImplementation((event, callback) => {
+        if (event === 'data') {
+          callback(Buffer.from(''));
+        }
+      });
+      mockSpawnProcess.on.mockImplementation((event, callback) => {
+        if (event === 'close') {
+          setTimeout(() => callback(0), 0);
+        }
+        return mockSpawnProcess;
+      });
+
+      const result = await checkToolAvailability(
+        'tool',
+        'tool --version',
+        '1.0',
+        mockLogger,
+      );
+
+      expect(result).toBe(false);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Could not parse version'),
+      );
+    });
+
+    test('should return false for single-word output', async () => {
+      mockSpawnProcess.stdout.on.mockImplementation((event, callback) => {
+        if (event === 'data') {
+          callback(Buffer.from('samtools'));
+        }
+      });
+      mockSpawnProcess.on.mockImplementation((event, callback) => {
+        if (event === 'close') {
+          setTimeout(() => callback(0), 0);
+        }
+        return mockSpawnProcess;
+      });
+
+      const result = await checkToolAvailability(
+        'samtools',
+        'samtools --version',
+        '1.17',
+        mockLogger,
+      );
+
+      expect(result).toBe(false);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Could not parse version'),
+      );
+    });
+
+    test('should handle tabix format with insufficient parts', async () => {
+      mockSpawnProcess.stdout.on.mockImplementation((event, callback) => {
+        if (event === 'data') {
+          callback(Buffer.from('tabix (htslib)'));
+        }
+      });
+      mockSpawnProcess.on.mockImplementation((event, callback) => {
+        if (event === 'close') {
+          setTimeout(() => callback(0), 0);
+        }
+        return mockSpawnProcess;
+      });
+
+      const result = await checkToolAvailability(
+        'tabix',
+        'tabix --version',
+        '1.7',
+        mockLogger,
+      );
+
+      expect(result).toBe(false);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Could not parse version'),
+      );
     });
   });
 });

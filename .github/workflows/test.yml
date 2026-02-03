@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: ['20.x', '22.x']
+        node-version: ['22.x']
       fail-fast: false
 
     steps:
@@ -31,7 +31,7 @@ jobs:
             ~/.cache/eslint
             *.tsbuildinfo
             node_modules/.cache
-          key: ${{ runner.os }}-node${{ matrix.node-version }}-quality-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.js') }}
+          key: ${{ runner.os }}-node${{ matrix.node-version }}-quality-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.js', '**/*.cjs') }}
           restore-keys: |
             ${{ runner.os }}-node${{ matrix.node-version }}-quality-
 

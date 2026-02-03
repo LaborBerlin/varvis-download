@@ -110,7 +110,7 @@ async function resumeArchivedDownloads(
   const data = readRestorationState(restorationFile, logger);
   if (!data) {
     logger.info(
-      `No restoration file found at ${restorationFile} or file is empty. Nothing to resume.`,
+      `No restoration entries could be loaded from ${restorationFile}. Nothing to resume.`,
     );
     return;
   }
