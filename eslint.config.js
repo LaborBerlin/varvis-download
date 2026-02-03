@@ -34,7 +34,6 @@ export default [
       'build/',
       'coverage/',
       'plan/',
-      'config/', // User app configs
     ],
   },
 
