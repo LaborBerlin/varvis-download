@@ -50,10 +50,7 @@ jobs:
       - name: Type check JavaScript
         run: npm run type-check
 
-      - name: Run tests
-        run: npm test
-
-      - name: Generate test coverage
+      - name: Run tests with coverage
         run: npm test -- --coverage
 
       - name: Check coverage thresholds
@@ -61,15 +58,17 @@ jobs:
           echo "Coverage thresholds are enforced by Jest configuration"
           cat coverage/coverage-summary.json | jq '.total'
 
+      # Only upload coverage from primary Node.js version to avoid duplicate reports
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        continue-on-error: true
+        if: matrix.node-version == '22.x'
+        uses: codecov/codecov-action@v5
         with:
-          file: ./coverage/lcov.info
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          flags: unittests
+          name: varvis-download-coverage
+          fail_ci_if_error: true
+          verbose: true
 
   bioinformatics-tools:
     runs-on: ubuntu-latest
