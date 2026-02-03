@@ -44,15 +44,15 @@
   "author": "Bernt Popp",
   "license": "GPL-3.0",
   "dependencies": {
-    "date-fns": "^3.6.0",
+    "date-fns": "^4.1.0",
     "fs-extra": "^11.3.0",
-    "http-cookie-agent": "^6.0.8",
-    "mute-stream": "^2.0.0",
+    "http-cookie-agent": "^7.0.3",
+    "mute-stream": "^3.0.0",
     "progress": "^2.0.3",
-    "tough-cookie": "^4.1.4",
-    "undici": "^6.23.0",
+    "tough-cookie": "^6.0.0",
+    "undici": "^7.20.0",
     "winston": "^3.19.0",
-    "yargs": "^17.7.2"
+    "yargs": "^18.0.0"
   },
   "bin": {
     "varvis-download": "./varvis-download.cjs"
