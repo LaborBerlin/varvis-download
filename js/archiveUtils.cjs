@@ -1,5 +1,10 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const {
+  appendToAwaitingRestoration,
+  readRestorationState,
+  writeRestorationState,
+} = require('./restorationState.cjs');
 
 /**
  * Triggers restoration for an archived analysis file using the internal restore endpoint.
@@ -81,54 +86,6 @@ async function triggerRestoreArchivedFile(
 }
 
 /**
- * Appends or updates restoration information in an awaiting-restoration JSON file.
- * The entry is identified by matching analysisId, fileName, and options.
- * @param   {object}        restorationInfo                               - An object containing restoration details (analysisId, fileName, restoreEstimation, options).
- * @param   {object}        logger                                        - The logger instance.
- * @param   {string}        [restorationFile="awaiting-restoration.json"] - Optional path/name for the awaiting restoration JSON file.
- * @returns {Promise<void>}
- */
-async function appendToAwaitingRestoration(
-  restorationInfo,
-  logger,
-  restorationFile = 'awaiting-restoration.json',
-) {
-  let data = [];
-  if (fs.existsSync(restorationFile)) {
-    try {
-      data = JSON.parse(fs.readFileSync(restorationFile, 'utf-8'));
-    } catch {
-      logger.error(
-        'Failed to parse awaiting-restoration file. Starting fresh.',
-      );
-    }
-  }
-  // Check if an entry with the same analysisId, fileName, and options exists.
-  const index = data.findIndex(
-    (entry) =>
-      entry.analysisId === restorationInfo.analysisId &&
-      entry.fileName === restorationInfo.fileName &&
-      JSON.stringify(entry.options || {}) ===
-        JSON.stringify(restorationInfo.options || {}),
-  );
-  if (index !== -1) {
-    // Overwrite existing entry.
-    data[index] = restorationInfo;
-    logger.info(
-      `Updated existing restoration entry for analysis ${restorationInfo.analysisId}, file ${restorationInfo.fileName}.`,
-    );
-  } else {
-    // Append new entry.
-    data.push(restorationInfo);
-    logger.info(
-      `Appended new restoration entry for analysis ${restorationInfo.analysisId}, file ${restorationInfo.fileName}.`,
-    );
-  }
-  fs.writeFileSync(restorationFile, JSON.stringify(data, null, 2));
-  logger.info(`Restoration info written to ${restorationFile}`);
-}
-
-/**
  * Resumes downloads for archived files as specified in the awaiting-restoration JSON file.
  * For each entry, if the current time is past the restoreEstimation, it attempts to download the file
  * using the restored context options. On success, the entry is removed; otherwise, it is kept for later resumption.
@@ -150,23 +107,11 @@ async function resumeArchivedDownloads(
   logger,
   overwrite,
 ) {
-  if (!fs.existsSync(restorationFile)) {
+  const data = readRestorationState(restorationFile, logger);
+  if (!data) {
     logger.info(
-      `No restoration file found at ${restorationFile}. Nothing to resume.`,
+      `No restoration file found at ${restorationFile} or file is empty. Nothing to resume.`,
     );
-    return;
-  }
-  let data;
-  try {
-    data = JSON.parse(fs.readFileSync(restorationFile, 'utf-8'));
-  } catch (error) {
-    logger.error(
-      `Error reading restoration file ${restorationFile}: ${error.message}`,
-    );
-    return;
-  }
-  if (!Array.isArray(data) || data.length === 0) {
-    logger.info('Restoration file is empty. Nothing to resume.');
     return;
   }
 
@@ -505,7 +450,7 @@ async function resumeArchivedDownloads(
   }
 
   // Write back only the entries that failed or aren't ready yet
-  fs.writeFileSync(restorationFile, JSON.stringify(updatedData, null, 2));
+  writeRestorationState(updatedData, restorationFile, logger);
   logger.info(
     `Updated restoration file ${restorationFile} - ${updatedData.length} entries remaining`,
   );
@@ -513,6 +458,7 @@ async function resumeArchivedDownloads(
 
 module.exports = {
   triggerRestoreArchivedFile,
+  // Re-export from restorationState for backwards compatibility
   appendToAwaitingRestoration,
   resumeArchivedDownloads,
 };

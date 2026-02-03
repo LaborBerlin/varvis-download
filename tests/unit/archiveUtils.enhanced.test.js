@@ -117,7 +117,7 @@ describe('archiveUtils (enhanced)', () => {
       );
 
       expect(mockLogger.info).toHaveBeenCalledWith(
-        'No restoration file found at missing-restoration.json. Nothing to resume.',
+        'No restoration file found at missing-restoration.json or file is empty. Nothing to resume.',
       );
     });
 
@@ -155,7 +155,7 @@ describe('archiveUtils (enhanced)', () => {
       );
 
       expect(mockLogger.info).toHaveBeenCalledWith(
-        'Restoration file is empty. Nothing to resume.',
+        'No restoration file found at empty-restoration.json or file is empty. Nothing to resume.',
       );
     });
 

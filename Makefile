@@ -1,4 +1,4 @@
-.PHONY: help install clean test test-int test-cov lint lint-fix format format-check type-check docs-dev docs-build audit audit-all audit-fix security ci dev
+.PHONY: help install clean test test-watch test-int test-cov lint lint-fix format format-check type-check docs-dev docs-build audit audit-all audit-fix security ci dev pre-commit update-deps version-patch version-minor version-major release-patch release-minor release-major
 
 # Default target
 .DEFAULT_GOAL := help
@@ -28,6 +28,10 @@ install: ## Install all dependencies
 test: ## Run unit tests
 	@echo "$(BLUE)Running unit tests...$(RESET)"
 	npm test
+
+test-watch: ## Run tests in watch mode
+	@echo "$(BLUE)Running tests in watch mode...$(RESET)"
+	npm test -- --watch
 
 test-int: ## Run integration tests (requires .env.test)
 	@echo "$(BLUE)Running integration tests...$(RESET)"
@@ -109,6 +113,18 @@ dev: install lint-fix test ## Setup development environment
 	@echo "$(GREEN)  ✓ Development environment ready!            $(RESET)"
 	@echo "$(GREEN)═══════════════════════════════════════════════$(RESET)"
 
+pre-commit: lint-fix format type-check test ## Run all pre-commit checks
+	@echo ""
+	@echo "$(GREEN)═══════════════════════════════════════════════$(RESET)"
+	@echo "$(GREEN)  ✓ Ready to commit!                          $(RESET)"
+	@echo "$(GREEN)═══════════════════════════════════════════════$(RESET)"
+
+# Dependency Management
+update-deps: ## Update dependencies interactively
+	@echo "$(BLUE)Checking for dependency updates...$(RESET)"
+	npx npm-check-updates -i
+	@echo "$(GREEN)✓ Dependency check complete$(RESET)"
+
 clean: ## Remove generated files and dependencies
 	@echo "$(YELLOW)Cleaning project...$(RESET)"
 	rm -rf node_modules coverage logs download development
@@ -125,3 +141,19 @@ version-minor: ## Bump minor version (0.21.0 -> 0.22.0)
 
 version-major: ## Bump major version (0.21.0 -> 1.0.0)
 	npm version major
+
+# Release (runs CI checks before version bump)
+release-patch: ci ## Release patch version (runs CI first)
+	@echo "$(BLUE)Creating patch release...$(RESET)"
+	npm version patch
+	@echo "$(GREEN)✓ Patch version released$(RESET)"
+
+release-minor: ci ## Release minor version (runs CI first)
+	@echo "$(BLUE)Creating minor release...$(RESET)"
+	npm version minor
+	@echo "$(GREEN)✓ Minor version released$(RESET)"
+
+release-major: ci ## Release major version (runs CI first)
+	@echo "$(BLUE)Creating major release...$(RESET)"
+	npm version major
+	@echo "$(GREEN)✓ Major version released$(RESET)"
