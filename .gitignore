@@ -40,7 +40,8 @@ pnpm-debug.log*
 # download folder
 download/
 
-# config files
+# User config files (credentials)
+config/
 *.config.json
 
 # log files
