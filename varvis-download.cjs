@@ -236,9 +236,39 @@ const finalConfig = {
         : ft,
     );
   })(),
-  analysisIds: (argv.analysisIds || config.analysisIds || []).filter(Boolean),
-  sampleIds: (argv.sampleIds || config.sampleIds || []).filter(Boolean),
-  limsIds: (argv.limsIds || config.limsIds || []).filter(Boolean),
+  analysisIds: (() => {
+    const raw = argv.analysisIds || config.analysisIds || [];
+    // Handle comma-separated strings in array elements
+    return raw
+      .flatMap((id) =>
+        typeof id === 'string' && id.includes(',')
+          ? id.split(',').map((s) => s.trim())
+          : id,
+      )
+      .filter(Boolean);
+  })(),
+  sampleIds: (() => {
+    const raw = argv.sampleIds || config.sampleIds || [];
+    // Handle comma-separated strings in array elements
+    return raw
+      .flatMap((id) =>
+        typeof id === 'string' && id.includes(',')
+          ? id.split(',').map((s) => s.trim())
+          : id,
+      )
+      .filter(Boolean);
+  })(),
+  limsIds: (() => {
+    const raw = argv.limsIds || config.limsIds || [];
+    // Handle comma-separated strings in array elements
+    return raw
+      .flatMap((id) =>
+        typeof id === 'string' && id.includes(',')
+          ? id.split(',').map((s) => s.trim())
+          : id,
+      )
+      .filter(Boolean);
+  })(),
   filters: (argv.filter || config.filter || []).map((filter) => filter.trim()),
   destination:
     argv.destination !== '.' ? argv.destination : config.destination || '.',
