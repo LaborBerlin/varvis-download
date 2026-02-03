@@ -1,0 +1,50 @@
+# Codecov Configuration
+# https://docs.codecov.com/docs/codecov-yaml
+
+coverage:
+  # Coverage calculation settings
+  precision: 2
+  round: down
+  range: '60...100'
+
+  # Status checks for PRs
+  status:
+    # Overall project coverage
+    project:
+      default:
+        # Match Jest thresholds (60% statements/functions/lines, 50% branches)
+        target: 60%
+        threshold: 2%
+        informational: false
+        only_pulls: false
+
+    # Coverage on changed lines only
+    patch:
+      default:
+        target: 70%
+        threshold: 5%
+        informational: false
+        only_pulls: true
+
+# Comment configuration for PRs
+comment:
+  layout: 'header, diff, flags, components, footer'
+  behavior: default
+  require_changes: true
+  require_base: false
+  require_head: true
+
+# Flag management
+flags:
+  unittests:
+    paths:
+      - js/
+      - varvis-download.cjs
+    carryforward: true
+
+# Ignore paths (test files, config, etc.)
+ignore:
+  - 'tests/**'
+  - 'docs/**'
+  - '*.config.*'
+  - 'coverage/**'

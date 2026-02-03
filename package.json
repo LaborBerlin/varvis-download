@@ -1,6 +1,6 @@
 {
   "name": "varvis-download",
-  "version": "0.23.1",
+  "version": "0.24.0",
   "type": "module",
   "description": "",
   "repository": {
@@ -82,5 +82,12 @@
   },
   "lint-staged": {
     "*.{js,cjs}": "eslint --fix"
+  },
+  "prettier": {
+    "semi": true,
+    "trailingComma": "all",
+    "singleQuote": true,
+    "printWidth": 80,
+    "tabWidth": 2
   }
 }

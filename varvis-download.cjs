@@ -24,6 +24,10 @@ const {
   loadLogo,
   getLastModifiedDate,
 } = require('./js/configUtils.cjs');
+const {
+  normalizeArrayInput,
+  normalizeFiletypes,
+} = require('./js/arrayUtils.cjs');
 const createLogger = require('./js/logger.cjs');
 const AuthService = require('./js/authService.cjs');
 const {
@@ -226,49 +230,10 @@ const config = loadConfig(configFilePath);
 const finalConfig = {
   ...config,
   ...argv,
-  filetypes: (() => {
-    const rawFiletypes = argv.filetypes ||
-      config.filetypes || ['bam', 'bam.bai'];
-    // Handle comma-separated strings in array elements
-    return rawFiletypes.flatMap((ft) =>
-      typeof ft === 'string' && ft.includes(',')
-        ? ft.split(',').map((s) => s.trim())
-        : ft,
-    );
-  })(),
-  analysisIds: (() => {
-    const raw = argv.analysisIds || config.analysisIds || [];
-    // Handle comma-separated strings in array elements
-    return raw
-      .flatMap((id) =>
-        typeof id === 'string' && id.includes(',')
-          ? id.split(',').map((s) => s.trim())
-          : id,
-      )
-      .filter(Boolean);
-  })(),
-  sampleIds: (() => {
-    const raw = argv.sampleIds || config.sampleIds || [];
-    // Handle comma-separated strings in array elements
-    return raw
-      .flatMap((id) =>
-        typeof id === 'string' && id.includes(',')
-          ? id.split(',').map((s) => s.trim())
-          : id,
-      )
-      .filter(Boolean);
-  })(),
-  limsIds: (() => {
-    const raw = argv.limsIds || config.limsIds || [];
-    // Handle comma-separated strings in array elements
-    return raw
-      .flatMap((id) =>
-        typeof id === 'string' && id.includes(',')
-          ? id.split(',').map((s) => s.trim())
-          : id,
-      )
-      .filter(Boolean);
-  })(),
+  filetypes: normalizeFiletypes(argv.filetypes, config.filetypes),
+  analysisIds: normalizeArrayInput(argv.analysisIds, config.analysisIds, []),
+  sampleIds: normalizeArrayInput(argv.sampleIds, config.sampleIds, []),
+  limsIds: normalizeArrayInput(argv.limsIds, config.limsIds, []),
   filters: (argv.filter || config.filter || []).map((filter) => filter.trim()),
   destination:
     argv.destination !== '.' ? argv.destination : config.destination || '.',

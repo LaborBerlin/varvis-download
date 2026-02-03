@@ -1,5 +1,13 @@
 # Varvis Download CLI
 
+[![CI](https://github.com/LaborBerlin/varvis-download/actions/workflows/test.yml/badge.svg)](https://github.com/LaborBerlin/varvis-download/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/LaborBerlin/varvis-download/branch/main/graph/badge.svg)](https://codecov.io/gh/LaborBerlin/varvis-download)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D22.0.0-brightgreen.svg)](https://nodejs.org/)
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg)](https://github.com/prettier/prettier)
+[![TypeScript](https://img.shields.io/badge/TypeScript-type--checked-3178C6.svg)](https://www.typescriptlang.org/)
+[![ESLint](https://img.shields.io/badge/ESLint-9.x-4B32C3.svg)](https://eslint.org/)
+
 A command-line interface (CLI) tool for downloading BAM, BAI, and VCF files from the Varvis API. Built for bioinformatics workflows, it supports authentication, file filtering, proxy configuration, and archived file restoration.
 
 ## Table of Contents

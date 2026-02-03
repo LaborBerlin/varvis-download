@@ -1,4 +1,5 @@
 const fs = require('node:fs');
+const { finished } = require('node:stream/promises');
 const ProgressBar = require('progress');
 const { fetchWithRetry } = require('./apiClient.cjs');
 
@@ -39,38 +40,39 @@ async function downloadFile(
 ) {
   logger.debug(`Starting download for: ${url}`);
   if (fs.existsSync(outputPath) && !overwrite) {
-    const confirm = await confirmOverwrite(outputPath, rl, logger);
-    if (!confirm) {
-      logger.info(`Skipped downloading ${outputPath}`);
-      metrics.totalFilesSkipped += 1;
-      return;
-    }
+    logger.info(`File already exists, skipping: ${outputPath}`);
+    metrics.totalFilesSkipped += 1;
+    return;
   }
 
-  const writer = fs.createWriteStream(outputPath);
-  const response = await fetchWithRetry(
-    url,
-    { method: 'GET', dispatcher: agent },
-    3,
-    logger,
-  );
-
-  const startTime = Date.now();
-  let totalBytes = 0;
-
-  // Get the total size of the file for progress reporting
-  const totalSize = parseInt(response.headers.get('content-length'), 10);
-  const progressBar = new ProgressBar(
-    '  downloading [:bar] :rate/bps :percent :etas',
-    {
-      complete: '=',
-      incomplete: ' ',
-      width: 20,
-      total: totalSize,
-    },
-  );
+  let writer;
+  let response;
 
   try {
+    // Create writer and fetch inside try block to ensure cleanup on any failure
+    writer = fs.createWriteStream(outputPath);
+    response = await fetchWithRetry(
+      url,
+      { method: 'GET', dispatcher: agent },
+      3,
+      logger,
+    );
+
+    const startTime = Date.now();
+    let totalBytes = 0;
+
+    // Get the total size of the file for progress reporting
+    const totalSize = parseInt(response.headers.get('content-length'), 10);
+    const progressBar = new ProgressBar(
+      '  downloading [:bar] :rate/bps :percent :etas',
+      {
+        complete: '=',
+        incomplete: ' ',
+        width: 20,
+        total: totalSize,
+      },
+    );
+
     for await (const chunk of response.body) {
       totalBytes += chunk.length;
       writer.write(chunk);
@@ -82,22 +84,33 @@ async function downloadFile(
     const duration = (endTime - startTime) / 1000; // in seconds
     const speed = totalBytes / duration; // bytes per second
 
-    await new Promise((resolve, reject) => {
-      writer.on('finish', () => {
-        logger.info(`Successfully downloaded ${outputPath}`);
-        metrics.totalFilesDownloaded += 1;
-        metrics.totalBytesDownloaded += totalBytes;
-        metrics.downloadSpeeds.push(speed);
-        resolve();
-      });
-      writer.on('error', (error) => {
-        logger.error(`Failed to download ${outputPath}: ${error.message}`);
-        reject(error);
-      });
-    });
+    // Use stream/promises finished() for deterministic cleanup
+    await finished(writer);
+
+    logger.info(`Successfully downloaded ${outputPath}`);
+    metrics.totalFilesDownloaded += 1;
+    metrics.totalBytesDownloaded += totalBytes;
+    metrics.downloadSpeeds.push(speed);
   } catch (error) {
     logger.error(`Download interrupted for ${outputPath}: ${error.message}`);
-    fs.unlinkSync(outputPath); // Clean up partial download
+    // Properly close the write stream before cleanup using finished()
+    if (writer && !writer.destroyed) {
+      writer.destroy();
+      try {
+        await finished(writer);
+      } catch {
+        // Ignore errors during cleanup - stream may already be closed
+      }
+    }
+    try {
+      if (fs.existsSync(outputPath)) {
+        fs.unlinkSync(outputPath); // Clean up partial download
+      }
+    } catch (unlinkError) {
+      logger.debug(
+        `Could not remove partial download ${outputPath}: ${unlinkError.message}`,
+      );
+    }
     throw error;
   }
 }

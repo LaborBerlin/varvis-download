@@ -6,18 +6,28 @@ on:
   pull_request:
     branches: [main, develop]
 
+# Cancel redundant runs on the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        node-version: ['22.x']
+      fail-fast: false
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 22
+      - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
       - name: Cache Quality Tools
@@ -27,16 +37,15 @@ jobs:
             ~/.cache/eslint
             *.tsbuildinfo
             node_modules/.cache
-          key: ${{ runner.os }}-quality-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.js') }}
+          key: ${{ runner.os }}-node${{ matrix.node-version }}-quality-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.js', '**/*.cjs') }}
           restore-keys: |
-            ${{ runner.os }}-quality-
+            ${{ runner.os }}-node${{ matrix.node-version }}-quality-
 
       - name: Install dependencies
         run: npm ci
 
       - name: Security audit
-        run: npm audit --omit=dev --audit-level=moderate
-        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Run linter
         run: npm run lint
@@ -47,10 +56,7 @@ jobs:
       - name: Type check JavaScript
         run: npm run type-check
 
-      - name: Run tests
-        run: npm test
-
-      - name: Generate test coverage
+      - name: Run tests with coverage
         run: npm test -- --coverage
 
       - name: Check coverage thresholds
@@ -58,18 +64,21 @@ jobs:
           echo "Coverage thresholds are enforced by Jest configuration"
           cat coverage/coverage-summary.json | jq '.total'
 
+      # Only upload coverage from primary Node.js version to avoid duplicate reports
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        continue-on-error: true
+        if: matrix.node-version == '22.x'
+        uses: codecov/codecov-action@v5
         with:
-          file: ./coverage/lcov.info
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          flags: unittests
+          name: varvis-download-coverage
+          fail_ci_if_error: false
+          verbose: true
 
   bioinformatics-tools:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout code
@@ -78,8 +87,17 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
+
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/cache/apt/archives
+          key: ${{ runner.os }}-apt-bioinformatics-${{ hashFiles('.github/workflows/test.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-apt-bioinformatics-
 
       - name: Install bioinformatics tools
         run: |
@@ -101,6 +119,7 @@ jobs:
   integration-test:
     name: End-to-End Integration Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     # Only run on push to main or pull requests to main
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.base_ref == 'main'
@@ -112,14 +131,30 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
+
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/cache/apt/archives
+          key: ${{ runner.os }}-apt-integration-${{ hashFiles('.github/workflows/test.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-apt-integration-
 
       - name: Install Dependencies
         run: npm ci
 
       - name: Install Bioinformatics Tools
         run: sudo apt-get update && sudo apt-get install -y samtools tabix
+
+      - name: Verify Bioinformatics Tools
+        run: |
+          echo "Verifying required tools are available..."
+          samtools --version | head -1
+          tabix --version 2>&1 | head -1
+          bgzip --version 2>&1 | head -1
 
       - name: Run Integration Tests
         env:

@@ -1,12 +1,13 @@
 const fs = require('node:fs');
+const path = require('node:path');
 const {
   loadConfig,
   loadLogo,
   getLastModifiedDate,
 } = require('../../js/configUtils');
 
-// Mock the fs module
-jest.mock('fs');
+// Mock the node:fs module (must match the module protocol used in source)
+jest.mock('node:fs');
 
 describe('configUtils', () => {
   beforeEach(() => {
@@ -56,11 +57,13 @@ describe('configUtils', () => {
 
       const result = loadLogo();
 
+      // Use path.join for cross-platform path matching
+      const expectedPathPart = path.join('assets', 'logo.txt');
       expect(fs.existsSync).toHaveBeenCalledWith(
-        expect.stringContaining('assets/logo.txt'),
+        expect.stringContaining(expectedPathPart),
       );
       expect(fs.readFileSync).toHaveBeenCalledWith(
-        expect.stringContaining('assets/logo.txt'),
+        expect.stringContaining(expectedPathPart),
         'utf-8',
       );
       expect(result).toBe(mockLogo);
@@ -71,8 +74,10 @@ describe('configUtils', () => {
 
       const result = loadLogo();
 
+      // Use path.join for cross-platform path matching
+      const expectedPathPart = path.join('assets', 'logo.txt');
       expect(fs.existsSync).toHaveBeenCalledWith(
-        expect.stringContaining('assets/logo.txt'),
+        expect.stringContaining(expectedPathPart),
       );
       expect(fs.readFileSync).not.toHaveBeenCalled();
       expect(result).toBe('');
