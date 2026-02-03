@@ -39,12 +39,9 @@ async function downloadFile(
 ) {
   logger.debug(`Starting download for: ${url}`);
   if (fs.existsSync(outputPath) && !overwrite) {
-    const confirm = await confirmOverwrite(outputPath, rl, logger);
-    if (!confirm) {
-      logger.info(`Skipped downloading ${outputPath}`);
-      metrics.totalFilesSkipped += 1;
-      return;
-    }
+    logger.info(`File already exists, skipping: ${outputPath}`);
+    metrics.totalFilesSkipped += 1;
+    return;
   }
 
   const writer = fs.createWriteStream(outputPath);

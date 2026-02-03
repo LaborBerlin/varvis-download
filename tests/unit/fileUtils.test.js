@@ -126,12 +126,10 @@ describe('fileUtils', () => {
       jest.clearAllMocks();
     });
 
-    test('should skip download when file exists and user declines overwrite', async () => {
+    test('should skip download when file exists and overwrite is false', async () => {
       const dir = await testDir.create(`download-skip-${Date.now()}`);
       const outputPath = path.join(dir, 'existing-file.txt');
       fs.writeFileSync(outputPath, 'existing content');
-
-      mockRl.question = jest.fn((prompt, callback) => callback('n'));
 
       await downloadFile(
         'https://example.com/file.txt',
@@ -144,7 +142,7 @@ describe('fileUtils', () => {
       );
 
       expect(mockLogger.info).toHaveBeenCalledWith(
-        `Skipped downloading ${outputPath}`,
+        `File already exists, skipping: ${outputPath}`,
       );
       expect(mockMetrics.totalFilesSkipped).toBe(1);
       expect(fetchWithRetry).not.toHaveBeenCalled();
