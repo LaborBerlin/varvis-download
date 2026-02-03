@@ -6,9 +6,15 @@ on:
   pull_request:
     branches: [main, develop]
 
+# Cancel redundant runs on the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         node-version: ['22.x']
@@ -72,6 +78,7 @@ jobs:
 
   bioinformatics-tools:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout code
@@ -80,8 +87,17 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
+
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/cache/apt/archives
+          key: ${{ runner.os }}-apt-bioinformatics-${{ hashFiles('.github/workflows/test.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-apt-bioinformatics-
 
       - name: Install bioinformatics tools
         run: |
@@ -103,6 +119,7 @@ jobs:
   integration-test:
     name: End-to-End Integration Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     # Only run on push to main or pull requests to main
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.base_ref == 'main'
@@ -114,14 +131,30 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
+
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/cache/apt/archives
+          key: ${{ runner.os }}-apt-integration-${{ hashFiles('.github/workflows/test.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-apt-integration-
 
       - name: Install Dependencies
         run: npm ci
 
       - name: Install Bioinformatics Tools
         run: sudo apt-get update && sudo apt-get install -y samtools tabix
+
+      - name: Verify Bioinformatics Tools
+        run: |
+          echo "Verifying required tools are available..."
+          samtools --version | head -1
+          tabix --version 2>&1 | head -1
+          bgzip --version 2>&1 | head -1
 
       - name: Run Integration Tests
         env:

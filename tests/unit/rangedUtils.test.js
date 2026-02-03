@@ -310,8 +310,13 @@ describe('rangedUtils', () => {
           }
         }),
       };
+      // Mock output stream that triggers finish event (needed for completion check)
       const mockOutputStream = {
-        on: jest.fn(),
+        on: jest.fn((event, callback) => {
+          if (event === 'finish') {
+            setTimeout(() => callback(), 10); // Trigger finish after bgzip close
+          }
+        }),
       };
 
       spawn

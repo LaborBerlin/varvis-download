@@ -111,6 +111,37 @@ async function rangedDownloadVCF(
     // Create a write stream for the final output file
     const outputStream = fs.createWriteStream(outputFile);
 
+    // Track completion states to avoid race conditions
+    let processError = null;
+    let bgzipClosed = false;
+    let streamFinished = false;
+    let resolved = false;
+
+    const cleanup = () => {
+      if (fs.existsSync(outputFile) && processError) {
+        try {
+          fs.unlinkSync(outputFile);
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
+    };
+
+    const tryResolve = () => {
+      if (resolved) return;
+      if (bgzipClosed && streamFinished) {
+        resolved = true;
+        if (processError) {
+          cleanup();
+          reject(new Error(processError));
+        } else {
+          logger.info(`Ranged VCF download complete: ${outputFile}`);
+          metrics.totalFilesDownloaded += 1;
+          resolve();
+        }
+      }
+    };
+
     // Pipe stdout of tabix to stdin of bgzip
     tabixProcess.stdout.pipe(bgzipProcess.stdin);
 
@@ -130,8 +161,6 @@ async function rangedDownloadVCF(
       logger.debug(`[bgzip stderr]: ${data.toString().trim()}`);
     });
 
-    let processError = null;
-
     const onProcessError = (procName, err) => {
       if (!processError) processError = `Error in ${procName}: ${err.message}`;
     };
@@ -140,38 +169,26 @@ async function rangedDownloadVCF(
     bgzipProcess.on('error', (err) => onProcessError('bgzip', err));
     outputStream.on('error', (err) => onProcessError('outputStream', err));
 
+    // Register finish handler BEFORE piping to avoid race conditions
+    outputStream.on('finish', () => {
+      streamFinished = true;
+      tryResolve();
+    });
+
     // --- Completion Handling ---
     bgzipProcess.on('close', (code) => {
-      if (code !== 0) {
-        // If bgzip fails, it's a critical error.
-        if (!processError)
-          processError = `bgzip process exited with code ${code}. Stderr: ${bgzipError}`;
-        if (fs.existsSync(outputFile)) {
-          fs.unlinkSync(outputFile); // Clean up partial file
-        }
-        return reject(new Error(processError));
+      if (code !== 0 && !processError) {
+        processError = `bgzip process exited with code ${code}. Stderr: ${bgzipError}`;
       }
-
-      // bgzip finished, now wait for the file stream to close.
-      outputStream.on('finish', () => {
-        if (processError) {
-          if (fs.existsSync(outputFile)) {
-            fs.unlinkSync(outputFile);
-          }
-          return reject(new Error(processError));
-        }
-        logger.info(`Ranged VCF download complete: ${outputFile}`);
-        metrics.totalFilesDownloaded += 1;
-        resolve();
-      });
+      bgzipClosed = true;
+      tryResolve();
     });
 
     tabixProcess.on('close', (code) => {
-      if (code !== 0) {
-        if (!processError)
-          processError = `tabix process exited with code ${code}. Stderr: ${tabixError}`;
-        // Don't reject here; let bgzip finish/fail, then handle the error.
+      if (code !== 0 && !processError) {
+        processError = `tabix process exited with code ${code}. Stderr: ${tabixError}`;
       }
+      // Don't resolve here; wait for bgzip and stream to finish
     });
   });
 }
