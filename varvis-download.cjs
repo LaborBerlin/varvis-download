@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 // Load environment variables from .env file
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 
 const { CookieJar } = require('tough-cookie');
 const { CookieClient } = require('http-cookie-agent/undici');
