@@ -97,7 +97,19 @@ async function downloadFile(
     });
   } catch (error) {
     logger.error(`Download interrupted for ${outputPath}: ${error.message}`);
-    fs.unlinkSync(outputPath); // Clean up partial download
+    // Properly close the write stream before cleanup
+    writer.end();
+    await new Promise((resolve) => {
+      writer.on('close', () => resolve());
+      writer.on('error', () => resolve()); // Resolve even on error to continue cleanup
+    });
+    try {
+      fs.unlinkSync(outputPath); // Clean up partial download
+    } catch (unlinkError) {
+      logger.debug(
+        `Could not remove partial download ${outputPath}: ${unlinkError.message}`,
+      );
+    }
     throw error;
   }
 }

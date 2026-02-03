@@ -1,0 +1,68 @@
+# Dependabot configuration for automated dependency updates
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # NPM dependencies
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'Europe/Berlin'
+    open-pull-requests-limit: 10
+    groups:
+      # Group production dependencies together
+      production:
+        dependency-type: 'production'
+      # Group ESLint-related dev dependencies
+      eslint:
+        patterns:
+          - 'eslint*'
+          - '@eslint/*'
+        dependency-type: 'development'
+      # Group testing-related dev dependencies
+      testing:
+        patterns:
+          - 'jest'
+          - '@types/jest'
+          - 'nock'
+        dependency-type: 'development'
+      # Group TypeScript and documentation tools
+      tooling:
+        patterns:
+          - 'typescript'
+          - '@types/*'
+          - 'prettier'
+          - 'husky'
+          - 'lint-staged'
+          - 'jsdoc*'
+          - 'documentation'
+          - 'vitepress'
+        dependency-type: 'development'
+    commit-message:
+      prefix: 'chore(deps)'
+      prefix-development: 'chore(deps-dev)'
+      include: 'scope'
+    labels:
+      - 'dependencies'
+      - 'automated'
+    reviewers:
+      - 'berntpopp'
+
+  # GitHub Actions
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'Europe/Berlin'
+    commit-message:
+      prefix: 'chore(ci)'
+    labels:
+      - 'ci'
+      - 'automated'
+    reviewers:
+      - 'berntpopp'

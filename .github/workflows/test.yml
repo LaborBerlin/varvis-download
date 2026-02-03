@@ -9,15 +9,19 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ['20.x', '22.x']
+      fail-fast: false
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 22
+      - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
       - name: Cache Quality Tools
@@ -27,16 +31,15 @@ jobs:
             ~/.cache/eslint
             *.tsbuildinfo
             node_modules/.cache
-          key: ${{ runner.os }}-quality-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.js') }}
+          key: ${{ runner.os }}-node${{ matrix.node-version }}-quality-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.js') }}
           restore-keys: |
-            ${{ runner.os }}-quality-
+            ${{ runner.os }}-node${{ matrix.node-version }}-quality-
 
       - name: Install dependencies
         run: npm ci
 
       - name: Security audit
-        run: npm audit --omit=dev --audit-level=moderate
-        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Run linter
         run: npm run lint

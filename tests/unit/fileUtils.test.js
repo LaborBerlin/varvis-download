@@ -127,7 +127,7 @@ describe('fileUtils', () => {
     });
 
     test('should skip download when file exists and user declines overwrite', async () => {
-      const dir = await testDir.create('download-test');
+      const dir = await testDir.create(`download-skip-${Date.now()}`);
       const outputPath = path.join(dir, 'existing-file.txt');
       fs.writeFileSync(outputPath, 'existing content');
 
@@ -151,7 +151,7 @@ describe('fileUtils', () => {
     });
 
     test('should proceed with download when overwrite is true', async () => {
-      const dir = await testDir.create('download-test');
+      const dir = await testDir.create(`download-overwrite-${Date.now()}`);
       const outputPath = path.join(dir, 'file.txt');
       fs.writeFileSync(outputPath, 'old content');
 
@@ -188,7 +188,7 @@ describe('fileUtils', () => {
     });
 
     test('should create progress bar with correct options', async () => {
-      const dir = await testDir.create('download-test');
+      const dir = await testDir.create(`download-progress-${Date.now()}`);
       const outputPath = path.join(dir, 'file.txt');
 
       const mockBody = {
@@ -226,7 +226,7 @@ describe('fileUtils', () => {
     });
 
     test('should update metrics after successful download', async () => {
-      const dir = await testDir.create('download-test');
+      const dir = await testDir.create(`download-metrics-${Date.now()}`);
       const outputPath = path.join(dir, 'file.txt');
 
       const testContent = Buffer.from('test content');
@@ -260,7 +260,7 @@ describe('fileUtils', () => {
     });
 
     test('should log error and rethrow when download fails', async () => {
-      const dir = await testDir.create('download-test');
+      const dir = await testDir.create(`download-error-${Date.now()}`);
       const outputPath = path.join(dir, 'file.txt');
 
       const mockError = new Error('Network interrupted');
@@ -296,7 +296,7 @@ describe('fileUtils', () => {
     });
 
     test('should log debug message at start of download', async () => {
-      const dir = await testDir.create('download-test');
+      const dir = await testDir.create(`download-debug-${Date.now()}`);
       const outputPath = path.join(dir, 'file.txt');
 
       const mockBody = {
