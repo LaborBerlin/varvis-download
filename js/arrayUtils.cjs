@@ -66,7 +66,39 @@ function normalizeFiletypes(cliValue, configValue) {
   );
 }
 
+/**
+ * Normalizes a CLI option that should be a string but may be an array
+ * due to duplicate command-line arguments. When the same option is specified
+ * multiple times (e.g., `-c file1.json -c file2.json`), yargs creates an array.
+ * This function takes the last value, following the convention that
+ * the last specified option wins.
+ *
+ * @param   {string|string[]|undefined} value - The CLI option value.
+ * @returns {string|undefined}                - The normalized string value.
+ * @example
+ * // Single value passes through unchanged
+ * normalizeStringOption('config.json')
+ * // Returns: 'config.json'
+ *
+ * @example
+ * // Array returns last element (last specified wins)
+ * normalizeStringOption(['first.json', 'second.json'])
+ * // Returns: 'second.json'
+ *
+ * @example
+ * // Undefined passes through unchanged
+ * normalizeStringOption(undefined)
+ * // Returns: undefined
+ */
+function normalizeStringOption(value) {
+  if (Array.isArray(value)) {
+    return value.at(-1);
+  }
+  return value ?? undefined;
+}
+
 module.exports = {
   normalizeArrayInput,
   normalizeFiletypes,
+  normalizeStringOption,
 };
