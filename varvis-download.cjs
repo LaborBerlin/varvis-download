@@ -27,6 +27,7 @@ const {
 const {
   normalizeArrayInput,
   normalizeFiletypes,
+  normalizeStringOption,
 } = require('./js/arrayUtils.cjs');
 const createLogger = require('./js/logger.cjs');
 const AuthService = require('./js/authService.cjs');
@@ -223,10 +224,18 @@ if (argv.version) {
 }
 
 // Load configuration file settings
-const configFilePath = path.resolve(argv.config);
+// Normalize config path in case the option was specified multiple times
+const configFilePath = path.resolve(normalizeStringOption(argv.config));
 const config = loadConfig(configFilePath);
 
 // Merge command line arguments with configuration file settings
+// Normalize string options that may be arrays due to duplicate CLI arguments
+const normalizedDestination = normalizeStringOption(argv.destination);
+const normalizedRestorationFile = normalizeStringOption(argv.restorationFile);
+const normalizedUrlFile = normalizeStringOption(argv.urlFile);
+const normalizedRange = normalizeStringOption(argv.range);
+const normalizedBed = normalizeStringOption(argv.bed);
+
 const finalConfig = {
   ...config,
   ...argv,
@@ -236,16 +245,20 @@ const finalConfig = {
   limsIds: normalizeArrayInput(argv.limsIds, config.limsIds, []),
   filters: (argv.filter || config.filter || []).map((filter) => filter.trim()),
   destination:
-    argv.destination !== '.' ? argv.destination : config.destination || '.',
+    normalizedDestination !== '.'
+      ? normalizedDestination
+      : config.destination || '.',
   restoreArchived: argv.restoreArchived || config.restoreArchived || 'ask',
   restorationFile:
-    argv.restorationFile ||
+    normalizedRestorationFile ||
     config.restorationFile ||
     'awaiting-restoration.json',
   resumeArchivedDownloads:
     argv.resumeArchivedDownloads || config.resumeArchivedDownloads || false,
   listUrls: argv.listUrls || config.listUrls || false,
-  urlFile: argv.urlFile || config.urlFile || null,
+  urlFile: normalizedUrlFile || config.urlFile || null,
+  range: normalizedRange || config.range || null,
+  bed: normalizedBed || config.bed || null,
 };
 
 // Validate the final configuration
@@ -478,7 +491,7 @@ async function main() {
     // ***************** END NEW CODE *****************
 
     // If subsetting is needed, check that external tools are available.
-    if (argv.range || argv.bed) {
+    if (finalConfig.range || finalConfig.bed) {
       const samtoolsMinVersion = '1.17';
       const tabixMinVersion = '1.7';
       const bgzipMinVersion = '1.7';
@@ -512,8 +525,8 @@ async function main() {
     let regions = [];
     let tempBedPath; // Initialize tempBedPath
 
-    if (argv.range) {
-      regions = argv.range.split(' ');
+    if (finalConfig.range) {
+      regions = finalConfig.range.split(' ');
       logger.info(`Using regions from command line: ${regions}`);
 
       // Create a temporary BED file for samtools to read
@@ -537,9 +550,9 @@ async function main() {
 
       fs.writeFileSync(tempBedPath, bedContent);
       logger.info(`Generated temporary BED file: ${tempBedPath}`);
-    } else if (argv.bed) {
+    } else if (finalConfig.bed) {
       try {
-        const bedFileContent = fs.readFileSync(argv.bed, 'utf8');
+        const bedFileContent = fs.readFileSync(finalConfig.bed, 'utf8');
         regions = bedFileContent
           .split('\n')
           .filter((line) => line && !line.startsWith('#')) // Filter out comments and empty lines

@@ -1,6 +1,7 @@
 const {
   normalizeArrayInput,
   normalizeFiletypes,
+  normalizeStringOption,
 } = require('../../js/arrayUtils.cjs');
 
 describe('arrayUtils', () => {
@@ -115,6 +116,66 @@ describe('arrayUtils', () => {
     test('should trim whitespace from filetypes', () => {
       const result = normalizeFiletypes(['bam , bam.bai']);
       expect(result).toEqual(['bam', 'bam.bai']);
+    });
+  });
+
+  describe('normalizeStringOption', () => {
+    test('should return string value unchanged', () => {
+      const result = normalizeStringOption('config.json');
+      expect(result).toBe('config.json');
+    });
+
+    test('should return last element when given an array (duplicate CLI args)', () => {
+      const result = normalizeStringOption(['first.json', 'second.json']);
+      expect(result).toBe('second.json');
+    });
+
+    test('should return single element from single-element array', () => {
+      const result = normalizeStringOption(['only.json']);
+      expect(result).toBe('only.json');
+    });
+
+    test('should return undefined when given undefined', () => {
+      const result = normalizeStringOption();
+      expect(result).toBeUndefined();
+    });
+
+    test('should return undefined when given null', () => {
+      const result = normalizeStringOption(null);
+      expect(result).toBeUndefined();
+    });
+
+    test('should handle empty string', () => {
+      const result = normalizeStringOption('');
+      expect(result).toBe('');
+    });
+
+    test('should return last element from array with many elements', () => {
+      const result = normalizeStringOption([
+        'a.json',
+        'b.json',
+        'c.json',
+        'd.json',
+      ]);
+      expect(result).toBe('d.json');
+    });
+
+    test('should handle path-like strings', () => {
+      const result = normalizeStringOption('/path/to/config.json');
+      expect(result).toBe('/path/to/config.json');
+    });
+
+    test('should handle path-like strings in arrays', () => {
+      const result = normalizeStringOption([
+        '/path/to/first.json',
+        '/path/to/second.json',
+      ]);
+      expect(result).toBe('/path/to/second.json');
+    });
+
+    test('should handle empty array by returning undefined', () => {
+      const result = normalizeStringOption([]);
+      expect(result).toBeUndefined();
     });
   });
 });
