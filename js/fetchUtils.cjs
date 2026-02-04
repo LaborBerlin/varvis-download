@@ -226,8 +226,10 @@ async function getDownloadLinks(
       // NEW, ROBUST LOGIC:
       // If no filter is provided, add all files.
       // Otherwise, check if the fileName ends with any of the specified file types.
+      // Always include analysisId for URL refresh tracking.
+      const fileWithAnalysisId = { ...file, analysisId };
       if (!filter || filter.length === 0) {
-        fileDict[file.fileName] = file;
+        fileDict[file.fileName] = fileWithAnalysisId;
       } else {
         // Find if the current file's name matches any of the requested filetypes
         const matchedType = filter.find((ft) => file.fileName.endsWith(ft));
@@ -235,7 +237,7 @@ async function getDownloadLinks(
           logger.debug(
             `File ${file.fileName} matches filter type: ${matchedType}`,
           );
-          fileDict[file.fileName] = file;
+          fileDict[file.fileName] = fileWithAnalysisId;
         }
       }
     }
@@ -342,9 +344,65 @@ function generateReport(reportfile, logger) {
   }
 }
 
+/**
+ * Refreshes download URLs for a specific analysis ID.
+ * This is a lightweight version of getDownloadLinks that only fetches fresh URLs
+ * without the archive restoration logic. Used when existing URLs are expiring.
+ *
+ * @param   {string}                   analysisId - The analysis ID to fetch URLs for.
+ * @param   {string}                   target     - The target for the Varvis API.
+ * @param   {string}                   token      - The CSRF token for authentication.
+ * @param   {object}                   agent      - The HTTP agent instance.
+ * @param   {import('winston').Logger} logger     - The logger instance.
+ * @returns {Promise<object>}                     - An object mapping filenames to their download info.
+ */
+async function refreshDownloadUrls(analysisId, target, token, agent, logger) {
+  try {
+    logger.debug(`Refreshing download URLs for analysis ID: ${analysisId}`);
+    const response = await fetchWithRetry(
+      `https://${target}.varvis.com/api/analysis/${analysisId}/get-file-download-links`,
+      {
+        method: 'GET',
+        headers: { 'x-csrf-token': token },
+        dispatcher: agent,
+      },
+      3,
+      logger,
+    );
+    /** @type {any} */
+    const data = await response.json();
+    const apiFileLinks = data.response.apiFileLinks;
+
+    const fileDict = {};
+    for (const file of apiFileLinks) {
+      // Skip archived files - they don't have valid download URLs
+      if (file.currentlyArchived) {
+        continue;
+      }
+      fileDict[file.fileName] = {
+        fileName: file.fileName,
+        downloadLink: file.downloadLink,
+        size: file.size,
+        analysisId,
+      };
+    }
+
+    logger.info(
+      `Refreshed ${Object.keys(fileDict).length} download URLs for analysis ${analysisId}`,
+    );
+    return fileDict;
+  } catch (error) {
+    logger.error(
+      `Failed to refresh download URLs for analysis ${analysisId}: ${error.message}`,
+    );
+    throw error;
+  }
+}
+
 module.exports = {
   fetchAnalysisIds,
   getDownloadLinks,
+  refreshDownloadUrls,
   listAvailableFiles,
   generateReport,
   metrics,

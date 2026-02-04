@@ -34,10 +34,16 @@ const AuthService = require('./js/authService.cjs');
 const {
   fetchAnalysisIds,
   getDownloadLinks,
+  refreshDownloadUrls,
   listAvailableFiles,
   generateReport,
   metrics,
 } = require('./js/fetchUtils.cjs');
+const {
+  isUrlExpiringSoon,
+  getUrlRemainingTime,
+  formatRemainingTime,
+} = require('./js/urlUtils.cjs');
 const { downloadFile } = require('./js/fileUtils.cjs');
 const {
   checkToolAvailability,
@@ -370,6 +376,81 @@ function handleUrlListing(urls, filePath, logger) {
 const os = require('node:os'); // Import for generating temp file paths
 
 /**
+ * Checks if a download URL is expiring soon and refreshes it if needed.
+ * This ensures long-running download sessions don't fail due to expired pre-signed URLs.
+ *
+ * @param   {object}                   fileDict - The current file dictionary with download links.
+ * @param   {string}                   fileName - The name of the file to check.
+ * @param   {string}                   target   - The Varvis target (tenant).
+ * @param   {string}                   token    - The CSRF token for authentication.
+ * @param   {object}                   agent    - The HTTP agent instance.
+ * @param   {import('winston').Logger} logger   - The logger instance.
+ * @returns {Promise<string>}                   - The valid download URL (refreshed if needed).
+ */
+async function getValidDownloadUrl(
+  fileDict,
+  fileName,
+  target,
+  token,
+  agent,
+  logger,
+) {
+  const file = fileDict[fileName];
+  if (!file || !file.downloadLink) {
+    throw new Error(`No download link found for file: ${fileName}`);
+  }
+
+  const downloadLink = file.downloadLink;
+
+  // Check if URL is expiring soon
+  if (isUrlExpiringSoon(downloadLink)) {
+    const remainingTime = getUrlRemainingTime(downloadLink);
+    const formattedTime =
+      remainingTime !== null ? formatRemainingTime(remainingTime) : 'unknown';
+    logger.warn(
+      `Download URL for ${fileName} is expiring soon (${formattedTime} remaining). Refreshing...`,
+    );
+
+    // Get the analysis ID from the file object
+    const analysisId = file.analysisId;
+    if (!analysisId) {
+      logger.warn(
+        `No analysisId found for ${fileName}, using potentially expired URL`,
+      );
+      return downloadLink;
+    }
+
+    // Refresh URLs for this analysis
+    const freshFileDict = await refreshDownloadUrls(
+      analysisId,
+      target,
+      token,
+      agent,
+      logger,
+    );
+
+    // Update the original fileDict with fresh URLs
+    for (const [fname, freshFile] of Object.entries(freshFileDict)) {
+      if (fileDict[fname]) {
+        fileDict[fname].downloadLink = freshFile.downloadLink;
+      }
+    }
+
+    // Return the fresh URL
+    if (freshFileDict[fileName]) {
+      logger.info(`URL refreshed successfully for ${fileName}`);
+      return freshFileDict[fileName].downloadLink;
+    }
+
+    logger.warn(
+      `Could not find refreshed URL for ${fileName}, using original URL`,
+    );
+  }
+
+  return downloadLink;
+}
+
+/**
  * Main function to orchestrate the CLI workflow.
  * Handles authentication, file discovery, download/list operations, and archive restoration.
  * @returns {Promise<void>}
@@ -637,8 +718,16 @@ async function main() {
         ([fname]) => fname.endsWith('.bam') || fname.endsWith('.vcf.gz'),
       );
 
-      for (const [fileName, file] of primaryFiles) {
-        const downloadLink = file.downloadLink;
+      for (const [fileName, _file] of primaryFiles) {
+        // Get a valid download URL, refreshing if the current one is expiring
+        const downloadLink = await getValidDownloadUrl(
+          fileDict,
+          fileName,
+          target,
+          authService.token,
+          agent,
+          logger,
+        );
 
         // Generate the output file name for the current file
         const outputFile = path.join(
@@ -647,8 +736,19 @@ async function main() {
         );
 
         if (fileName.endsWith('.bam')) {
-          // BAM file processing
-          const indexFileUrl = fileDict[`${fileName}.bai`]?.downloadLink;
+          // BAM file processing - also refresh index URL if needed
+          const indexFileName = `${fileName}.bai`;
+          let indexFileUrl = fileDict[indexFileName]?.downloadLink;
+          if (indexFileUrl && isUrlExpiringSoon(indexFileUrl)) {
+            indexFileUrl = await getValidDownloadUrl(
+              fileDict,
+              indexFileName,
+              target,
+              authService.token,
+              agent,
+              logger,
+            );
+          }
           const indexFilePath = path.join(destination, `${fileName}.bai`);
 
           if (regions.length > 0) {
@@ -739,8 +839,19 @@ async function main() {
             }
           }
         } else if (fileName.endsWith('.vcf.gz')) {
-          // VCF file processing
-          const indexFileUrl = fileDict[`${fileName}.tbi`]?.downloadLink;
+          // VCF file processing - also refresh index URL if needed
+          const indexFileName = `${fileName}.tbi`;
+          let indexFileUrl = fileDict[indexFileName]?.downloadLink;
+          if (indexFileUrl && isUrlExpiringSoon(indexFileUrl)) {
+            indexFileUrl = await getValidDownloadUrl(
+              fileDict,
+              indexFileName,
+              target,
+              authService.token,
+              agent,
+              logger,
+            );
+          }
           const indexFilePath = path.join(destination, `${fileName}.tbi`);
 
           if (regions.length > 0) {
