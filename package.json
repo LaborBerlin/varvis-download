@@ -75,7 +75,7 @@
     "jsdoc": "^4.0.5",
     "jsdoc-to-markdown": "^9.1.3",
     "lint-staged": "^16.2.7",
-    "nock": "^14.0.10",
+    "nock": "^14.0.11",
     "prettier": "^3.8.1",
     "typescript": "^5.9.3",
     "vitepress": "^1.6.4"
