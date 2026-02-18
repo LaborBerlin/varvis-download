@@ -4,7 +4,7 @@
 require('dotenv').config({ quiet: true });
 
 const { CookieJar } = require('tough-cookie');
-const { CookieClient } = require('http-cookie-agent/undici');
+const { cookie } = require('http-cookie-agent/undici');
 const yargs = require('yargs');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -317,21 +317,8 @@ if (proxyUsername && proxyPassword) {
 
 /** @type {any} */
 const agent = proxy
-  ? new ProxyAgent({
-      ...agentOptions,
-      factory: (origin, opts) =>
-        new CookieClient(origin, {
-          ...opts,
-          cookies: { jar },
-        }),
-    })
-  : new Agent({
-      factory: (origin, opts) =>
-        new CookieClient(origin, {
-          ...opts,
-          cookies: { jar },
-        }),
-    });
+  ? new ProxyAgent(agentOptions).compose(cookie({ jar }))
+  : new Agent().compose(cookie({ jar }));
 
 // Initialize AuthService instance
 const authService = new AuthService(logger, agent);
