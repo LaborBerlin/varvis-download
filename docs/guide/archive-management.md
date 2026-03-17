@@ -18,7 +18,7 @@ Archived files are older data files that have been moved to long-term storage to
 When listing files, archived files are marked:
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345 --list
+./varvis-download.js -t mytarget -a 12345 --list
 
 # Output example:
 Analysis ID: 12345
@@ -36,7 +36,7 @@ Available files:
 Prompts for each archived file:
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345
+./varvis-download.js -t mytarget -a 12345
 # Prompts: "File sample_001.bam is archived. Restore? [y/N]"
 ```
 
@@ -45,7 +45,7 @@ Prompts for each archived file:
 Prompts once for all archived files, then applies decision to all:
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345 --restoreArchived all
+./varvis-download.js -t mytarget -a 12345 --restoreArchived all
 # Prompts: "Restore all archived files? (y/n): y"
 # Logs: "User decision for all archived files: restore"
 # Logs: "Restoring archived file sample_001.bam due to --restoreArchived=all decision"
@@ -56,7 +56,7 @@ Prompts once for all archived files, then applies decision to all:
 Restores archived files without confirmation:
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345 --restoreArchived force
+./varvis-download.js -t mytarget -a 12345 --restoreArchived force
 # Logs: "Force restoring archived file sample_001.bam due to --restoreArchived=force"
 ```
 
@@ -65,7 +65,7 @@ Restores archived files without confirmation:
 Skips all archived files:
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345 --restoreArchived no
+./varvis-download.js -t mytarget -a 12345 --restoreArchived no
 # Logs: "Skipping archived file sample_001.bam due to --restoreArchived=no"
 ```
 
@@ -86,7 +86,7 @@ The tool maintains a JSON file to track restoration requests:
 
 ```bash
 # Default tracking file
-./varvis-download.js -t laborberlin -a 12345 --restorationFile "my-restorations.json"
+./varvis-download.js -t mytarget -a 12345 --restorationFile "my-restorations.json"
 ```
 
 ### Tracking File Format
@@ -130,13 +130,13 @@ The resume function automatically detects when restored files become available a
 Resume previously requested archived downloads using default tracking file:
 
 ```bash
-./varvis-download.js --resumeArchivedDownloads -t laborberlin -u username -p password
+./varvis-download.js --resumeArchivedDownloads -t mytarget -u username -p password
 ```
 
 ### Resume with Custom Tracking File
 
 ```bash
-./varvis-download.js --resumeArchivedDownloads --restorationFile "project-a-restorations.json" -t laborberlin -u username -p password
+./varvis-download.js --resumeArchivedDownloads --restorationFile "project-a-restorations.json" -t mytarget -u username -p password
 ```
 
 ### Context Restoration Examples
@@ -144,7 +144,7 @@ Resume previously requested archived downloads using default tracking file:
 **Original ranged download request:**
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345 -g "chr1:1000000-2000000" -d "/project/ranged" --restoreArchived force
+./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000" -d "/project/ranged" --restoreArchived force
 ```
 
 **Resume will automatically:**
@@ -156,7 +156,7 @@ Resume previously requested archived downloads using default tracking file:
 **Original VCF download with custom filetypes:**
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345 -f "vcf.gz,vcf.gz.tbi" -d "/vcf/data" --restoreArchived all
+./varvis-download.js -t mytarget -a 12345 -f "vcf.gz,vcf.gz.tbi" -d "/vcf/data" --restoreArchived all
 ```
 
 **Resume will automatically:**
@@ -174,7 +174,7 @@ This example demonstrates the full archive workflow with state preservation:
 ```bash
 # Request ranged BAM download with custom destination
 ./varvis-download.js \
-  -t laborberlin \
+  -t mytarget \
   -a 12345 \
   -g "chr1:1000000-2000000 chr2:5000000-6000000" \
   -d "/project/genomics/chr1-2" \
@@ -221,7 +221,7 @@ cat genomics-project.json
 ./varvis-download.js \
   --resumeArchivedDownloads \
   --restorationFile "genomics-project.json" \
-  -t laborberlin \
+  -t mytarget \
   -u username \
   -p password
 
@@ -275,7 +275,7 @@ while IFS= read -r ANALYSIS_ID; do
   echo "Requesting restoration for analysis: $ANALYSIS_ID"
 
   ./varvis-download.js \
-    -t laborberlin \
+    -t mytarget \
     -a "$ANALYSIS_ID" \
     --restoreArchived force \
     --list
@@ -451,7 +451,7 @@ echo "Debugging archive issues for analysis: $ANALYSIS_ID"
 
 # Check file status
 echo "1. Checking file availability..."
-./varvis-download.js -t laborberlin -a "$ANALYSIS_ID" --list
+./varvis-download.js -t mytarget -a "$ANALYSIS_ID" --list
 
 # Check restoration tracking
 echo "2. Checking restoration history..."
@@ -464,7 +464,7 @@ fi
 # Try restoration with debug logging
 echo "3. Testing restoration request..."
 ./varvis-download.js \
-  -t laborberlin \
+  -t mytarget \
   -a "$ANALYSIS_ID" \
   --restoreArchived force \
   --loglevel debug \

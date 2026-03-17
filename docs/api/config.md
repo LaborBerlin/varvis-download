@@ -22,7 +22,7 @@ Configuration files use JSON format with the following schema:
     "target": {
       "type": "string",
       "description": "API target instance",
-      "enum": ["laborberlin", "uni-leipzig"]
+      "enum": ["mytarget", "uni-leipzig"]
     },
     "analysisIds": {
       "type": "array",
@@ -170,7 +170,7 @@ All configuration options can be overridden using environment variables:
 
 ```json
 {
-  "target": "laborberlin",
+  "target": "mytarget",
   "username": "dev_user",
   "destination": "./dev-downloads",
   "loglevel": "debug",
@@ -184,7 +184,7 @@ All configuration options can be overridden using environment variables:
 
 ```json
 {
-  "target": "laborberlin",
+  "target": "mytarget",
   "username": "prod_user",
   "destination": "/data/genomics",
   "loglevel": "warn",
@@ -200,7 +200,7 @@ All configuration options can be overridden using environment variables:
 
 ```json
 {
-  "target": "laborberlin",
+  "target": "mytarget",
   "destination": "./ci-downloads",
   "loglevel": "info",
   "reportfile": "./ci-report.json",

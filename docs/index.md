@@ -50,13 +50,13 @@ export VARVIS_USER="your_username"
 export VARVIS_PASSWORD="your_password"
 
 # Download BAM files for specific analyses
-./varvis-download.js -t laborberlin -a "12345,67890" -f "bam,bam.bai"
+./varvis-download.js -t mytarget -a "12345,67890" -f "bam,bam.bai"
 
 # Download with genomic range filtering
-./varvis-download.js -t laborberlin -a 12345 -g "chr1:1000000-2000000"
+./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000"
 
 # List available files without downloading
-./varvis-download.js -t laborberlin -a 12345 --list
+./varvis-download.js -t mytarget -a 12345 --list
 ```
 
 ## Installation

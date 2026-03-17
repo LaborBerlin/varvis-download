@@ -62,13 +62,13 @@ Use standard genomic coordinate format: `chromosome:start-end`
 
 ```bash
 # Single genomic region
-./varvis-download.js -t laborberlin -a 12345 -g "chr1:1000000-2000000"
+./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000"
 
 # Multiple regions (space-separated)
-./varvis-download.js -t laborberlin -a 12345 -g "chr1:1000000-2000000 chr2:500000-1500000"
+./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000 chr2:500000-1500000"
 
 # Specific gene regions
-./varvis-download.js -t laborberlin -a 12345 -g "chr17:41196311-41277500"  # BRCA1
+./varvis-download.js -t mytarget -a 12345 -g "chr17:41196311-41277500"  # BRCA1
 ```
 
 ### BED File Regions
@@ -87,7 +87,7 @@ chrX    153280000    153290000    G6PD_region
 **Use BED file:**
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345 -b regions.bed
+./varvis-download.js -t mytarget -a 12345 -b regions.bed
 ```
 
 ## File Type Behavior
@@ -103,7 +103,7 @@ chrX    153280000    153290000    G6PD_region
 
 ```bash
 # BAM range download
-./varvis-download.js -t laborberlin -a 12345 -g "chr1:1000000-2000000" -f "bam,bam.bai"
+./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000" -f "bam,bam.bai"
 ```
 
 **Output files:**
@@ -124,7 +124,7 @@ sample_001.chr1_1000000_2000000.bam.bai  # New index
 
 ```bash
 # VCF range download
-./varvis-download.js -t laborberlin -a 12345 -g "chr1:1000000-2000000" -f "vcf.gz,vcf.gz.tbi"
+./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000" -f "vcf.gz,vcf.gz.tbi"
 ```
 
 **Output files:**
@@ -142,13 +142,13 @@ sample_001.chr1_1000000_2000000.vcf.gz.tbi # New index
 
 ```bash
 # BRCA1 region (chr17:41,196,311-41,277,500)
-./varvis-download.js -t laborberlin -a 12345 -g "chr17:41196311-41277500"
+./varvis-download.js -t mytarget -a 12345 -g "chr17:41196311-41277500"
 
 # BRCA2 region (chr13:32,890,598-32,973,805)
-./varvis-download.js -t laborberlin -a 12345 -g "chr13:32890598-32973805"
+./varvis-download.js -t mytarget -a 12345 -g "chr13:32890598-32973805"
 
 # Both genes
-./varvis-download.js -t laborberlin -a 12345 \
+./varvis-download.js -t mytarget -a 12345 \
   -g "chr17:41196311-41277500 chr13:32890598-32973805"
 ```
 
@@ -165,8 +165,32 @@ chr17   7571719     7590868     TP53
 EOF
 
 # Download cancer gene regions
-./varvis-download.js -t laborberlin -a 12345 -b cancer_genes.bed
+./varvis-download.js -t mytarget -a 12345 -b cancer_genes.bed
 ```
+
+## Unmapped Read Extraction
+
+The `--unmapped` flag extracts reads with no reference assignment from BAM files using the samtools wildcard chromosome `*`. This is useful for identifying contamination, adapter sequences, or novel sequences (e.g., in Illumina NovaSeq data).
+
+### Unmapped Only
+
+```bash
+# Extract only unmapped reads (creates sample.unmapped.bam)
+./varvis-download.js -t mytarget -a 12345 --unmapped
+```
+
+Only samtools is required (no tabix/bgzip). VCF files are automatically skipped.
+
+### Combined with Range Downloads
+
+When used with `--range`, both ranged and unmapped reads are included in a **single BAM file**:
+
+```bash
+# Single BAM with BRCA1 region + unmapped reads
+./varvis-download.js -t mytarget -a 12345 -g "chr17:41196311-41277500" --unmapped
+```
+
+This uses command-line regions instead of a BED file to allow the `*` wildcard alongside genomic coordinates.
 
 ### Exome Regions
 
@@ -174,7 +198,7 @@ EOF
 
 ```bash
 # Download exome target regions
-./varvis-download.js -t laborberlin -a 12345 -b exome_targets.bed -f "bam,bam.bai"
+./varvis-download.js -t mytarget -a 12345 -b exome_targets.bed -f "bam,bam.bai"
 ```
 
 **Custom panel regions:**
@@ -189,7 +213,7 @@ chr7    35900000    36000000    KCNH2
 chr11   17400000    17500000    KCNQ1
 EOF
 
-./varvis-download.js -t laborberlin -a 12345 -b cardio_panel.bed
+./varvis-download.js -t mytarget -a 12345 -b cardio_panel.bed
 ```
 
 ### Whole Chromosome Downloads
@@ -198,17 +222,17 @@ EOF
 
 ```bash
 # Chromosome 21 (smallest autosome)
-./varvis-download.js -t laborberlin -a 12345 -g "chr21:1-48129895"
+./varvis-download.js -t mytarget -a 12345 -g "chr21:1-48129895"
 
 # X chromosome
-./varvis-download.js -t laborberlin -a 12345 -g "chrX:1-156040895"
+./varvis-download.js -t mytarget -a 12345 -g "chrX:1-156040895"
 ```
 
 **Multiple chromosomes:**
 
 ```bash
 # Chromosomes 21 and 22
-./varvis-download.js -t laborberlin -a 12345 \
+./varvis-download.js -t mytarget -a 12345 \
   -g "chr21:1-48129895 chr22:1-50818468"
 ```
 
@@ -232,14 +256,14 @@ mkdir -p "$OUTPUT_DIR"
 
 # Download BAM region
 echo "Downloading BAM region: $REGION"
-./varvis-download.js -t laborberlin -a "$ANALYSIS_ID" \
+./varvis-download.js -t mytarget -a "$ANALYSIS_ID" \
   -g "$REGION" \
   -f "bam,bam.bai" \
   -d "$OUTPUT_DIR"
 
 # Download VCF region
 echo "Downloading VCF region: $REGION"
-./varvis-download.js -t laborberlin -a "$ANALYSIS_ID" \
+./varvis-download.js -t mytarget -a "$ANALYSIS_ID" \
   -g "$REGION" \
   -f "vcf.gz,vcf.gz.tbi" \
   -d "$OUTPUT_DIR"
@@ -302,7 +326,7 @@ zcat "$REGION_VCF" | grep -v "^#" | cut -f7 | sort | uniq -c | sort -nr
 
 ```bash
 # Check original file sizes
-./varvis-download.js -t laborberlin -a 12345 --list | grep -E "bam|vcf"
+./varvis-download.js -t mytarget -a 12345 --list | grep -E "bam|vcf"
 
 # Estimate region size (rough calculation)
 # Region size / Genome size * Original file size
@@ -322,9 +346,9 @@ zcat "$REGION_VCF" | grep -v "^#" | cut -f7 | sort | uniq -c | sort -nr
 
 ```bash
 # Download regions in parallel (separate processes)
-./varvis-download.js -t laborberlin -a 12345 -g "chr1:1000000-2000000" &
-./varvis-download.js -t laborberlin -a 12345 -g "chr2:500000-1500000" &
-./varvis-download.js -t laborberlin -a 12345 -g "chr17:41196311-41277500" &
+./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000" &
+./varvis-download.js -t mytarget -a 12345 -g "chr2:500000-1500000" &
+./varvis-download.js -t mytarget -a 12345 -g "chr17:41196311-41277500" &
 wait  # Wait for all downloads to complete
 ```
 
@@ -337,9 +361,9 @@ wait  # Wait for all downloads to complete
 mkdir -p ./regions/{BRCA1,BRCA2,TP53}
 
 # Download to specific directories
-./varvis-download.js -t laborberlin -a 12345 -g "chr17:41196311-41277500" -d "./regions/BRCA1/"
-./varvis-download.js -t laborberlin -a 12345 -g "chr13:32890598-32973805" -d "./regions/BRCA2/"
-./varvis-download.js -t laborberlin -a 12345 -g "chr17:7571719-7590868" -d "./regions/TP53/"
+./varvis-download.js -t mytarget -a 12345 -g "chr17:41196311-41277500" -d "./regions/BRCA1/"
+./varvis-download.js -t mytarget -a 12345 -g "chr13:32890598-32973805" -d "./regions/BRCA2/"
+./varvis-download.js -t mytarget -a 12345 -g "chr17:7571719-7590868" -d "./regions/TP53/"
 ```
 
 ## Integration with Analysis Tools
@@ -350,7 +374,7 @@ mkdir -p ./regions/{BRCA1,BRCA2,TP53}
 
 ```bash
 # Download region
-./varvis-download.js -t laborberlin -a 12345 -g "chr17:41196311-41277500" -f "bam,bam.bai"
+./varvis-download.js -t mytarget -a 12345 -g "chr17:41196311-41277500" -f "bam,bam.bai"
 
 # Run variant calling on region
 REGION_BAM="sample_001.chr17_41196311_41277500.bam"
@@ -371,7 +395,7 @@ gatk HaplotypeCaller \
 
 ```bash
 # Download BAM region
-./varvis-download.js -t laborberlin -a 12345 -g "chr17:41196311-41277500" -f "bam,bam.bai"
+./varvis-download.js -t mytarget -a 12345 -g "chr17:41196311-41277500" -f "bam,bam.bai"
 
 # Calculate coverage for region
 REGION_BAM="sample_001.chr17_41196311_41277500.bam"
@@ -392,7 +416,7 @@ samtools depth "$REGION_BAM" | cut -f3 | sort -n | uniq -c | sort -nr > coverage
 
 ```bash
 # Download VCF region
-./varvis-download.js -t laborberlin -a 12345 -g "chr17:41196311-41277500" -f "vcf.gz,vcf.gz.tbi"
+./varvis-download.js -t mytarget -a 12345 -g "chr17:41196311-41277500" -f "vcf.gz,vcf.gz.tbi"
 
 # Annotate variants in region
 REGION_VCF="sample_001.chr17_41196311_41277500.vcf.gz"
@@ -463,17 +487,17 @@ Error: Invalid region format: chr1:1000000_2000000
 **Enable debug logging:**
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345 -g "chr1:1000000-2000000" --loglevel debug
+./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000" --loglevel debug
 ```
 
 **Test region validity:**
 
 ```bash
 # Test with a small region first
-./varvis-download.js -t laborberlin -a 12345 -g "chr1:1000-2000" --list
+./varvis-download.js -t mytarget -a 12345 -g "chr1:1000-2000" --list
 
 # Verify chromosome naming
-./varvis-download.js -t laborberlin -a 12345 --list | grep -i bam
+./varvis-download.js -t mytarget -a 12345 --list | grep -i bam
 samtools view -H original.bam | grep "@SQ"  # Check chromosome names
 ```
 

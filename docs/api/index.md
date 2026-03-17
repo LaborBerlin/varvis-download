@@ -17,7 +17,7 @@ The following modules are documented:
 - [configUtils](configUtils.md) - Loads configuration from a specified file.
 - [fetchUtils](fetchUtils.md) - Prompts the user to confirm restoration of an archived file.
 - [fileUtils](fileUtils.md) - Prompts the user to confirm file overwrite if the file already exists.
-- [filterUtils](filterUtils.md) - Parses a filter expression like 'analysisType=SNV' or 'sampleId>LB24-0001'
+- [filterUtils](filterUtils.md) - Parses a filter expression like 'analysisType=SNV' or 'sampleId>LIMS-001'
 - [logger](logger.md) - Creates a logger with specified configuration.
 - [rangedUtils](rangedUtils.md) - Wraps spawn in a Promise to maintain async/await syntax.
 - [varvis-download](varvis-download.md) - Main CLI application entry point

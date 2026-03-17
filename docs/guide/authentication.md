@@ -25,7 +25,7 @@ export VARVIS_PASSWORD="your_password"
 Then run commands without credential arguments:
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345
+./varvis-download.js -t mytarget -a 12345
 ```
 
 ### Alternative Variable Names
@@ -51,7 +51,7 @@ For long-running sessions, set credentials once:
 # setup_session.sh
 export VARVIS_USER="your_username"
 export VARVIS_PASSWORD="your_password"
-export VARVIS_TARGET="laborberlin"
+export VARVIS_TARGET="mytarget"
 
 echo "Varvis session configured for user: $VARVIS_USER"
 echo "Target: $VARVIS_TARGET"
@@ -71,7 +71,7 @@ source setup_session.sh
 When no password is provided, the tool prompts securely with hidden input:
 
 ```bash
-./varvis-download.js -t laborberlin -u your_username -a 12345
+./varvis-download.js -t mytarget -u your_username -a 12345
 # Output: Please enter your Varvis password: [hidden input]
 ```
 
@@ -101,7 +101,7 @@ Create `.config.json` with credentials:
 {
   "username": "your_username",
   "password": "your_password",
-  "target": "laborberlin"
+  "target": "mytarget"
 }
 ```
 
@@ -112,7 +112,7 @@ Create `.config.json` with credentials:
 ```json
 {
   "username": "your_username",
-  "target": "laborberlin",
+  "target": "mytarget",
   "destination": "./downloads"
 }
 ```
@@ -131,7 +131,7 @@ Create environment-specific configuration files:
 ```json
 {
   "username": "dev_user",
-  "target": "laborberlin-dev",
+  "target": "mytarget-dev",
   "destination": "./dev-downloads",
   "loglevel": "debug"
 }
@@ -142,7 +142,7 @@ Create environment-specific configuration files:
 ```json
 {
   "username": "prod_user",
-  "target": "laborberlin",
+  "target": "mytarget",
   "destination": "/data/genomics",
   "loglevel": "warn"
 }
@@ -167,7 +167,7 @@ export VARVIS_PASSWORD="prod_password"
 Provide credentials directly via command line:
 
 ```bash
-./varvis-download.js -t laborberlin -u "your_username" -p "your_password" -a 12345
+./varvis-download.js -t mytarget -u "your_username" -p "your_password" -a 12345
 ```
 
 ::: warning Security Risk
@@ -179,7 +179,7 @@ Command line arguments are visible in process lists and shell history. Use only 
 Use environment variables even with CLI:
 
 ```bash
-./varvis-download.js -t laborberlin -u "$VARVIS_USER" -p "$VARVIS_PASSWORD" -a 12345
+./varvis-download.js -t mytarget -u "$VARVIS_USER" -p "$VARVIS_PASSWORD" -a 12345
 ```
 
 ## Authentication Flow
@@ -232,7 +232,7 @@ export VARVIS_UL_USER="ul_username"
 export VARVIS_UL_PASSWORD="ul_password"
 
 # Use with different targets
-./varvis-download.js -t laborberlin -u "$VARVIS_LB_USER" -p "$VARVIS_LB_PASSWORD" -a 12345
+./varvis-download.js -t mytarget -u "$VARVIS_LB_USER" -p "$VARVIS_LB_PASSWORD" -a 12345
 ./varvis-download.js -t uni-leipzig -u "$VARVIS_UL_USER" -p "$VARVIS_UL_PASSWORD" -a 67890
 ```
 
@@ -240,13 +240,13 @@ export VARVIS_UL_PASSWORD="ul_password"
 
 Create target-specific configurations:
 
-**laborberlin.config.json:**
+**mytarget.config.json:**
 
 ```json
 {
   "username": "lb_user",
-  "target": "laborberlin",
-  "destination": "./laborberlin-data"
+  "target": "mytarget",
+  "destination": "./mytarget-data"
 }
 ```
 
@@ -308,7 +308,7 @@ echo
 export VARVIS_PASSWORD="$NEW_PASSWORD"
 
 # Test authentication
-./varvis-download.js -t laborberlin --list -a 12345
+./varvis-download.js -t mytarget --list -a 12345
 
 if [ $? -eq 0 ]; then
     echo "✓ Credential rotation successful"
@@ -335,7 +335,7 @@ fi
 
    ```bash
    # Enable authentication logging
-   ./varvis-download.js -t laborberlin -a 12345 --loglevel info --logfile auth.log
+   ./varvis-download.js -t mytarget -a 12345 --loglevel info --logfile auth.log
 
    # Review authentication events
    grep "Login\|Auth" auth.log
@@ -388,13 +388,13 @@ Error: Session token expired
 Enable detailed authentication logging:
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345 --loglevel debug 2>&1 | grep -i auth
+./varvis-download.js -t mytarget -a 12345 --loglevel debug 2>&1 | grep -i auth
 ```
 
 Example debug output:
 
 ```
-[DEBUG] AuthService: Fetching CSRF token from https://laborberlin.varvis.com
+[DEBUG] AuthService: Fetching CSRF token from https://mytarget.varvis.com
 [DEBUG] AuthService: CSRF token received: csrf_abc123
 [DEBUG] AuthService: Submitting login request for user: your_username
 [DEBUG] AuthService: Login successful, session token received
@@ -407,7 +407,7 @@ Verify credentials without downloading:
 
 ```bash
 # Quick authentication test
-./varvis-download.js -t laborberlin -a 12345 --list | head -5
+./varvis-download.js -t mytarget -a 12345 --list | head -5
 ```
 
 Expected output:
@@ -456,7 +456,7 @@ For enterprise authentication:
     VARVIS_USER: ${{ secrets.VARVIS_USER }}
     VARVIS_PASSWORD: ${{ secrets.VARVIS_PASSWORD }}
   run: |
-    ./varvis-download.js -t laborberlin -a ${{ matrix.analysis_id }}
+    ./varvis-download.js -t mytarget -a ${{ matrix.analysis_id }}
 ```
 
 **Jenkins:**
@@ -467,7 +467,7 @@ withCredentials([usernamePassword(
     usernameVariable: 'VARVIS_USER',
     passwordVariable: 'VARVIS_PASSWORD')]) {
 
-    sh './varvis-download.js -t laborberlin -a ${ANALYSIS_ID}'
+    sh './varvis-download.js -t mytarget -a ${ANALYSIS_ID}'
 }
 ```
 

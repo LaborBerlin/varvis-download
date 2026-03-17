@@ -9,7 +9,7 @@ This page provides practical examples for common Varvis Download CLI use cases.
 Download BAM files for one analysis:
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345
+./varvis-download.js -t mytarget -a 12345
 ```
 
 This downloads:
@@ -22,7 +22,7 @@ This downloads:
 Download files for several analyses:
 
 ```bash
-./varvis-download.js -t laborberlin -a "12345,67890,11111"
+./varvis-download.js -t mytarget -a "12345,67890,11111"
 ```
 
 ### Download Specific File Types
@@ -30,7 +30,7 @@ Download files for several analyses:
 Download only VCF files:
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345 -f "vcf.gz,vcf.gz.tbi"
+./varvis-download.js -t mytarget -a 12345 -f "vcf.gz,vcf.gz.tbi"
 ```
 
 Available file types:
@@ -49,7 +49,7 @@ Organize downloads by creating target directories:
 mkdir -p ./data/analysis_12345
 
 # Download to specific location
-./varvis-download.js -t laborberlin -a 12345 -d "./data/analysis_12345"
+./varvis-download.js -t mytarget -a 12345 -d "./data/analysis_12345"
 ```
 
 ## Authentication Examples
@@ -62,7 +62,7 @@ export VARVIS_USER="your_username"
 export VARVIS_PASSWORD="your_password"
 
 # Run without credential arguments
-./varvis-download.js -t laborberlin -a 12345
+./varvis-download.js -t mytarget -a 12345
 ```
 
 ### Interactive Password Prompt
@@ -70,7 +70,7 @@ export VARVIS_PASSWORD="your_password"
 If no password is provided, the tool will prompt securely:
 
 ```bash
-./varvis-download.js -t laborberlin -u your_username -a 12345
+./varvis-download.js -t mytarget -u your_username -a 12345
 # Output: Please enter your Varvis password: [hidden input]
 ```
 
@@ -81,7 +81,7 @@ Create `.config.json`:
 ```json
 {
   "username": "your_username",
-  "target": "laborberlin",
+  "target": "mytarget",
   "destination": "./downloads",
   "filetypes": ["bam", "bam.bai", "vcf.gz"],
   "loglevel": "info"
@@ -101,7 +101,7 @@ Then run with minimal arguments:
 List available files without downloading:
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345 --list
+./varvis-download.js -t mytarget -a 12345 --list
 ```
 
 Example output:
@@ -121,23 +121,23 @@ Get direct download URLs for external tools:
 
 ```bash
 # Print URLs to console
-./varvis-download.js -t laborberlin -a 12345 --list-urls
+./varvis-download.js -t mytarget -a 12345 --list-urls
 
 # Save URLs to file
-./varvis-download.js -t laborberlin -a 12345 --list-urls --url-file download_urls.txt
+./varvis-download.js -t mytarget -a 12345 --list-urls --url-file download_urls.txt
 
 # Use with external download tools
-./varvis-download.js -t laborberlin -a 12345 --list-urls | wget -i -
-./varvis-download.js -t laborberlin -a 12345 --list-urls | aria2c -i -
+./varvis-download.js -t mytarget -a 12345 --list-urls | wget -i -
+./varvis-download.js -t mytarget -a 12345 --list-urls | aria2c -i -
 ```
 
 Example URL output:
 
 ```
-https://laborberlin.varvis.com/download/analysis/12345/sample_001.bam?token=abc123
-https://laborberlin.varvis.com/download/analysis/12345/sample_001.bam.bai?token=abc123
-https://laborberlin.varvis.com/download/analysis/12345/sample_001.vcf.gz?token=abc123
-https://laborberlin.varvis.com/download/analysis/12345/sample_001.vcf.gz.tbi?token=abc123
+https://mytarget.varvis.com/download/analysis/12345/sample_001.bam?token=abc123
+https://mytarget.varvis.com/download/analysis/12345/sample_001.bam.bai?token=abc123
+https://mytarget.varvis.com/download/analysis/12345/sample_001.vcf.gz?token=abc123
+https://mytarget.varvis.com/download/analysis/12345/sample_001.vcf.gz.tbi?token=abc123
 ```
 
 ### Overwrite Existing Files
@@ -145,7 +145,7 @@ https://laborberlin.varvis.com/download/analysis/12345/sample_001.vcf.gz.tbi?tok
 By default, existing files are skipped. To overwrite:
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345 --overwrite
+./varvis-download.js -t mytarget -a 12345 --overwrite
 ```
 
 ### Custom File Selection
@@ -154,10 +154,10 @@ Download only specific file patterns:
 
 ```bash
 # Only BAM files (no indexes)
-./varvis-download.js -t laborberlin -a 12345 -f "bam"
+./varvis-download.js -t mytarget -a 12345 -f "bam"
 
 # Only index files
-./varvis-download.js -t laborberlin -a 12345 -f "bam.bai,vcf.gz.tbi"
+./varvis-download.js -t mytarget -a 12345 -f "bam.bai,vcf.gz.tbi"
 ```
 
 ## Search and Discovery
@@ -167,7 +167,7 @@ Download only specific file patterns:
 Download all analyses for specific samples:
 
 ```bash
-./varvis-download.js -t laborberlin -s "LB24-001,LB24-002"
+./varvis-download.js -t mytarget -s "LIMS-001,LIMS-002"
 ```
 
 ### Find Analyses by LIMS ID
@@ -175,7 +175,7 @@ Download all analyses for specific samples:
 Use laboratory information management system IDs:
 
 ```bash
-./varvis-download.js -t laborberlin -l "LIMS_123,LIMS_456"
+./varvis-download.js -t mytarget -l "LIMS_123,LIMS_456"
 ```
 
 ### Combine Search Methods
@@ -183,7 +183,7 @@ Use laboratory information management system IDs:
 Use multiple identification methods:
 
 ```bash
-./varvis-download.js -t laborberlin -s "LB24-001" -l "LIMS_123" -a "12345"
+./varvis-download.js -t mytarget -s "LIMS-001" -l "LIMS_123" -a "12345"
 ```
 
 ## Logging and Monitoring
@@ -193,7 +193,7 @@ Use multiple identification methods:
 Set log level for detailed output:
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345 --loglevel debug
+./varvis-download.js -t mytarget -a 12345 --loglevel debug
 ```
 
 Log levels:
@@ -208,7 +208,7 @@ Log levels:
 Capture logs for later analysis:
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345 --logfile "./logs/download_$(date +%Y%m%d).log"
+./varvis-download.js -t mytarget -a 12345 --logfile "./logs/download_$(date +%Y%m%d).log"
 ```
 
 ### Generate Download Report
@@ -216,7 +216,7 @@ Capture logs for later analysis:
 Create detailed download report:
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345 --reportfile "./reports/analysis_12345_report.json"
+./varvis-download.js -t mytarget -a 12345 --reportfile "./reports/analysis_12345_report.json"
 ```
 
 Report includes:
@@ -234,7 +234,7 @@ The tool automatically retries failed downloads:
 
 ```bash
 # Will retry up to 3 times for network errors
-./varvis-download.js -t laborberlin -a 12345
+./varvis-download.js -t mytarget -a 12345
 ```
 
 ### Handle Missing Files
@@ -243,7 +243,7 @@ Some analyses may not have all file types:
 
 ```bash
 # This will skip missing file types gracefully
-./varvis-download.js -t laborberlin -a 12345 -f "bam,bam.bai,vcf.gz,vcf.gz.tbi"
+./varvis-download.js -t mytarget -a 12345 -f "bam,bam.bai,vcf.gz,vcf.gz.tbi"
 ```
 
 ### Debug Connection Issues
@@ -251,7 +251,7 @@ Some analyses may not have all file types:
 For network troubleshooting:
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345 --loglevel debug --logfile debug.log
+./varvis-download.js -t mytarget -a 12345 --loglevel debug --logfile debug.log
 ```
 
 ## Batch Operations
@@ -262,7 +262,7 @@ Process different Varvis instances:
 
 ```bash
 # Download from labor berlin
-./varvis-download.js -t laborberlin -a "12345,67890" -d "./laborberlin/"
+./varvis-download.js -t mytarget -a "12345,67890" -d "./mytarget/"
 
 # Download from university leipzig
 ./varvis-download.js -t uni-leipzig -a "11111,22222" -d "./uni-leipzig/"
@@ -279,7 +279,7 @@ ANALYSES=("12345" "67890" "11111")
 for ANALYSIS in "${ANALYSES[@]}"; do
     echo "Downloading analysis: $ANALYSIS"
     mkdir -p "./data/analysis_$ANALYSIS"
-    ./varvis-download.js -t laborberlin -a "$ANALYSIS" -d "./data/analysis_$ANALYSIS"
+    ./varvis-download.js -t mytarget -a "$ANALYSIS" -d "./data/analysis_$ANALYSIS"
 done
 ```
 
@@ -292,7 +292,7 @@ Download all analyses for a sample list:
 # samples.txt contains one sample ID per line
 while IFS= read -r SAMPLE; do
     echo "Processing sample: $SAMPLE"
-    ./varvis-download.js -t laborberlin -s "$SAMPLE" -d "./data/$SAMPLE/"
+    ./varvis-download.js -t mytarget -s "$SAMPLE" -d "./data/$SAMPLE/"
 done < samples.txt
 ```
 
@@ -318,7 +318,7 @@ Check available space before large downloads:
 df -h .
 
 # Download with size awareness
-./varvis-download.js -t laborberlin -a 12345 --list | grep -E "GB|TB"
+./varvis-download.js -t mytarget -a 12345 --list | grep -E "GB|TB"
 ```
 
 ### Network Optimization
@@ -327,10 +327,10 @@ For slow connections, use smaller file types first:
 
 ```bash
 # Download indexes first (small files)
-./varvis-download.js -t laborberlin -a 12345 -f "bam.bai,vcf.gz.tbi"
+./varvis-download.js -t mytarget -a 12345 -f "bam.bai,vcf.gz.tbi"
 
 # Then download data files
-./varvis-download.js -t laborberlin -a 12345 -f "bam,vcf.gz"
+./varvis-download.js -t mytarget -a 12345 -f "bam,vcf.gz"
 ```
 
 ## Genomic Range Downloads
@@ -341,16 +341,16 @@ Extract specific genomic regions from VCF files:
 
 ```bash
 # Extract a single region with proper file naming
-./varvis-download.js -t laborberlin -a 12345 -g "chr1:155000000-156000000" -f "vcf.gz,vcf.gz.tbi"
+./varvis-download.js -t mytarget -a 12345 -g "chr1:155000000-156000000" -f "vcf.gz,vcf.gz.tbi"
 # Creates: sample.chr1_155000000_156000000.vcf.gz
 
 # Extract multiple regions (creates separate files)
-./varvis-download.js -t laborberlin -a 12345 -g "chr1:155000000-156000000 chr17:41000000-42000000" -f "vcf.gz,vcf.gz.tbi"
+./varvis-download.js -t mytarget -a 12345 -g "chr1:155000000-156000000 chr17:41000000-42000000" -f "vcf.gz,vcf.gz.tbi"
 # Creates: sample.chr1_155000000_156000000.vcf.gz, sample.chr17_41000000_42000000.vcf.gz
 
 # Use BED file for complex regions
 echo -e "chr1\t155000000\t156000000\tchr17\t41000000\t42000000" > regions.bed
-./varvis-download.js -t laborberlin -a 12345 -b regions.bed -f "vcf.gz,vcf.gz.tbi"
+./varvis-download.js -t mytarget -a 12345 -b regions.bed -f "vcf.gz,vcf.gz.tbi"
 ```
 
 ### BAM Range Extraction
@@ -359,10 +359,10 @@ Extract specific regions from BAM files:
 
 ```bash
 # Extract a genomic region from BAM files
-./varvis-download.js -t laborberlin -a 12345 -g "chr1:155000000-156000000" -f "bam,bam.bai"
+./varvis-download.js -t mytarget -a 12345 -g "chr1:155000000-156000000" -f "bam,bam.bai"
 
 # Multiple regions with BED file
-./varvis-download.js -t laborberlin -a 12345 -b target_regions.bed -f "bam,bam.bai"
+./varvis-download.js -t mytarget -a 12345 -b target_regions.bed -f "bam,bam.bai"
 ```
 
 ### Range Download Requirements
@@ -402,7 +402,7 @@ DATA_DIR="./data/$DATE"
 mkdir -p "$LOG_DIR" "$DATA_DIR"
 
 ./varvis-download.js \
-  -t laborberlin \
+  -t mytarget \
   -s "$(cat today_samples.txt | tr '\n' ',')" \
   -d "$DATA_DIR" \
   --logfile "$LOG_DIR/download_$DATE.log" \
@@ -418,7 +418,7 @@ ANALYSIS="12345"
 DATA_DIR="./data/analysis_$ANALYSIS"
 
 # List expected files
-./varvis-download.js -t laborberlin -a "$ANALYSIS" --list > expected_files.txt
+./varvis-download.js -t mytarget -a "$ANALYSIS" --list > expected_files.txt
 
 # Check if all files exist
 while IFS= read -r FILE; do

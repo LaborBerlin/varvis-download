@@ -149,7 +149,7 @@ Always test code samples before publishing:
 
 ```bash
 # Good - tested example
-./varvis-download.js -t laborberlin -a 12345
+./varvis-download.js -t mytarget -a 12345
 
 # Include expected output when helpful
 # Output: ✓ Downloaded sample_001.bam (1.2 GB)

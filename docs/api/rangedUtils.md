@@ -104,6 +104,36 @@ rangedDownloadBAM
 
 ##
 
+unmappedDownloadBAM
+
+    Extracts unmapped reads from a remote BAM file using the samtools wildcard chromosome `*`.
+
+    ### Parameters | Name | Type | Description | |------|------|-------------|
+      | `url` | `string` |
+      The URL of the BAM file.
+      |
+      | `outputFile` | `string` |
+      The output file name.
+      |
+      | `indexFile` | `string` |
+      The path to the downloaded .bai index file.
+      |
+      | `logger` | `Object` |
+      The logger instance.
+      |
+      | `metrics` | `Object` |
+      Metrics object for tracking stats.
+      |
+      | `overwrite` | `boolean` |
+      Flag indicating whether to overwrite existing files.
+      |
+
+    ### Returns **Type:** `Promise.&lt;void&gt;`
+
+---
+
+##
+
 rangedDownloadVCF
 
     Performs a ranged download for a VCF file using tabix, and compresses it using bgzip.

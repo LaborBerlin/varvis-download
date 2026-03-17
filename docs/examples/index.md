@@ -8,13 +8,13 @@ Practical examples and usage patterns for the Varvis Download CLI tool.
 
 ```bash
 # Download BAM files for a single analysis
-./varvis-download.js -t laborberlin -a 12345
+./varvis-download.js -t mytarget -a 12345
 
 # Download multiple analyses
-./varvis-download.js -t laborberlin -a "12345,67890,11111"
+./varvis-download.js -t mytarget -a "12345,67890,11111"
 
 # Download specific file types
-./varvis-download.js -t laborberlin -a 12345 -f "vcf.gz,vcf.gz.tbi"
+./varvis-download.js -t mytarget -a 12345 -f "vcf.gz,vcf.gz.tbi"
 ```
 
 ### Authentication Examples
@@ -23,10 +23,10 @@ Practical examples and usage patterns for the Varvis Download CLI tool.
 # Using environment variables (recommended)
 export VARVIS_USER="your_username"
 export VARVIS_PASSWORD="your_password"
-./varvis-download.js -t laborberlin -a 12345
+./varvis-download.js -t mytarget -a 12345
 
 # Interactive password prompt
-./varvis-download.js -t laborberlin -u your_username -a 12345
+./varvis-download.js -t mytarget -u your_username -a 12345
 ```
 
 ## Example Categories
@@ -86,7 +86,7 @@ mkdir -p "$DEST_DIR"
 
 # Download all analyses for specific samples
 ./varvis-download.js \
-  -t laborberlin \
+  -t mytarget \
   -s "$(cat today_samples.txt | tr '\n' ',')" \
   -d "$DEST_DIR" \
   --reportfile "$DEST_DIR/download_report.json"
@@ -99,8 +99,8 @@ mkdir -p "$DEST_DIR"
 # qc-download.sh - Download only high-quality analyses
 
 ./varvis-download.js \
-  -t laborberlin \
-  -s "LB24-001,LB24-002" \
+  -t mytarget \
+  -s "LIMS-001,LIMS-002" \
   -F "quality>=95" \
   -F "analysisType=WGS" \
   --list  # Preview before downloading
@@ -113,7 +113,7 @@ mkdir -p "$DEST_DIR"
 # recover-archived.sh - Restore and download archived files
 
 ./varvis-download.js \
-  -t laborberlin \
+  -t mytarget \
   -a "12345,67890" \
   --restoreArchived force \
   --logfile archive_recovery.log
@@ -162,7 +162,7 @@ jobs:
           VARVIS_USER: ${{ secrets.VARVIS_USER }}
           VARVIS_PASSWORD: ${{ secrets.VARVIS_PASSWORD }}
         run: |
-          ./varvis-download.js -t laborberlin -a "${{ env.ANALYSIS_IDS }}"
+          ./varvis-download.js -t mytarget -a "${{ env.ANALYSIS_IDS }}"
 ```
 
 ### Python Integration
@@ -173,7 +173,7 @@ import subprocess
 import json
 import os
 
-def download_varvis_data(analysis_ids, target="laborberlin"):
+def download_varvis_data(analysis_ids, target="mytarget"):
     """Download data using Varvis CLI from Python"""
 
     cmd = [
@@ -235,11 +235,11 @@ module.exports = { runVarvisDownload };
 set -e
 
 echo "Testing basic download..."
-./varvis-download.js -t laborberlin -a 12345 --list
+./varvis-download.js -t mytarget -a 12345 --list
 
 echo "Testing authentication..."
 export VARVIS_USER="test_user"
-./varvis-download.js -t laborberlin -a 12345 --list
+./varvis-download.js -t mytarget -a 12345 --list
 
 echo "All tests passed!"
 ```
@@ -257,7 +257,7 @@ mkdir -p ./data/{bam,vcf,reports}
 
 # Download BAM files first (usually larger)
 ./varvis-download.js \
-  -t laborberlin \
+  -t mytarget \
   -a "$(cat large_analysis_list.txt | tr '\n' ',')" \
   -f "bam,bam.bai" \
   -d "./data/bam" \
@@ -265,7 +265,7 @@ mkdir -p ./data/{bam,vcf,reports}
 
 # Then download VCF files
 ./varvis-download.js \
-  -t laborberlin \
+  -t mytarget \
   -a "$(cat large_analysis_list.txt | tr '\n' ',')" \
   -f "vcf.gz,vcf.gz.tbi" \
   -d "./data/vcf" \
@@ -281,7 +281,7 @@ mkdir -p ./data/{bam,vcf,reports}
 DOWNLOAD_PID=""
 
 # Start download in background
-./varvis-download.js -t laborberlin -a "$ANALYSIS_IDS" &
+./varvis-download.js -t mytarget -a "$ANALYSIS_IDS" &
 DOWNLOAD_PID=$!
 
 # Monitor disk space and progress
@@ -304,7 +304,7 @@ echo "Download completed"
 
 # Enable maximum logging
 ./varvis-download.js \
-  -t laborberlin \
+  -t mytarget \
   -a 12345 \
   --loglevel debug \
   --logfile debug_network.log \
@@ -321,13 +321,13 @@ grep -i "error\|timeout\|connection" debug_network.log
 # retry-failed.sh
 
 # First attempt
-if ! ./varvis-download.js -t laborberlin -a "$ANALYSIS_IDS"; then
+if ! ./varvis-download.js -t mytarget -a "$ANALYSIS_IDS"; then
   echo "First attempt failed, retrying in 5 minutes..."
   sleep 300
 
   # Retry with different settings
   ./varvis-download.js \
-    -t laborberlin \
+    -t mytarget \
     -a "$ANALYSIS_IDS" \
     --loglevel debug \
     --logfile retry.log
