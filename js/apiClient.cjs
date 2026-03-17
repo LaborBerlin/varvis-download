@@ -1,6 +1,16 @@
 const { fetch } = require('undici');
 
 /**
+ * Default headers for all requests to avoid undici v7's automatic sec-fetch-mode: cors
+ * header which causes Spring Security servers to reject requests as cross-origin.
+ * @type {Record<string, string>}
+ */
+const DEFAULT_HEADERS = {
+  'User-Agent': 'varvis-download',
+  'Sec-Fetch-Mode': 'same-origin',
+};
+
+/**
  * API Client class for handling HTTP requests with retry logic and agent management.
  */
 class ApiClient {
@@ -26,6 +36,7 @@ class ApiClient {
       try {
         const response = await fetch(url, {
           ...options,
+          headers: { ...DEFAULT_HEADERS, ...options.headers },
           dispatcher: this.agent,
         });
         if (!response.ok)
