@@ -44,7 +44,10 @@ async function rangedDownloadBAM(
 
     if (includeUnmapped) {
       // When including unmapped reads, use command-line regions instead of BED file
-      // because samtools -L (BED) and -M don't support the '*' wildcard
+      // because samtools -L (BED) and -M don't support the '*' wildcard.
+      // Note: -M (multi-region iterator) is deliberately omitted here because it
+      // is only needed with -L (BED) to optimize overlapping region merging.
+      // With command-line regions, samtools handles them correctly without -M.
       logger.debug(
         'Using command-line regions with unmapped wildcard for combined download',
       );
@@ -82,6 +85,15 @@ async function rangedDownloadBAM(
     logger.info(`Downloaded BAM file to ${outputFile}`);
     metrics.totalFilesDownloaded += 1;
   } catch (error) {
+    // Clean up partial output file on failure
+    if (fs.existsSync(outputFile)) {
+      try {
+        fs.unlinkSync(outputFile);
+        logger.debug(`Cleaned up partial file: ${outputFile}`);
+      } catch {
+        /* ignore cleanup errors */
+      }
+    }
     logger.error(`Error performing ranged download for BAM: ${error.message}`);
     throw error;
   }
@@ -258,6 +270,15 @@ async function unmappedDownloadBAM(
     logger.info(`Extracted unmapped reads to ${outputFile}`);
     metrics.totalFilesDownloaded += 1;
   } catch (error) {
+    // Clean up partial output file on failure
+    if (fs.existsSync(outputFile)) {
+      try {
+        fs.unlinkSync(outputFile);
+        logger.debug(`Cleaned up partial file: ${outputFile}`);
+      } catch {
+        /* ignore cleanup errors */
+      }
+    }
     logger.error(`Error extracting unmapped reads: ${error.message}`);
     throw error;
   }

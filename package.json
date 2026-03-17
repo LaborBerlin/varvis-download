@@ -58,7 +58,7 @@
     "varvis-download": "./varvis-download.cjs"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.4",
+    "@eslint/js": "^10.0.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^25.3.3",
     "dotenv": "^17.3.1",
