@@ -76,14 +76,14 @@ compareVersions
 
 rangedDownloadBAM
 
-    Performs a ranged download for a BAM file using samtools.
+    Performs a ranged download for a BAM file using samtools. When `includeUnmapped` is true, uses command-line regions (instead of BED file) to also extract unmapped reads via the `*` wildcard.
 
     ### Parameters | Name | Type | Description | |------|------|-------------|
       | `url` | `string` |
       The URL of the BAM file.
       |
-      | `range` | `string` |
-      The genomic range (e.g., 'chr1:1-100000').
+      | `bedFile` | `string` |
+      Path to BED file with regions.
       |
       | `outputFile` | `string` |
       The output file name.
@@ -94,8 +94,17 @@ rangedDownloadBAM
       | `logger` | `Object` |
       The logger instance.
       |
+      | `metrics` | `Object` |
+      Metrics object for tracking stats.
+      |
       | `overwrite` | `boolean` |
-      Flag indicating whether to overwrite existing files.
+      Flag indicating whether to overwrite existing files. Default: `false`.
+      |
+      | `includeUnmapped` | `boolean` |
+      Also include unmapped reads (wildcard `*` region). Default: `false`.
+      |
+      | `regions` | `string[]` |
+      Genomic regions in chr:start-end format (used when `includeUnmapped` is true). Default: `[]`.
       |
 
     ### Returns **Type:** `Promise.&lt;void&gt;`

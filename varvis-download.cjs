@@ -273,6 +273,7 @@ const finalConfig = {
   urlFile: normalizedUrlFile || config.urlFile || null,
   range: normalizedRange || config.range || null,
   bed: normalizedBed || config.bed || null,
+  unmapped: argv.unmapped || config.unmapped || false,
 };
 
 // Validate the final configuration
@@ -282,6 +283,14 @@ for (const field of requiredFields) {
     logger.error(`Error: Missing required argument --${field}`);
     process.exit(1);
   }
+}
+
+// Disallow --unmapped with --bed (BED files can have thousands of regions, exceeding OS arg limits)
+if (finalConfig.unmapped && finalConfig.bed) {
+  logger.error(
+    'Error: --unmapped cannot be combined with --bed. Use --unmapped with --range (-g) instead, or use --unmapped alone.',
+  );
+  process.exit(1);
 }
 
 // Ensure at least one of analysisIds, sampleIds, limsIds is provided unless resumeArchivedDownloads is set.
