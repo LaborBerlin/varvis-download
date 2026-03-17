@@ -50,6 +50,7 @@ const {
   ensureIndexFile,
   rangedDownloadBAM,
   rangedDownloadVCF,
+  unmappedDownloadBAM,
   indexBAM,
   indexVCF,
   generateOutputFileName,
@@ -172,6 +173,13 @@ argv = yargs
     describe: 'Path to BED file containing multiple regions',
     type: 'string',
   })
+  .option('unmapped', {
+    alias: 'um',
+    describe:
+      'Extract unmapped reads from BAM files (reads with no reference assignment)',
+    type: 'boolean',
+    default: false,
+  })
   .option('restoreArchived', {
     alias: 'ra',
     describe:
@@ -265,6 +273,7 @@ const finalConfig = {
   urlFile: normalizedUrlFile || config.urlFile || null,
   range: normalizedRange || config.range || null,
   bed: normalizedBed || config.bed || null,
+  unmapped: argv.unmapped || config.unmapped || false,
 };
 
 // Validate the final configuration
@@ -274,6 +283,14 @@ for (const field of requiredFields) {
     logger.error(`Error: Missing required argument --${field}`);
     process.exit(1);
   }
+}
+
+// Disallow --unmapped with --bed (BED files can have thousands of regions, exceeding OS arg limits)
+if (finalConfig.unmapped && finalConfig.bed) {
+  logger.error(
+    'Error: --unmapped cannot be combined with --bed. Use --unmapped with --range (-g) instead, or use --unmapped alone.',
+  );
+  process.exit(1);
 }
 
 // Ensure at least one of analysisIds, sampleIds, limsIds is provided unless resumeArchivedDownloads is set.
@@ -559,33 +576,44 @@ async function main() {
     // ***************** END NEW CODE *****************
 
     // If subsetting is needed, check that external tools are available.
-    if (finalConfig.range || finalConfig.bed) {
+    if (finalConfig.range || finalConfig.bed || finalConfig.unmapped) {
       const samtoolsMinVersion = '1.17';
-      const tabixMinVersion = '1.7';
-      const bgzipMinVersion = '1.7';
       const samtoolsOK = await checkToolAvailability(
         'samtools',
         'samtools --version',
         samtoolsMinVersion,
         logger,
       );
-      const tabixOK = await checkToolAvailability(
-        'tabix',
-        'tabix --version',
-        tabixMinVersion,
-        logger,
-      );
-      const bgzipOK = await checkToolAvailability(
-        'bgzip',
-        'bgzip --version',
-        bgzipMinVersion,
-        logger,
-      );
-      if (!samtoolsOK || !tabixOK || !bgzipOK) {
+
+      if (!samtoolsOK) {
         logger.error(
-          'One or more required external tools (samtools, tabix, bgzip) are missing or outdated. Please install/update them and try again.',
+          'samtools is missing or outdated. Please install/update it and try again.',
         );
         process.exit(1);
+      }
+
+      // tabix and bgzip are only required for ranged downloads, not for unmapped extraction
+      if (finalConfig.range || finalConfig.bed) {
+        const tabixMinVersion = '1.7';
+        const bgzipMinVersion = '1.7';
+        const tabixOK = await checkToolAvailability(
+          'tabix',
+          'tabix --version',
+          tabixMinVersion,
+          logger,
+        );
+        const bgzipOK = await checkToolAvailability(
+          'bgzip',
+          'bgzip --version',
+          bgzipMinVersion,
+          logger,
+        );
+        if (!tabixOK || !bgzipOK) {
+          logger.error(
+            'One or more required external tools (tabix, bgzip) are missing or outdated. Please install/update them and try again.',
+          );
+          process.exit(1);
+        }
       }
     }
 
@@ -666,6 +694,7 @@ async function main() {
       overwrite: finalConfig.overwrite,
       range: finalConfig.range,
       bed: finalConfig.bed,
+      unmapped: finalConfig.unmapped,
       restorationFile: finalConfig.restorationFile,
       filetypes: filetypes, // Save filetypes for restoration
     };
@@ -738,16 +767,16 @@ async function main() {
           }
           const indexFilePath = path.join(destination, `${fileName}.bai`);
 
-          if (regions.length > 0) {
-            // For ranged downloads, index file is required
+          if (regions.length > 0 || finalConfig.unmapped) {
+            // Ranged or unmapped downloads require an index file
             if (!indexFileUrl) {
               logger.error(
-                `Index file for BAM (${fileName}) not found. Ranged download requires .bai index. Skipping ranged download.`,
+                `Index file for BAM (${fileName}) not found. Ranged/unmapped downloads require .bai index. Skipping.`,
               );
               continue;
             }
 
-            // Ensure index file is downloaded for ranged access
+            // Ensure index file is downloaded
             await ensureIndexFile(
               downloadLink,
               indexFileUrl,
@@ -759,25 +788,56 @@ async function main() {
               overwrite,
             );
 
-            // Perform ranged download using the temporary BED file
-            try {
-              logger.info(
-                `Performing ranged download for BAM file: ${fileName}`,
+            if (regions.length > 0) {
+              // Ranged download (optionally including unmapped reads in the same BAM)
+              try {
+                const modeLabel = finalConfig.unmapped
+                  ? 'ranged + unmapped'
+                  : 'ranged';
+                logger.info(
+                  `Performing ${modeLabel} download for BAM file: ${fileName}`,
+                );
+                await rangedDownloadBAM(
+                  downloadLink,
+                  tempBedPath,
+                  outputFile,
+                  indexFilePath,
+                  logger,
+                  metrics,
+                  overwrite,
+                  finalConfig.unmapped,
+                  regions,
+                );
+                await indexBAM(outputFile, logger, overwrite);
+              } catch (error) {
+                logger.error(
+                  `Error during ranged download for ${fileName}: ${error.message}`,
+                );
+              }
+            } else {
+              // Unmapped-only extraction (no regions specified)
+              const unmappedOutputFile = path.join(
+                destination,
+                generateOutputFileName(fileName, ['unmapped'], logger),
               );
-              await rangedDownloadBAM(
-                downloadLink,
-                tempBedPath,
-                outputFile,
-                indexFilePath,
-                logger,
-                metrics,
-                overwrite,
-              );
-              await indexBAM(outputFile, logger, overwrite);
-            } catch (error) {
-              logger.error(
-                `Error during ranged download for ${fileName}: ${error.message}`,
-              );
+              try {
+                logger.info(
+                  `Extracting unmapped reads from BAM file: ${fileName}`,
+                );
+                await unmappedDownloadBAM(
+                  downloadLink,
+                  unmappedOutputFile,
+                  indexFilePath,
+                  logger,
+                  metrics,
+                  overwrite,
+                );
+                await indexBAM(unmappedOutputFile, logger, overwrite);
+              } catch (error) {
+                logger.error(
+                  `Error extracting unmapped reads from ${fileName}: ${error.message}`,
+                );
+              }
             }
           } else {
             // Perform full download - index file is optional
@@ -825,6 +885,12 @@ async function main() {
               );
             }
           }
+        } else if (fileName.endsWith('.vcf.gz') && finalConfig.unmapped) {
+          // Unmapped extraction only applies to BAM files, skip VCF
+          logger.info(
+            `Skipping VCF file ${fileName} - unmapped read extraction only applies to BAM files.`,
+          );
+          continue;
         } else if (fileName.endsWith('.vcf.gz')) {
           // VCF file processing - also refresh index URL if needed
           const indexFileName = `${fileName}.tbi`;

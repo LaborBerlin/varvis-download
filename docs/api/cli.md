@@ -29,9 +29,10 @@ varvis-download [options]
 | `--loglevel, ll`                 | `string`  | `info`                      | Logging level (info, warn, error, debug)                                                                            |
 | `--logfile, lf`                  | `string`  | -                           | Path to the log file                                                                                                |
 | `--reportfile, r`                | `string`  | -                           | Path to the report file                                                                                             |
-| `--filter, F`                    | `array`   | `[]`                        | Filter expressions (e.g., "analysisType=SNV", "sampleId>LB24-0001")                                                 |
+| `--filter, F`                    | `array`   | `[]`                        | Filter expressions (e.g., "analysisType=SNV", "sampleId>LIMS-001")                                                  |
 | `--range, g`                     | `string`  | -                           | Genomic range for ranged download (e.g., chr1:1-100000)                                                             |
 | `--bed, b`                       | `string`  | -                           | Path to BED file containing multiple regions                                                                        |
+| `--unmapped, um`                 | `boolean` | `false`                     | Extract unmapped reads from BAM files. Can be combined with `--range` to produce a single BAM with both.            |
 | `--restoreArchived, ra`          | `string`  | `ask`                       | Restore archived files. Accepts "no", "ask" (default), "all", or "force".                                           |
 | `--restorationFile, rf`          | `string`  | `awaiting-restoration.json` | Path and name for the awaiting-restoration JSON file                                                                |
 | `--resumeArchivedDownloads, rad` | `boolean` | `false`                     | Resume downloads for archived files from the awaiting-restoration JSON file if restoreEstimation has passed.        |
@@ -105,6 +106,14 @@ varvis-download -u username -p password -t target -a "analysis1" --list-urls | a
 - Automatically downloads `.bai` index files
 - Uses `samtools view -b` for region extraction
 - Single output file for all regions in BED file
+
+**Unmapped Read Extraction** (`--unmapped`):
+
+- Requires `samtools` v1.17+ (no tabix/bgzip needed)
+- Extracts reads with no reference assignment using wildcard chromosome `*`
+- Standalone: creates `basename.unmapped.bam`
+- Combined with `--range`: produces a single BAM with both ranged and unmapped reads
+- Only applies to BAM files (VCF files are skipped)
 
 ### Configuration File
 

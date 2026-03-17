@@ -20,7 +20,7 @@ Create a `.config.json` file in your project directory:
 ```json
 {
   "username": "your_username",
-  "target": "laborberlin",
+  "target": "mytarget",
   "destination": "./downloads",
   "loglevel": "info",
   "filetypes": ["bam", "bam.bai"],
@@ -33,7 +33,7 @@ Create a `.config.json` file in your project directory:
 ```json
 {
   "username": "api_user",
-  "target": "laborberlin",
+  "target": "mytarget",
   "destination": "./data",
   "filetypes": ["bam", "bam.bai", "vcf.gz", "vcf.gz.tbi"],
   "loglevel": "debug",
@@ -73,7 +73,7 @@ export VARVIS_API_PASSWORD="your_password"
 
 ```bash
 # Default target
-export VARVIS_TARGET="laborberlin"
+export VARVIS_TARGET="mytarget"
 
 # Default destination
 export VARVIS_DESTINATION="./downloads"
@@ -96,7 +96,7 @@ Create a `.env` file for local development:
 # .env file
 VARVIS_USER=your_username
 VARVIS_PASSWORD=your_password
-VARVIS_TARGET=laborberlin
+VARVIS_TARGET=mytarget
 VARVIS_DESTINATION=./downloads
 VARVIS_LOG_LEVEL=debug
 ```
@@ -169,7 +169,7 @@ Never commit `.env` files containing credentials to version control. Add `.env` 
 
 | Target        | Description           | URL Pattern                      |
 | ------------- | --------------------- | -------------------------------- |
-| `laborberlin` | Labor Berlin instance | `https://laborberlin.varvis.com` |
+| `mytarget`    | Labor Berlin instance | `https://mytarget.varvis.com`    |
 | `uni-leipzig` | University of Leipzig | `https://uni-leipzig.varvis.com` |
 | `custom`      | Custom instance       | User-defined                     |
 
@@ -354,7 +354,7 @@ export VARVIS_PROXY_PASS="proxy_password"
 
 ```json
 {
-  "target": "laborberlin",
+  "target": "mytarget",
   "loglevel": "debug",
   "logfile": "./logs/dev.log",
   "destination": "./dev-downloads",
@@ -366,7 +366,7 @@ export VARVIS_PROXY_PASS="proxy_password"
 
 ```json
 {
-  "target": "laborberlin",
+  "target": "mytarget",
   "loglevel": "warn",
   "logfile": "/var/log/varvis-download/production.log",
   "destination": "/data/genomics",
@@ -380,7 +380,7 @@ export VARVIS_PROXY_PASS="proxy_password"
 
 ```json
 {
-  "target": "laborberlin",
+  "target": "mytarget",
   "loglevel": "info",
   "destination": "./ci-downloads",
   "reportfile": "./ci-report.json",

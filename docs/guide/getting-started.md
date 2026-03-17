@@ -68,12 +68,12 @@ export VARVIS_PASSWORD="your_password"
 Download BAM files for a specific analysis:
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345
+./varvis-download.js -t mytarget -a 12345
 ```
 
 This command will:
 
-- Connect to the `laborberlin` Varvis instance
+- Connect to the `mytarget` Varvis instance
 - Download BAM and BAI files for analysis ID `12345`
 - Save files to the current directory
 
@@ -82,7 +82,7 @@ This command will:
 Before downloading, you can preview what files are available:
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345 --list
+./varvis-download.js -t mytarget -a 12345 --list
 ```
 
 ## Common Use Cases
@@ -90,25 +90,25 @@ Before downloading, you can preview what files are available:
 ### Download Multiple Analyses
 
 ```bash
-./varvis-download.js -t laborberlin -a "12345,67890,11111"
+./varvis-download.js -t mytarget -a "12345,67890,11111"
 ```
 
 ### Download Specific File Types
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345 -f "vcf.gz,vcf.gz.tbi"
+./varvis-download.js -t mytarget -a 12345 -f "vcf.gz,vcf.gz.tbi"
 ```
 
 ### Download to Custom Directory
 
 ```bash
-./varvis-download.js -t laborberlin -a 12345 -d "./downloads"
+./varvis-download.js -t mytarget -a 12345 -d "./downloads"
 ```
 
 ### Download with Filters
 
 ```bash
-./varvis-download.js -t laborberlin -s "LB24-001,LB24-002" -F "analysisType=SNV"
+./varvis-download.js -t mytarget -s "LIMS-001,LIMS-002" -F "analysisType=SNV"
 ```
 
 ## Configuration File
@@ -118,7 +118,7 @@ Create a `.config.json` file for persistent settings:
 ```json
 {
   "username": "your_username",
-  "target": "laborberlin",
+  "target": "mytarget",
   "destination": "./downloads",
   "loglevel": "info",
   "filetypes": ["bam", "bam.bai"]

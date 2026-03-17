@@ -19,10 +19,10 @@ Proxy support includes:
 
 ```bash
 # Basic proxy
-./varvis-download.js -t laborberlin -a 12345 --proxy "http://proxy.company.com:8080"
+./varvis-download.js -t mytarget -a 12345 --proxy "http://proxy.company.com:8080"
 
 # Proxy with authentication
-./varvis-download.js -t laborberlin -a 12345 \
+./varvis-download.js -t mytarget -a 12345 \
   --proxy "http://proxy.company.com:8080" \
   --proxyUsername "user" \
   --proxyPassword "pass"
@@ -41,14 +41,14 @@ export HTTP_PROXY="http://user:pass@proxy.company.com:8080"
 export HTTPS_PROXY="http://user:pass@proxy.company.com:8080"
 
 # Run without proxy arguments
-./varvis-download.js -t laborberlin -a 12345
+./varvis-download.js -t mytarget -a 12345
 ```
 
 ### Configuration File
 
 ```json
 {
-  "target": "laborberlin",
+  "target": "mytarget",
   "proxy": "http://proxy.company.com:8080",
   "proxyUsername": "proxy_user",
   "proxyPassword": "proxy_pass",
@@ -63,11 +63,11 @@ export HTTPS_PROXY="http://user:pass@proxy.company.com:8080"
 
 ```bash
 # Method 1: URL-encoded credentials
-./varvis-download.js -t laborberlin -a 12345 \
+./varvis-download.js -t mytarget -a 12345 \
   --proxy "http://username:password@proxy.company.com:8080"
 
 # Method 2: Separate username/password
-./varvis-download.js -t laborberlin -a 12345 \
+./varvis-download.js -t mytarget -a 12345 \
   --proxy "http://proxy.company.com:8080" \
   --proxyUsername "username" \
   --proxyPassword "password"
@@ -82,7 +82,7 @@ export VARVIS_PROXY_PASS="proxy_password"
 export VARVIS_PROXY="http://proxy.company.com:8080"
 
 # Credentials will be automatically used
-./varvis-download.js -t laborberlin -a 12345
+./varvis-download.js -t mytarget -a 12345
 ```
 
 ### Interactive Proxy Authentication
@@ -98,7 +98,7 @@ echo
 export VARVIS_PROXY_USER="$PROXY_USER"
 export VARVIS_PROXY_PASS="$PROXY_PASS"
 
-./varvis-download.js -t laborberlin -a 12345 --proxy "http://proxy.company.com:8080"
+./varvis-download.js -t mytarget -a 12345 --proxy "http://proxy.company.com:8080"
 ```
 
 ## Corporate Network Setup
@@ -124,7 +124,7 @@ if ($proxyServer) {
 }
 
 # Run Varvis Download
-& node varvis-download.js -t laborberlin -a $args[0]
+& node varvis-download.js -t mytarget -a $args[0]
 ```
 
 ### Linux Corporate Environment
@@ -163,7 +163,7 @@ fi
 
 # Run with corporate-friendly settings
 ./varvis-download.js \
-  -t laborberlin \
+  -t mytarget \
   -a "$1" \
   --loglevel info \
   --logfile "corporate_download.log"
@@ -254,7 +254,7 @@ sleep 2
 export VARVIS_PROXY="http://localhost:5865"
 
 # Run download
-./varvis-download.js -t laborberlin -a "$1"
+./varvis-download.js -t mytarget -a "$1"
 
 # Cleanup
 kill $NTLMAPS_PID 2>/dev/null
@@ -280,7 +280,7 @@ fi
 # Alternative: Disable SSL verification (NOT recommended for production)
 # export NODE_TLS_REJECT_UNAUTHORIZED=0
 
-./varvis-download.js -t laborberlin -a "$1"
+./varvis-download.js -t mytarget -a "$1"
 ```
 
 ### Custom Certificate Bundle
@@ -296,7 +296,7 @@ cat /path/to/corporate-ca.crt >> /tmp/custom-ca-bundle.crt
 # Use custom bundle
 export NODE_EXTRA_CA_CERTS="/tmp/custom-ca-bundle.crt"
 
-./varvis-download.js -t laborberlin -a "$1"
+./varvis-download.js -t mytarget -a "$1"
 
 # Cleanup
 rm -f /tmp/custom-ca-bundle.crt
@@ -359,7 +359,7 @@ export NODE_DEBUG=http,https,tls
 
 # Test Varvis download with maximum logging
 ./varvis-download.js \
-  -t laborberlin \
+  -t mytarget \
   -a 12345 \
   --proxy "$VARVIS_PROXY" \
   --loglevel debug \
@@ -467,7 +467,7 @@ export NODE_OPTIONS="--max-http-header-size=32768"
 ./varvis-download.js \
   --proxy "$VARVIS_PROXY" \
   --loglevel debug \
-  -t laborberlin -a 12345
+  -t mytarget -a 12345
 ```
 
 ## Proxy Configuration Examples

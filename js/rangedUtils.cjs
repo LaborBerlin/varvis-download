@@ -10,13 +10,15 @@ const {
 
 /**
  * Performs a ranged download for a BAM file using samtools.
- * @param   {string}                   url        - The URL of the BAM file.
- * @param   {string}                   bedFile    - Path to BED file with regions.
- * @param   {string}                   outputFile - The output file name.
- * @param   {string}                   indexFile  - The path to the downloaded .bai index file.
- * @param   {import('winston').Logger} logger     - The logger instance.
- * @param   {object}                   metrics    - Metrics object for tracking stats.
- * @param   {boolean}                  overwrite  - Flag indicating whether to overwrite existing files.
+ * @param   {string}                   url             - The URL of the BAM file.
+ * @param   {string}                   bedFile         - Path to BED file with regions.
+ * @param   {string}                   outputFile      - The output file name.
+ * @param   {string}                   indexFile       - The path to the downloaded .bai index file.
+ * @param   {import('winston').Logger} logger          - The logger instance.
+ * @param   {object}                   metrics         - Metrics object for tracking stats.
+ * @param   {boolean}                  overwrite       - Flag indicating whether to overwrite existing files.
+ * @param   {boolean}                  includeUnmapped - Also include unmapped reads (wildcard '*' region).
+ * @param   {string[]}                 regions         - Genomic regions in chr:start-end format (used when includeUnmapped is true).
  * @returns {Promise<void>}
  */
 async function rangedDownloadBAM(
@@ -27,6 +29,8 @@ async function rangedDownloadBAM(
   logger,
   metrics,
   overwrite = false,
+  includeUnmapped = false,
+  regions = [],
 ) {
   try {
     // Check if the output BAM file already exists and skip download if overwrite is false
@@ -36,25 +40,60 @@ async function rangedDownloadBAM(
       return;
     }
 
-    logger.debug(`Downloading BAM for regions in BED file: ${bedFile}`);
-    const args = [
-      'view',
-      '-b',
-      '-X',
-      url,
-      indexFile,
-      '-L',
-      bedFile,
-      '-M',
-      '-o',
-      outputFile,
-    ];
+    let args;
+
+    if (includeUnmapped) {
+      // When including unmapped reads, use command-line regions instead of BED file
+      // because samtools -L (BED) and -M don't support the '*' wildcard.
+      // Note: -M (multi-region iterator) is deliberately omitted here because it
+      // is only needed with -L (BED) to optimize overlapping region merging.
+      // With command-line regions, samtools handles them correctly without -M.
+      logger.debug(
+        'Using command-line regions with unmapped wildcard for combined download',
+      );
+      args = [
+        'view',
+        '-b',
+        '-X',
+        url,
+        indexFile,
+        ...regions,
+        '*',
+        '-o',
+        outputFile,
+      ];
+    } else {
+      // Standard ranged download using BED file
+      logger.debug(`Downloading BAM for regions in BED file: ${bedFile}`);
+      args = [
+        'view',
+        '-b',
+        '-X',
+        url,
+        indexFile,
+        '-L',
+        bedFile,
+        '-M',
+        '-o',
+        outputFile,
+      ];
+    }
+
     logger.info(`Running command: samtools ${args.join(' ')}`);
 
     await spawnPromise('samtools', args, logger);
-    logger.info(`Downloaded BAM file for regions in BED file to ${outputFile}`);
+    logger.info(`Downloaded BAM file to ${outputFile}`);
     metrics.totalFilesDownloaded += 1;
   } catch (error) {
+    // Clean up partial output file on failure
+    if (fs.existsSync(outputFile)) {
+      try {
+        fs.unlinkSync(outputFile);
+        logger.debug(`Cleaned up partial file: ${outputFile}`);
+      } catch {
+        /* ignore cleanup errors */
+      }
+    }
     logger.error(`Error performing ranged download for BAM: ${error.message}`);
     throw error;
   }
@@ -191,6 +230,58 @@ async function rangedDownloadVCF(
       // Don't resolve here; wait for bgzip and stream to finish
     });
   });
+}
+
+/**
+ * Extracts unmapped reads from a remote BAM file using samtools.
+ * Uses the wildcard chromosome '*' to target reads with no reference assignment.
+ * This is particularly useful for Illumina NovaSeq data where unmapped reads
+ * may contain contamination, adapter sequences, or novel sequences of interest.
+ * @param   {string}                   url        - The URL of the BAM file.
+ * @param   {string}                   outputFile - The output file name.
+ * @param   {string}                   indexFile  - The path to the downloaded .bai index file.
+ * @param   {import('winston').Logger} logger     - The logger instance.
+ * @param   {object}                   metrics    - Metrics object for tracking stats.
+ * @param   {boolean}                  overwrite  - Flag indicating whether to overwrite existing files.
+ * @returns {Promise<void>}
+ */
+async function unmappedDownloadBAM(
+  url,
+  outputFile,
+  indexFile,
+  logger,
+  metrics,
+  overwrite = false,
+) {
+  try {
+    if (fs.existsSync(outputFile) && !overwrite) {
+      logger.info(
+        `Unmapped reads BAM file already exists: ${outputFile}, skipping download.`,
+      );
+      metrics.totalFilesSkipped += 1;
+      return;
+    }
+
+    logger.debug('Extracting unmapped reads from BAM file');
+    const args = ['view', '-b', '-X', url, indexFile, '*', '-o', outputFile];
+    logger.info(`Running command: samtools ${args.join(' ')}`);
+
+    await spawnPromise('samtools', args, logger);
+    logger.info(`Extracted unmapped reads to ${outputFile}`);
+    metrics.totalFilesDownloaded += 1;
+  } catch (error) {
+    // Clean up partial output file on failure
+    if (fs.existsSync(outputFile)) {
+      try {
+        fs.unlinkSync(outputFile);
+        logger.debug(`Cleaned up partial file: ${outputFile}`);
+      } catch {
+        /* ignore cleanup errors */
+      }
+    }
+    logger.error(`Error extracting unmapped reads: ${error.message}`);
+    throw error;
+  }
 }
 
 /**
@@ -353,6 +444,7 @@ module.exports = {
   // Core ranged download functions
   rangedDownloadBAM,
   rangedDownloadVCF,
+  unmappedDownloadBAM,
   ensureIndexFile,
   generateOutputFileName,
   indexBAM,

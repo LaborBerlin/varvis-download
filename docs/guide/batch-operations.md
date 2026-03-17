@@ -20,10 +20,10 @@ Download files for several analyses at once:
 
 ```bash
 # Comma-separated analysis IDs
-./varvis-download.js -t laborberlin -a "12345,67890,11111,22222"
+./varvis-download.js -t mytarget -a "12345,67890,11111,22222"
 
 # From a file (one ID per line)
-./varvis-download.js -t laborberlin -a "$(cat analysis_ids.txt | tr '\n' ',')"
+./varvis-download.js -t mytarget -a "$(cat analysis_ids.txt | tr '\n' ',')"
 ```
 
 ### Multiple Samples
@@ -32,10 +32,10 @@ Process all analyses for specific samples:
 
 ```bash
 # Multiple sample IDs
-./varvis-download.js -t laborberlin -s "LB24-001,LB24-002,LB24-003"
+./varvis-download.js -t mytarget -s "LIMS-001,LIMS-002,LIMS-003"
 
 # From sample list file
-./varvis-download.js -t laborberlin -s "$(cat samples.txt | tr '\n' ',')"
+./varvis-download.js -t mytarget -s "$(cat samples.txt | tr '\n' ',')"
 ```
 
 ### Multiple LIMS IDs
@@ -44,7 +44,7 @@ Download using laboratory management system IDs:
 
 ```bash
 # LIMS ID batch processing
-./varvis-download.js -t laborberlin -l "LIMS_001,LIMS_002,LIMS_003"
+./varvis-download.js -t mytarget -l "LIMS_001,LIMS_002,LIMS_003"
 ```
 
 ## Batch Processing Scripts
@@ -58,7 +58,7 @@ Download using laboratory management system IDs:
 set -e  # Exit on error
 
 # Configuration
-TARGET="laborberlin"
+TARGET="mytarget"
 BASE_DIR="./batch_downloads"
 LOG_DIR="$BASE_DIR/logs"
 DATA_DIR="$BASE_DIR/data"
@@ -225,7 +225,7 @@ main "$@"
 # batch.config - Configuration for batch operations
 
 # Varvis target
-TARGET="laborberlin"
+TARGET="mytarget"
 
 # Directory structure
 BASE_DIR="./batch_operations"
@@ -268,7 +268,7 @@ download_single() {
   mkdir -p "data/$analysis_id" "logs"
 
   ./varvis-download.js \
-    -t laborberlin \
+    -t mytarget \
     -a "$analysis_id" \
     -d "data/$analysis_id" \
     --logfile "$log_file" \
@@ -321,7 +321,7 @@ download_background() {
   local analysis_id="$1"
 
   ./varvis-download.js \
-    -t laborberlin \
+    -t mytarget \
     -a "$analysis_id" \
     -d "data/$analysis_id" \
     --logfile "logs/analysis_$analysis_id.log" &
@@ -367,7 +367,7 @@ create_organized_structure() {
   mkdir -p "$structure"
 
   ./varvis-download.js \
-    -t laborberlin \
+    -t mytarget \
     -a "$analysis_id" \
     -d "$structure" \
     --logfile "logs/${analysis_id}.log"
@@ -388,10 +388,10 @@ done < structured_analysis_list.csv
 ```csv
 # structured_analysis_list.csv
 # analysis_id,sample_id,analysis_type,date
-12345,LB24-001,WGS,2024-06-01
-12346,LB24-001,WES,2024-06-01
-12347,LB24-002,WGS,2024-06-02
-12348,LB24-003,Panel,2024-06-03
+12345,LIMS-001,WGS,2024-06-01
+12346,LIMS-001,WES,2024-06-01
+12347,LIMS-002,WGS,2024-06-02
+12348,LIMS-003,Panel,2024-06-03
 ```
 
 ## Batch Filtering and Selection
@@ -407,7 +407,7 @@ LAST_WEEK=$(date -d '7 days ago' '+%Y-%m-%d')
 
 # Download recent high-quality analyses
 ./varvis-download.js \
-  -t laborberlin \
+  -t mytarget \
   -F "date>=$LAST_WEEK" \
   -F "quality>=95" \
   -F "analysisType=WGS" \
@@ -422,7 +422,7 @@ if [[ -s recent_analyses.txt ]]; then
     cut -d: -f2 | \
     tr -d ' ' | \
     tr '\n' ',' | \
-    xargs -I {} ./varvis-download.js -t laborberlin -a "{}"
+    xargs -I {} ./varvis-download.js -t mytarget -a "{}"
 else
   echo "No recent high-quality analyses found"
 fi
@@ -442,7 +442,7 @@ process_sample_batch() {
 
   # List available analyses for sample
   ./varvis-download.js \
-    -t laborberlin \
+    -t mytarget \
     -s "$sample_id" \
     --list > "$output_dir/available.txt"
 
@@ -451,7 +451,7 @@ process_sample_batch() {
     echo "WGS analysis found for $sample_id, downloading..."
 
     ./varvis-download.js \
-      -t laborberlin \
+      -t mytarget \
       -s "$sample_id" \
       -F "analysisType=WGS" \
       -d "$output_dir"

@@ -4,7 +4,7 @@
 
 parseFilterExpression
 
-    Parses a filter expression like &#x27;analysisType&#x3D;SNV&#x27; or &#x27;sampleId&gt;LB24-0001&#x27;
+    Parses a filter expression like &#x27;analysisType&#x3D;SNV&#x27; or &#x27;sampleId&gt;LIMS-001&#x27;
 
     ### Parameters | Name | Type | Description | |------|------|-------------|
       | `filterExpression` | `string` |
@@ -48,7 +48,7 @@ applyFilters
       List of analyses returned by the API
       |
       | `filterExpressions` | `Array` |
-      Array of filter expressions (e.g., ['analysisType=SNV', 'sampleId>LB24-0001'])
+      Array of filter expressions (e.g., ['analysisType=SNV', 'sampleId>LIMS-001'])
       |
 
     ### Returns **Type:** `Array`

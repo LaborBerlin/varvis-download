@@ -53,7 +53,7 @@ npm link  # Optional: makes the tool globally accessible
 # Using environment variables (recommended for security)
 export VARVIS_USER="your_username"
 export VARVIS_PASSWORD="your_password"
-./varvis-download.js -t laborberlin -a 12345,67890
+./varvis-download.js -t mytarget -a 12345,67890
 ```
 
 ### List Available Files
@@ -67,9 +67,9 @@ export VARVIS_PASSWORD="your_password"
 
 ### Required Parameters
 
-| Parameter  | Short | Description | Example                      |
-| ---------- | ----- | ----------- | ---------------------------- |
-| `--target` | `-t`  | API target  | `laborberlin`, `uni-leipzig` |
+| Parameter  | Short | Description | Example                   |
+| ---------- | ----- | ----------- | ------------------------- |
+| `--target` | `-t`  | API target  | `mytarget`, `uni-leipzig` |
 
 **At least one of the following is required:**
 
@@ -96,11 +96,12 @@ export VARVIS_PASSWORD="your_password"
 
 ### Filtering & Range Options
 
-| Parameter  | Short | Description           | Example              |
-| ---------- | ----- | --------------------- | -------------------- |
-| `--filter` | `-F`  | Filter expressions    | `"analysisType=SNV"` |
-| `--range`  | `-g`  | Genomic range         | `"chr1:1-100000"`    |
-| `--bed`    | `-b`  | BED file with regions | `regions.bed`        |
+| Parameter    | Short  | Description                     | Example              |
+| ------------ | ------ | ------------------------------- | -------------------- |
+| `--filter`   | `-F`   | Filter expressions              | `"analysisType=SNV"` |
+| `--range`    | `-g`   | Genomic range                   | `"chr1:1-100000"`    |
+| `--bed`      | `-b`   | BED file with regions           | `regions.bed`        |
+| `--unmapped` | `--um` | Extract unmapped reads from BAM | -                    |
 
 ### Archive Management
 
@@ -140,7 +141,7 @@ export VARVIS_PASSWORD="your_password"
 ```bash
 export VARVIS_USER="your_username"
 export VARVIS_PASSWORD="your_password"
-./varvis-download.js -t laborberlin -a 12345
+./varvis-download.js -t mytarget -a 12345
 ```
 
 ### Configuration File
@@ -150,7 +151,7 @@ Create `.config.json`:
 ```json
 {
   "username": "your_username",
-  "target": "laborberlin",
+  "target": "mytarget",
   "destination": "./downloads",
   "loglevel": "info"
 }
@@ -173,15 +174,15 @@ If no password is provided via environment variables or CLI arguments, the tool 
 
 ```bash
 # Examples
-./varvis-download.js -t laborberlin -a 12345 --restoreArchived force
-./varvis-download.js -t laborberlin -a 12345 --restoreArchived no
+./varvis-download.js -t mytarget -a 12345 --restoreArchived force
+./varvis-download.js -t mytarget -a 12345 --restoreArchived no
 ```
 
 ### Resume Archived Downloads
 
 ```bash
 # Trigger restoration and save to custom file
-./varvis-download.js -t laborberlin -a 12345 --restoreArchived force --restorationFile my-restorations.json
+./varvis-download.js -t mytarget -a 12345 --restoreArchived force --restorationFile my-restorations.json
 
 # Later, resume downloads when files are ready
 ./varvis-download.js --resumeArchivedDownloads --restorationFile my-restorations.json
@@ -193,30 +194,36 @@ If no password is provided via environment variables or CLI arguments, the tool 
 
 ```bash
 # Filter by analysis type
-./varvis-download.js -t laborberlin -a 12345 -F "analysisType=SNV"
+./varvis-download.js -t mytarget -a 12345 -F "analysisType=SNV"
 
 # Multiple filters
-./varvis-download.js -t laborberlin -s LB24-001 -F "analysisType=SNV" "sampleId>LB24-0001"
+./varvis-download.js -t mytarget -s LIMS-001 -F "analysisType=SNV" "sampleId>LIMS-001"
 ```
 
 ### Range Downloads
 
 ```bash
 # Single genomic range
-./varvis-download.js -t laborberlin -a 12345 -g "chr1:1-100000"
+./varvis-download.js -t mytarget -a 12345 -g "chr1:1-100000"
 
 # Multiple ranges (space-separated)
-./varvis-download.js -t laborberlin -a 12345 -g "chr1:1-100000 chr2:1-100000"
+./varvis-download.js -t mytarget -a 12345 -g "chr1:1-100000 chr2:1-100000"
 
 # BED file with complex regions
-./varvis-download.js -t laborberlin -a 12345 -b complex-regions.bed
+./varvis-download.js -t mytarget -a 12345 -b complex-regions.bed
+
+# Extract unmapped reads only
+./varvis-download.js -t mytarget -a 12345 --unmapped
+
+# Combined: genomic range + unmapped reads in a single BAM
+./varvis-download.js -t mytarget -a 12345 -g "chr1:1-100000" --unmapped
 ```
 
 ### Batch Operations
 
 ```bash
 # Download multiple file types with custom settings
-./varvis-download.js -t laborberlin \
+./varvis-download.js -t mytarget \
   -a "12345,67890,11111" \
   -f "bam,bam.bai,vcf.gz,vcf.gz.tbi" \
   -d "./batch-download" \
@@ -228,10 +235,10 @@ If no password is provided via environment variables or CLI arguments, the tool 
 
 ```bash
 # Basic proxy
-./varvis-download.js -t laborberlin -a 12345 -x "http://proxy.example.com:8080"
+./varvis-download.js -t mytarget -a 12345 -x "http://proxy.example.com:8080"
 
 # Proxy with authentication
-./varvis-download.js -t laborberlin -a 12345 -x "http://proxy.example.com:8080" --pxu proxy_user --pxp proxy_pass
+./varvis-download.js -t mytarget -a 12345 -x "http://proxy.example.com:8080" --pxu proxy_user --pxp proxy_pass
 ```
 
 ## Development
@@ -346,7 +353,7 @@ Authenticates with Varvis API using CSRF tokens.
 **Parameters:**
 
 - `user`: Object with username and password
-- `target`: Varvis API target (e.g., "laborberlin")
+- `target`: Varvis API target (e.g., "mytarget")
 
 **Returns:** Promise resolving to session token
 

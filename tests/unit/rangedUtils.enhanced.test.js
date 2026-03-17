@@ -386,7 +386,7 @@ describe('rangedUtils (enhanced)', () => {
         '/path/to/output.bam',
       ]);
       expect(mockLogger.info).toHaveBeenCalledWith(
-        'Downloaded BAM file for regions in BED file to /path/to/output.bam',
+        'Downloaded BAM file to /path/to/output.bam',
       );
       expect(mockMetrics.totalFilesDownloaded).toBe(1);
     });
