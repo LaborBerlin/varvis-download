@@ -67,8 +67,8 @@ export VARVIS_PASSWORD="your_password"
 
 ### Required Parameters
 
-| Parameter  | Short | Description | Example                      |
-| ---------- | ----- | ----------- | ---------------------------- |
+| Parameter  | Short | Description | Example                   |
+| ---------- | ----- | ----------- | ------------------------- |
 | `--target` | `-t`  | API target  | `mytarget`, `uni-leipzig` |
 
 **At least one of the following is required:**
@@ -96,12 +96,12 @@ export VARVIS_PASSWORD="your_password"
 
 ### Filtering & Range Options
 
-| Parameter  | Short | Description           | Example              |
-| ---------- | ----- | --------------------- | -------------------- |
-| `--filter` | `-F`  | Filter expressions    | `"analysisType=SNV"` |
-| `--range`    | `-g`   | Genomic range                  | `"chr1:1-100000"` |
-| `--bed`      | `-b`   | BED file with regions          | `regions.bed`     |
-| `--unmapped` | `--um` | Extract unmapped reads from BAM | -                 |
+| Parameter    | Short  | Description                     | Example              |
+| ------------ | ------ | ------------------------------- | -------------------- |
+| `--filter`   | `-F`   | Filter expressions              | `"analysisType=SNV"` |
+| `--range`    | `-g`   | Genomic range                   | `"chr1:1-100000"`    |
+| `--bed`      | `-b`   | BED file with regions           | `regions.bed`        |
+| `--unmapped` | `--um` | Extract unmapped reads from BAM | -                    |
 
 ### Archive Management
 
