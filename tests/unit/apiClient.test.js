@@ -46,6 +46,10 @@ describe('apiClient', () => {
         expect(response).toBe(mockResponse);
         expect(undici.fetch).toHaveBeenCalledTimes(1);
         expect(undici.fetch).toHaveBeenCalledWith('https://api.example.com', {
+          headers: {
+            'User-Agent': 'varvis-download',
+            'Sec-Fetch-Mode': 'same-origin',
+          },
           dispatcher: mockAgent,
         });
         expect(mockLogger.warn).not.toHaveBeenCalled();
@@ -152,6 +156,11 @@ describe('apiClient', () => {
 
         expect(undici.fetch).toHaveBeenCalledWith('https://api.example.com', {
           ...options,
+          headers: {
+            'User-Agent': 'varvis-download',
+            'Sec-Fetch-Mode': 'same-origin',
+            'Content-Type': 'application/json',
+          },
           dispatcher: mockAgent,
         });
       });
@@ -215,7 +224,9 @@ describe('apiClient', () => {
       expect(response).toBe(mockResponse);
       expect(undici.fetch).toHaveBeenCalledWith(
         'https://api.example.com',
-        options,
+        expect.objectContaining({
+          dispatcher: mockAgent,
+        }),
       );
     });
 

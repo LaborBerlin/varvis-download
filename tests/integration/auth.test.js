@@ -53,10 +53,10 @@ describe('AuthService Integration Tests', () => {
       expect(token).toBe(expectedToken);
       expect(fetch).toHaveBeenCalledWith(
         `https://${target}.varvis.com/authenticate`,
-        {
+        expect.objectContaining({
           method: 'HEAD',
           dispatcher: mockAgent,
-        },
+        }),
       );
       expect(mockLogger.debug).toHaveBeenCalledWith(
         `Fetching CSRF token from https://${target}.varvis.com/authenticate`,

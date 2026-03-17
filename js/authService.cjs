@@ -1,6 +1,16 @@
 const { fetch } = require('undici');
 
 /**
+ * Default headers for all requests to avoid undici v7's automatic sec-fetch-mode: cors
+ * header which causes Spring Security servers to reject requests as cross-origin.
+ * @type {Record<string, string>}
+ */
+const DEFAULT_HEADERS = {
+  'User-Agent': 'varvis-download',
+  'Sec-Fetch-Mode': 'same-origin',
+};
+
+/**
  * AuthService class handles authentication with the Varvis API.
  */
 class AuthService {
@@ -29,6 +39,7 @@ class AuthService {
         `https://${target}.varvis.com/authenticate`,
         {
           method: 'HEAD',
+          headers: { ...DEFAULT_HEADERS },
           dispatcher: this.agent,
         },
       );
@@ -64,6 +75,7 @@ class AuthService {
       const loginResponse = await fetch(`https://${target}.varvis.com/login`, {
         method: 'POST',
         headers: {
+          ...DEFAULT_HEADERS,
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: params,
@@ -71,13 +83,17 @@ class AuthService {
       });
 
       if (loginResponse.status !== 200) {
-        throw new Error('Login failed');
+        this.logger.debug(
+          `Login response status: ${loginResponse.status}, redirected: ${loginResponse.redirected}`,
+        );
+        throw new Error(`Login failed with status ${loginResponse.status}`);
       }
 
       const csrfToken2Response = await fetch(
         `https://${target}.varvis.com/authenticate`,
         {
           method: 'HEAD',
+          headers: { ...DEFAULT_HEADERS },
           dispatcher: this.agent,
         },
       );
