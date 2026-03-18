@@ -91,10 +91,14 @@ function deduplicateByLatest(analyses, logger) {
 
   for (const analysis of analyses) {
     const limsId = analysis.personLimsId;
-    const id = Number(analysis.id);
     const existing = byLims.get(limsId);
 
-    if (!existing || id > Number(existing.id)) {
+    if (
+      !existing ||
+      String(analysis.id).localeCompare(String(existing.id), undefined, {
+        numeric: true,
+      }) > 0
+    ) {
       byLims.set(limsId, analysis);
     }
   }

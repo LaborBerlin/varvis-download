@@ -355,6 +355,18 @@ describe('filterUtils', () => {
       expect(result[0].sampleId).toBe('S1wdh');
     });
 
+    test('should handle alphanumeric analysis IDs', () => {
+      const data = [
+        { id: 'AN001', personLimsId: 'LIMS-001', sampleId: 'S1' },
+        { id: 'AN010', personLimsId: 'LIMS-001', sampleId: 'S1wdh' },
+        { id: 'AN002', personLimsId: 'LIMS-001', sampleId: 'S1b' },
+      ];
+      const result = deduplicateByLatest(data, mockLogger);
+      expect(result).toHaveLength(1);
+      // localeCompare with numeric: AN010 > AN002 > AN001
+      expect(result[0].id).toBe('AN010');
+    });
+
     test('should return all if no duplicates', () => {
       const data = [
         { id: 1, personLimsId: 'LIMS-001' },

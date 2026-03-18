@@ -279,8 +279,8 @@ const finalConfig = {
   urlFile: normalizedUrlFile || config.urlFile || null,
   range: normalizedRange || config.range || null,
   bed: normalizedBed || config.bed || null,
-  unmapped: argv.unmapped || config.unmapped || false,
-  latest: argv.latest || config.latest || false,
+  unmapped: argv.unmapped ?? config.unmapped ?? false,
+  latest: argv.latest ?? config.latest ?? false,
 };
 
 // Validate the final configuration
