@@ -1,5 +1,5 @@
 const fs = require('node:fs');
-const { applyFilters } = require('./filterUtils.cjs');
+const { applyFilters, deduplicateByLatest } = require('./filterUtils.cjs');
 const { triggerRestoreArchivedFile } = require('./archiveUtils.cjs');
 const { fetchWithRetry } = require('./apiClient.cjs');
 
@@ -41,6 +41,7 @@ async function confirmRestore(file, rl, _logger) {
  * @param   {Array<string>}     limsIds   - The LIMS IDs to filter analyses.
  * @param   {Array<string>}     filters   - An array of custom filters to apply.
  * @param   {object}            logger    - The logger instance.
+ * @param   {boolean}           latest    - If true, keep only the newest analysis per personLimsId.
  * @returns {Promise<string[]>}           - An array of analysis IDs.
  */
 async function fetchAnalysisIds(
@@ -51,6 +52,7 @@ async function fetchAnalysisIds(
   limsIds,
   filters,
   logger,
+  latest = false,
 ) {
   try {
     logger.debug('Fetching all analysis IDs');
@@ -91,6 +93,10 @@ async function fetchAnalysisIds(
     if (filters.length > 0) {
       logger.debug(`Applying custom filters: ${filters.join(', ')}`);
       filteredAnalyses = applyFilters(filteredAnalyses, filters);
+    }
+
+    if (latest) {
+      filteredAnalyses = deduplicateByLatest(filteredAnalyses, logger);
     }
 
     const ids = filteredAnalyses.map((analysis) => analysis.id.toString());

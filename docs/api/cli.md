@@ -29,7 +29,8 @@ varvis-download [options]
 | `--loglevel, ll`                 | `string`  | `info`                      | Logging level (info, warn, error, debug)                                                                            |
 | `--logfile, lf`                  | `string`  | -                           | Path to the log file                                                                                                |
 | `--reportfile, r`                | `string`  | -                           | Path to the report file                                                                                             |
-| `--filter, F`                    | `array`   | `[]`                        | Filter expressions (e.g., "analysisType=SNV", "sampleId>LIMS-001")                                                  |
+| `--filter, F`                    | `array`   | `[]`                        | Filter expressions with AND logic. Operators: `=` `!=` `>` `<` `>=` `<=` `~=` (contains) `^=` (starts with).        |
+| `--latest`                       | `boolean` | `false`                     | Keep only the newest analysis per sample (highest analysis ID). Useful for repeat sequencing.                       |
 | `--range, g`                     | `string`  | -                           | Genomic range for ranged download (e.g., chr1:1-100000)                                                             |
 | `--bed, b`                       | `string`  | -                           | Path to BED file containing multiple regions                                                                        |
 | `--unmapped, um`                 | `boolean` | `false`                     | Extract unmapped reads from BAM files. Can be combined with `--range` to produce a single BAM with both.            |

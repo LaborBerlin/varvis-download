@@ -67,24 +67,32 @@ Filter expressions use the format: `field operator value`
 
 **Supported operators:**
 
-- `=` - Equals
-- `!=` - Not equals
-- `>` - Greater than
-- `<` - Less than
-- `>=` - Greater than or equal
-- `<=` - Less than or equal
+| Operator | Description                  | Example                         |
+| -------- | ---------------------------- | ------------------------------- |
+| `=`      | Equals                       | `analysisType=SNV`              |
+| `!=`     | Not equals                   | `analysisType!=CNV`             |
+| `>`      | Greater than (lexicographic) | `sampleId>LIMS-100`             |
+| `<`      | Less than (lexicographic)    | `sampleId<LIMS-200`             |
+| `>=`     | Greater than or equal        | `quality>=95`                   |
+| `<=`     | Less than or equal           | `quality<=98`                   |
+| `~=`     | Contains (substring match)   | `enrichmentKitName~=Twist`      |
+| `^=`     | Starts with (prefix match)   | `enrichmentKitName^=TwistExome` |
+
+> **Note:** `>` and `<` use lexicographic (alphabetical) string comparison, not numeric.
+> Multiple `-F` filters are combined with AND logic.
 
 ### Common Filter Fields
 
-| Field          | Type   | Description              | Example Values              |
-| -------------- | ------ | ------------------------ | --------------------------- |
-| `analysisType` | String | Type of genomic analysis | `SNV`, `CNV`, `SV`, `Panel` |
-| `sampleId`     | String | Sample identifier        | `LIMS-001`, `Patient_123`   |
-| `quality`      | Number | Analysis quality score   | `95`, `88.5`                |
-| `coverage`     | Number | Sequencing coverage      | `30`, `100`                 |
-| `platform`     | String | Sequencing platform      | `Illumina`, `PacBio`        |
-| `runDate`      | Date   | Analysis execution date  | `2024-06-01`                |
-| `status`       | String | Analysis status          | `complete`, `ready`         |
+| Field               | Type   | Description              | Example Values                        |
+| ------------------- | ------ | ------------------------ | ------------------------------------- |
+| `analysisType`      | String | Type of genomic analysis | `SNV`, `CNV`, `SV`, `Panel`           |
+| `sampleId`          | String | Sample identifier        | `LIMS-001`, `Patient_123`             |
+| `enrichmentKitName` | String | Capture/enrichment kit   | `TwistExomev2`, `NimagenHEST_hg38_v2` |
+| `quality`           | Number | Analysis quality score   | `95`, `88.5`                          |
+| `coverage`          | Number | Sequencing coverage      | `30`, `100`                           |
+| `platform`          | String | Sequencing platform      | `Illumina`, `PacBio`                  |
+| `runDate`           | Date   | Analysis execution date  | `2024-06-01`                          |
+| `status`            | String | Analysis status          | `complete`, `ready`                   |
 
 ### Expression Examples
 
@@ -96,9 +104,31 @@ Filter expressions use the format: `field operator value`
 
 # Exclude CNV analyses
 ./varvis-download.js -t mytarget -s "LIMS-001" -F "analysisType!=CNV"
+```
 
-# Multiple analysis types
-./varvis-download.js -t mytarget -s "LIMS-001" -F "analysisType=SNV" -F "analysisType=Panel"
+**Enrichment kit filtering:**
+
+```bash
+# Only TwistExome analyses (matches TwistExomev0.2, TwistExomev2, etc.)
+./varvis-download.js -t mytarget -l "LIMS-001" -F "enrichmentKitName^=TwistExome"
+
+# Any Twist kit (Exome, Cancer, Genome)
+./varvis-download.js -t mytarget -l "LIMS-001" -F "enrichmentKitName~=Twist"
+
+# Exclude Nimagen
+./varvis-download.js -t mytarget -l "LIMS-001" -F "enrichmentKitName!=NimagenHEST_hg38_v2"
+```
+
+**Deduplication (newest analysis per sample):**
+
+```bash
+# Keep only latest analysis when samples have repeat sequencing (wdh)
+./varvis-download.js -t mytarget -l "LIMS-001" -F "enrichmentKitName^=TwistExome" --latest
+
+# Combine with range download and unmapped reads
+./varvis-download.js -t mytarget -l "LIMS-001" \
+  -F "enrichmentKitName^=TwistExome" --latest \
+  -g "chr1:155184000-155194000" --unmapped
 ```
 
 **Quality filtering:**

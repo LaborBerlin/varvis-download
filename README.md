@@ -96,12 +96,15 @@ export VARVIS_PASSWORD="your_password"
 
 ### Filtering & Range Options
 
-| Parameter    | Short  | Description                     | Example              |
-| ------------ | ------ | ------------------------------- | -------------------- |
-| `--filter`   | `-F`   | Filter expressions              | `"analysisType=SNV"` |
-| `--range`    | `-g`   | Genomic range                   | `"chr1:1-100000"`    |
-| `--bed`      | `-b`   | BED file with regions           | `regions.bed`        |
-| `--unmapped` | `--um` | Extract unmapped reads from BAM | -                    |
+| Parameter    | Short  | Description                                      | Example                           |
+| ------------ | ------ | ------------------------------------------------ | --------------------------------- |
+| `--filter`   | `-F`   | Filter expressions (AND logic, multiple allowed) | `"enrichmentKitName^=TwistExome"` |
+| `--latest`   |        | Keep only newest analysis per sample             | -                                 |
+| `--range`    | `-g`   | Genomic range                                    | `"chr1:1-100000"`                 |
+| `--bed`      | `-b`   | BED file with regions                            | `regions.bed`                     |
+| `--unmapped` | `--um` | Extract unmapped reads from BAM                  | -                                 |
+
+**Filter operators:** `=` `!=` `>` `<` `>=` `<=` (lexicographic comparison), `~=` (contains), `^=` (starts with)
 
 ### Archive Management
 
@@ -196,8 +199,11 @@ If no password is provided via environment variables or CLI arguments, the tool 
 # Filter by analysis type
 ./varvis-download.js -t mytarget -a 12345 -F "analysisType=SNV"
 
-# Multiple filters
-./varvis-download.js -t mytarget -s LIMS-001 -F "analysisType=SNV" "sampleId>LIMS-001"
+# Filter by enrichment kit (starts with)
+./varvis-download.js -t mytarget -l "LIMS-001" -F "enrichmentKitName^=TwistExome"
+
+# Multiple filters (AND logic) + keep only newest analysis per sample
+./varvis-download.js -t mytarget -l "LIMS-001" -F "analysisType=SNV" -F "enrichmentKitName^=TwistExome" --latest
 ```
 
 ### Range Downloads
