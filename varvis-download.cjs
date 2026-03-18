@@ -159,9 +159,15 @@ argv = yargs
   .option('filter', {
     alias: 'F',
     describe:
-      'Filter expressions (e.g., "analysisType=SNV", "sampleId>LB24-0001")',
+      'Filter expressions. Operators: = (equals), != (not equals), > < (lexicographic comparison), ~= (contains), ^= (starts with). Multiple filters use AND logic. Examples: "analysisType=SNV", "enrichmentKitName^=TwistExome"',
     type: 'array',
     default: [],
+  })
+  .option('latest', {
+    describe:
+      'Keep only the newest analysis per sample (highest analysis ID). Useful when samples have repeat sequencing.',
+    type: 'boolean',
+    default: false,
   })
   .option('range', {
     alias: 'g',
@@ -274,6 +280,7 @@ const finalConfig = {
   range: normalizedRange || config.range || null,
   bed: normalizedBed || config.bed || null,
   unmapped: argv.unmapped || config.unmapped || false,
+  latest: argv.latest || config.latest || false,
 };
 
 // Validate the final configuration
@@ -559,6 +566,7 @@ async function main() {
               limsIds,
               filters,
               logger,
+              finalConfig.latest,
             );
       logger.info(`Fetched analysis IDs: ${ids}`);
       for (const analysisId of ids) {
@@ -685,6 +693,7 @@ async function main() {
             limsIds,
             filters,
             logger,
+            finalConfig.latest,
           );
     logger.info(`Fetched analysis IDs: ${ids}`);
 
