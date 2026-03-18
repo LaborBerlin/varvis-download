@@ -159,7 +159,7 @@ argv = yargs
   .option('filter', {
     alias: 'F',
     describe:
-      'Filter expressions. Operators: = (equals), != (not equals), > < (lexicographic comparison), ~= (contains), ^= (starts with). Multiple filters use AND logic. Examples: "analysisType=SNV", "enrichmentKitName^=TwistExome"',
+      'Filter expressions. Operators: = != > < >= <= (lexicographic), ~= (contains), ^= (starts with). Multiple filters use AND logic. Examples: "analysisType=SNV", "enrichmentKitName^=TwistExome"',
     type: 'array',
     default: [],
   })

@@ -104,7 +104,7 @@ export VARVIS_PASSWORD="your_password"
 | `--bed`      | `-b`   | BED file with regions                            | `regions.bed`                     |
 | `--unmapped` | `--um` | Extract unmapped reads from BAM                  | -                                 |
 
-**Filter operators:** `=` (equals), `!=` (not equals), `>` `<` (lexicographic), `~=` (contains), `^=` (starts with)
+**Filter operators:** `=` `!=` `>` `<` `>=` `<=` (lexicographic comparison), `~=` (contains), `^=` (starts with)
 
 ### Archive Management
 

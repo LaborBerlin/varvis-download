@@ -5,15 +5,17 @@
  * Supported operators:
  * =   equality
  * !=  inequality
- * >   greater than
- * <   less than
+ * >   greater than (lexicographic)
+ * <   less than (lexicographic)
+ * >=  greater than or equal (lexicographic)
+ * <=  less than or equal (lexicographic)
  * ~=  contains (substring match)
  * ^=  starts with (prefix match)
  * @param   {string} filterExpression - The filter expression (e.g., "analysisType=SNV", "enrichmentKitName^=TwistExome")
  * @returns {object}                  - An object containing field, operator, and value (e.g., { field: 'analysisType', operator: '=', value: 'SNV' })
  */
 function parseFilterExpression(filterExpression) {
-  const regex = /^(\w+)(~=|\^=|!=|[><=])(.+)$/;
+  const regex = /^(\w+)(~=|\^=|!=|>=|<=|[><=])(.+)$/;
   const match = filterExpression.match(regex);
   if (match) {
     return {
@@ -45,6 +47,10 @@ function applyFilter(analyses, filter) {
         return analysisValue > value;
       case '<':
         return analysisValue < value;
+      case '>=':
+        return analysisValue >= value;
+      case '<=':
+        return analysisValue <= value;
       case '~=':
         return String(analysisValue || '').includes(value);
       case '^=':

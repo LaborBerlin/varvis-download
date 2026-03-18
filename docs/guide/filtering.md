@@ -73,6 +73,8 @@ Filter expressions use the format: `field operator value`
 | `!=`     | Not equals                   | `analysisType!=CNV`             |
 | `>`      | Greater than (lexicographic) | `sampleId>LIMS-100`             |
 | `<`      | Less than (lexicographic)    | `sampleId<LIMS-200`             |
+| `>=`     | Greater than or equal        | `quality>=95`                   |
+| `<=`     | Less than or equal           | `quality<=98`                   |
 | `~=`     | Contains (substring match)   | `enrichmentKitName~=Twist`      |
 | `^=`     | Starts with (prefix match)   | `enrichmentKitName^=TwistExome` |
 

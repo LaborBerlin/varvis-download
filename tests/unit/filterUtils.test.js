@@ -42,6 +42,24 @@ describe('filterUtils', () => {
       expect(filter).toEqual({ field: 'score', operator: '<', value: '20' });
     });
 
+    test('should parse greater-than-or-equal operator correctly', () => {
+      const filter = parseFilterExpression('quality>=95');
+      expect(filter).toEqual({
+        field: 'quality',
+        operator: '>=',
+        value: '95',
+      });
+    });
+
+    test('should parse less-than-or-equal operator correctly', () => {
+      const filter = parseFilterExpression('quality<=98');
+      expect(filter).toEqual({
+        field: 'quality',
+        operator: '<=',
+        value: '98',
+      });
+    });
+
     test('should parse contains operator correctly', () => {
       const filter = parseFilterExpression('enrichmentKitName~=TwistExome');
       expect(filter).toEqual({
@@ -106,6 +124,20 @@ describe('filterUtils', () => {
       const filtered = applyFilter(analyses, filter);
       expect(filtered).toHaveLength(2);
       expect(filtered.map((a) => a.id)).toEqual([1, 3]);
+    });
+
+    test('should apply greater-than-or-equal filter correctly', () => {
+      const filter = { field: 'score', operator: '>=', value: '15' };
+      const filtered = applyFilter(analyses, filter);
+      expect(filtered).toHaveLength(3);
+      expect(filtered.map((a) => a.id)).toEqual([2, 3, 4]);
+    });
+
+    test('should apply less-than-or-equal filter correctly', () => {
+      const filter = { field: 'score', operator: '<=', value: '20' };
+      const filtered = applyFilter(analyses, filter);
+      expect(filtered).toHaveLength(3);
+      expect(filtered.map((a) => a.id)).toEqual([1, 2, 3]);
     });
 
     test('should use lexicographic comparison for > with strings', () => {
@@ -206,9 +238,9 @@ describe('filterUtils', () => {
     });
 
     test('should throw error for unsupported operator', () => {
-      const filter = { field: 'score', operator: '>=', value: '15' };
+      const filter = { field: 'score', operator: '%%', value: '15' };
       expect(() => applyFilter(analyses, filter)).toThrow(
-        'Unsupported operator: >=',
+        'Unsupported operator: %%',
       );
     });
   });
