@@ -167,11 +167,10 @@ Never commit `.env` files containing credentials to version control. Add `.env` 
 
 ### Supported Targets
 
-| Target        | Description           | URL Pattern                      |
-| ------------- | --------------------- | -------------------------------- |
-| `mytarget`    | Labor Berlin instance | `https://mytarget.varvis.com`    |
-| `uni-leipzig` | University of Leipzig | `https://uni-leipzig.varvis.com` |
-| `custom`      | Custom instance       | User-defined                     |
+| Target     | Description     | URL Pattern                   |
+| ---------- | --------------- | ----------------------------- |
+| `mytarget` | Named instance  | `https://mytarget.varvis.com` |
+| `custom`   | Custom instance | User-defined                  |
 
 ### Custom Target Setup
 

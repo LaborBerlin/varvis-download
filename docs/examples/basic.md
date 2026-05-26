@@ -261,11 +261,11 @@ For network troubleshooting:
 Process different Varvis instances:
 
 ```bash
-# Download from labor berlin
+# Download from primary target
 ./varvis-download.js -t mytarget -a "12345,67890" -d "./mytarget/"
 
-# Download from university leipzig
-./varvis-download.js -t uni-leipzig -a "11111,22222" -d "./uni-leipzig/"
+# Download from secondary target
+./varvis-download.js -t othertarget -a "11111,22222" -d "./othertarget/"
 ```
 
 ### Organized Directory Structure

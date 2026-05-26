@@ -223,17 +223,17 @@ Session tokens are:
 Authenticate with multiple Varvis instances:
 
 ```bash
-# Labor Berlin
-export VARVIS_LB_USER="lb_username"
-export VARVIS_LB_PASSWORD="lb_password"
+# Primary target
+export VARVIS_T1_USER="t1_username"
+export VARVIS_T1_PASSWORD="t1_password"
 
-# University Leipzig
-export VARVIS_UL_USER="ul_username"
-export VARVIS_UL_PASSWORD="ul_password"
+# Secondary target
+export VARVIS_T2_USER="t2_username"
+export VARVIS_T2_PASSWORD="t2_password"
 
 # Use with different targets
-./varvis-download.js -t mytarget -u "$VARVIS_LB_USER" -p "$VARVIS_LB_PASSWORD" -a 12345
-./varvis-download.js -t uni-leipzig -u "$VARVIS_UL_USER" -p "$VARVIS_UL_PASSWORD" -a 67890
+./varvis-download.js -t mytarget -u "$VARVIS_T1_USER" -p "$VARVIS_T1_PASSWORD" -a 12345
+./varvis-download.js -t othertarget -u "$VARVIS_T2_USER" -p "$VARVIS_T2_PASSWORD" -a 67890
 ```
 
 ### Configuration per Target
@@ -250,13 +250,13 @@ Create target-specific configurations:
 }
 ```
 
-**uni-leipzig.config.json:**
+**othertarget.config.json:**
 
 ```json
 {
-  "username": "ul_user",
-  "target": "uni-leipzig",
-  "destination": "./uni-leipzig-data"
+  "username": "other_user",
+  "target": "othertarget",
+  "destination": "./othertarget-data"
 }
 ```
 

@@ -489,7 +489,7 @@ echo "Log: $LOG"
 #!/bin/bash
 # multi_target_download.sh
 
-TARGETS=("mytarget" "uni-leipzig")
+TARGETS=("mytarget" "othertarget")
 ANALYSIS_ID="12345"
 
 for TARGET in "${TARGETS[@]}"; do

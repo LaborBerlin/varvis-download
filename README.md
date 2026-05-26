@@ -67,9 +67,9 @@ export VARVIS_PASSWORD="your_password"
 
 ### Required Parameters
 
-| Parameter  | Short | Description | Example                   |
-| ---------- | ----- | ----------- | ------------------------- |
-| `--target` | `-t`  | API target  | `mytarget`, `uni-leipzig` |
+| Parameter  | Short | Description | Example    |
+| ---------- | ----- | ----------- | ---------- |
+| `--target` | `-t`  | API target  | `mytarget` |
 
 **At least one of the following is required:**
 

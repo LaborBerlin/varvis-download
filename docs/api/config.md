@@ -22,7 +22,7 @@ Configuration files use JSON format with the following schema:
     "target": {
       "type": "string",
       "description": "API target instance",
-      "enum": ["mytarget", "uni-leipzig"]
+      "enum": ["mytarget"]
     },
     "analysisIds": {
       "type": "array",
