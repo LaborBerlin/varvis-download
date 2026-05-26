@@ -41,17 +41,16 @@ afterAll(() => {
 
 // Global cleanup for temporary test directories
 const fs = require('node:fs/promises');
+const os = require('node:os');
 const path = require('node:path');
 
 afterAll(async () => {
-  // Clean up .test-tmp directory after all tests
-  const testTmpDir = path.join(process.cwd(), '.test-tmp');
+  const testTmpDir = path.join(os.tmpdir(), 'varvis-download-tests');
   try {
     await fs.rm(testTmpDir, { recursive: true, force: true });
   } catch (error) {
-    // Ignore errors if directory doesn't exist
     if (error.code !== 'ENOENT') {
-      console.error('Failed to clean up .test-tmp directory:', error);
+      console.error('Failed to clean up test temp directory:', error);
     }
   }
 });

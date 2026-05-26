@@ -4,6 +4,8 @@
  */
 
 const fs = require('node:fs/promises');
+const fsSync = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 /**
@@ -11,14 +13,14 @@ const path = require('node:path');
  * Cleans up automatically after tests
  */
 class TestDirectory {
-  constructor(basePath = '.test-tmp') {
+  constructor(basePath = path.join(os.tmpdir(), 'varvis-download-tests')) {
     this.basePath = basePath;
     this.created = [];
   }
 
-  async create(name = `test-${Date.now()}`) {
-    const dir = path.join(this.basePath, name);
-    await fs.mkdir(dir, { recursive: true });
+  async create(name = 'test') {
+    fsSync.mkdirSync(this.basePath, { recursive: true });
+    const dir = fsSync.mkdtempSync(path.join(this.basePath, `${name}-`));
     this.created.push(dir);
     return dir;
   }
