@@ -8,7 +8,7 @@
     "url": "https://github.com/LaborBerlin/varvis-download.git"
   },
   "engines": {
-    "node": ">=22.0.0",
+    "node": ">=22.22.2",
     "npm": ">=10.0.0"
   },
   "main": "varvis-download.cjs",
