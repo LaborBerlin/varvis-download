@@ -56,6 +56,9 @@ jobs:
       - name: Type check JavaScript
         run: npm run type-check
 
+      - name: Architecture budget check
+        run: npm run architecture:check
+
       - name: Run tests with coverage
         run: npm test -- --coverage
 

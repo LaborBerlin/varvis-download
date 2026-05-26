@@ -76,6 +76,13 @@ export default [
       ],
       'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
       'no-useless-escape': 'warn',
+      // Architecture budget: in-editor signal before the script blocks in CI.
+      // Authoritative gate is scripts/check-architecture-budget.mjs (warns at
+      // 500, blocks new files at 600). This ESLint rule mirrors the warn band.
+      'max-lines': [
+        'warn',
+        { max: 500, skipBlankLines: true, skipComments: true },
+      ],
     },
   },
 

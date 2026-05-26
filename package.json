@@ -20,6 +20,8 @@
     "lint:fix": "eslint . --fix",
     "type-check": "tsc --noEmit",
     "type-check:watch": "tsc --noEmit --watch",
+    "architecture:check": "node scripts/check-architecture-budget.mjs",
+    "check": "npm run lint && npx prettier --check . && npm run type-check && npm test && npm run architecture:check",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",

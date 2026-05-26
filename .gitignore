@@ -63,7 +63,6 @@ awaiting-restoration.json
 
 # claude files and folder
 .claude/
-CLAUDE.md
 
 # VitePress build files
 docs/.vitepress/dist/
