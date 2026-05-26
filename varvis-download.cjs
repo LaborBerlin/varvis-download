@@ -6,6 +6,7 @@ require('dotenv').config({ quiet: true });
 const { CookieJar } = require('tough-cookie');
 const { cookie } = require('http-cookie-agent/undici');
 const yargs = require('yargs');
+const { hideBin } = require('yargs/helpers');
 const fs = require('node:fs');
 const path = require('node:path');
 const readline = require('node:readline');
@@ -63,7 +64,7 @@ const {
 // Command line arguments setup
 /** @type {any} */
 let argv;
-argv = yargs
+argv = yargs(hideBin(process.argv))
   .usage('$0 <command> [args]')
   .version(false)
   .option('config', {

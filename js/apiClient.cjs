@@ -26,10 +26,10 @@ class ApiClient {
 
   /**
    * Retries a fetch operation with a specified number of attempts.
-   * @param   {string}            url     - The URL to fetch.
-   * @param   {object}            options - The fetch options.
-   * @param   {number}            retries - The number of retry attempts.
-   * @returns {Promise<Response>}         - The fetch response.
+   * @param   {string}                             url     - The URL to fetch.
+   * @param   {object}                             options - The fetch options.
+   * @param   {number}                             retries - The number of retry attempts.
+   * @returns {Promise<import('undici').Response>}         - The fetch response.
    */
   async fetchWithRetry(url, options, retries = 3) {
     for (let attempt = 1; attempt <= retries; attempt++) {
