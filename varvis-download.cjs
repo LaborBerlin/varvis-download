@@ -19,17 +19,10 @@ const {
   repository,
 } = require('./package.json');
 
-const {
-  loadConfig,
-  loadLogo,
-  getLastModifiedDate,
-} = require('./js/configUtils.cjs');
+const { loadLogo, getLastModifiedDate } = require('./js/configUtils.cjs');
 const { buildParser } = require('./js/cli/args.cjs');
-const {
-  normalizeArrayInput,
-  normalizeFiletypes,
-  normalizeStringOption,
-} = require('./js/arrayUtils.cjs');
+const { mergeFromArgv } = require('./js/cli/configMerge.cjs');
+const { ConfigurationError } = require('./js/errors.cjs');
 const createLogger = require('./js/logger.cjs');
 const AuthService = require('./js/authService.cjs');
 const {
@@ -82,97 +75,36 @@ if (argv.version) {
   process.exit(0);
 }
 
-// Load configuration file settings
-// Normalize config path in case the option was specified multiple times
-const configFilePath = path.resolve(
-  normalizeStringOption(argv.config) || '.config.json',
-);
-const config = loadConfig(configFilePath);
-
-// Merge command line arguments with configuration file settings
-// Normalize string options that may be arrays due to duplicate CLI arguments
-/** @type {string[]} */
-const rawFilters = argv.filter || config.filter || [];
-const normalizedDestination = normalizeStringOption(argv.destination);
-const normalizedRestorationFile = normalizeStringOption(argv.restorationFile);
-const normalizedUrlFile = normalizeStringOption(argv.urlFile);
-const normalizedRange = normalizeStringOption(argv.range);
-const normalizedBed = normalizeStringOption(argv.bed);
-
-const finalConfig = {
-  ...config,
-  ...argv,
-  filetypes: normalizeFiletypes(argv.filetypes, config.filetypes),
-  analysisIds: normalizeArrayInput(argv.analysisIds, config.analysisIds, []),
-  sampleIds: normalizeArrayInput(argv.sampleIds, config.sampleIds, []),
-  limsIds: normalizeArrayInput(argv.limsIds, config.limsIds, []),
-  filters: rawFilters.map((filter) => filter.trim()),
-  destination:
-    normalizedDestination !== '.'
-      ? normalizedDestination
-      : config.destination || '.',
-  restoreArchived: argv.restoreArchived || config.restoreArchived || 'ask',
-  restorationFile:
-    normalizedRestorationFile ||
-    config.restorationFile ||
-    'awaiting-restoration.json',
-  resumeArchivedDownloads:
-    argv.resumeArchivedDownloads || config.resumeArchivedDownloads || false,
-  listUrls: argv.listUrls || config.listUrls || false,
-  urlFile: normalizedUrlFile || config.urlFile || null,
-  range: normalizedRange || config.range || null,
-  bed: normalizedBed || config.bed || null,
-  unmapped: argv.unmapped ?? config.unmapped ?? false,
-  latest: argv.latest ?? config.latest ?? false,
-};
-
-// Validate the final configuration
-const requiredFields = ['username', 'password', 'target'];
-for (const field of requiredFields) {
-  if (!finalConfig[field]) {
-    logger.error(`Error: Missing required argument --${field}`);
-    process.exit(1);
+/** @type {import('./js/types').FinalConfig} */
+let finalConfig;
+try {
+  finalConfig = mergeFromArgv(argv, process.env);
+} catch (error) {
+  if (error instanceof ConfigurationError) {
+    logger.error(`Error: ${error.message}`);
+    process.exit(error.exitCode || 1);
   }
+  throw error;
 }
 
-// Disallow --unmapped with --bed (BED files can have thousands of regions, exceeding OS arg limits)
-if (finalConfig.unmapped && finalConfig.bed) {
-  logger.error(
-    'Error: --unmapped cannot be combined with --bed. Use --unmapped with --range (-g) instead, or use --unmapped alone.',
-  );
-  process.exit(1);
-}
-
-// Ensure at least one of analysisIds, sampleIds, limsIds is provided unless resumeArchivedDownloads is set.
-if (
-  finalConfig.analysisIds.length === 0 &&
-  finalConfig.sampleIds.length === 0 &&
-  finalConfig.limsIds.length === 0 &&
-  !finalConfig.resumeArchivedDownloads
-) {
-  logger.error(
-    'Error: You must provide at least one of the following options: analysisIds (-a), sampleIds (-s), limsIds (-l), or set --resumeArchivedDownloads (rad) to process archived downloads.',
-  );
-  process.exit(1);
-}
-
-// Extract the final configuration values with environment variable priority
-const target = finalConfig.target;
-const userName = process.env.VARVIS_USER || finalConfig.username;
-const password = process.env.VARVIS_PASSWORD || finalConfig.password;
-const analysisIds = finalConfig.analysisIds;
-const sampleIds = finalConfig.sampleIds;
-const limsIds = finalConfig.limsIds;
-const destination = finalConfig.destination;
-const proxy = finalConfig.proxy;
-const proxyUsername = finalConfig.proxyUsername;
-const proxyPassword = finalConfig.proxyPassword;
-const overwrite = finalConfig.overwrite;
-const filetypes = finalConfig.filetypes;
-const reportfile = finalConfig.reportfile;
-const filters = finalConfig.filters;
-const restoreArchived = finalConfig.restoreArchived;
-const restorationFile = finalConfig.restorationFile;
+const {
+  target,
+  password,
+  analysisIds,
+  sampleIds,
+  limsIds,
+  destination,
+  proxy,
+  proxyUsername,
+  proxyPassword,
+  overwrite,
+  filetypes,
+  reportfile,
+  filters,
+  restoreArchived,
+  restorationFile,
+} = finalConfig;
+const userName = finalConfig.username;
 
 // Setup HTTP agent for proxy and cookie handling
 const jar = new CookieJar();
@@ -190,11 +122,32 @@ const agent = proxy
 // Initialize AuthService instance
 const authService = new AuthService(logger, agent);
 
-// Initialize readline interface for user prompts
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
+/** @type {readline.Interface|null} */
+let rl = null;
+
+/**
+ * Lazily creates the shared prompt interface for non-password prompts.
+ * @returns {readline.Interface} - The shared prompt interface.
+ */
+function getPromptInterface() {
+  if (!rl) {
+    rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+  }
+  return rl;
+}
+
+/**
+ * Closes the shared prompt interface if it was created.
+ */
+function closePromptInterface() {
+  if (rl) {
+    rl.close();
+    rl = null;
+  }
+}
 
 /**
  * Handles the output of download URLs, printing to console and/or writing to a file.
@@ -224,6 +177,48 @@ function handleUrlListing(urls, filePath, logger) {
       );
     }
   }
+}
+
+/**
+ * Returns an existing password or prompts interactively when possible.
+ * @param   {string|undefined} currentPassword - Password from config sources.
+ * @returns {Promise<string>}                  - Resolved password.
+ */
+async function resolvePassword(currentPassword) {
+  if (currentPassword) {
+    return currentPassword;
+  }
+
+  if (!process.stdin.isTTY) {
+    throw new ConfigurationError(
+      'Missing required argument --password (or set VARVIS_PASSWORD)',
+    );
+  }
+
+  const promptText = 'Please enter your Varvis password: ';
+  process.stdout.write(promptText);
+
+  const mute = new Mute();
+  mute.pipe(process.stdout);
+  mute.mute();
+  const rlWithMute = readline.createInterface({
+    input: process.stdin,
+    output: mute,
+    terminal: true,
+  });
+
+  /** @type {Promise<string>} */
+  const passwordPrompt = new Promise((resolve) => {
+    rlWithMute.question('', (input) => {
+      resolve(input);
+      rlWithMute.close();
+      mute.unmute();
+      mute.end();
+      // Print a newline since muted input doesn't show one
+      process.stdout.write('\n');
+    });
+  });
+  return passwordPrompt;
 }
 
 // Main function to orchestrate the login and download process
@@ -315,27 +310,7 @@ async function main() {
   if (finalConfig.resumeArchivedDownloads) {
     logger.info('Starting in archive resumption mode.');
 
-    // Interactive password prompt if password is not available
-    let finalPassword = password;
-    if (!finalPassword) {
-      const mute = new Mute();
-      mute.pipe(process.stdout);
-      const rlWithMute = readline.createInterface({
-        input: process.stdin,
-        output: mute,
-        terminal: true,
-      });
-
-      finalPassword = await new Promise((resolve) => {
-        rlWithMute.question('Please enter your Varvis password: ', (input) => {
-          resolve(input);
-          rlWithMute.close();
-          mute.end();
-          // Print a newline since muted input doesn't show one
-          process.stdout.write('\n');
-        });
-      });
-    }
+    const finalPassword = await resolvePassword(password);
 
     // Authenticate before resuming downloads
     await authService.login(
@@ -367,27 +342,7 @@ async function main() {
       fs.mkdirSync(destination, { recursive: true });
     }
 
-    // Interactive password prompt if password is not available
-    let finalPassword = password;
-    if (!finalPassword) {
-      const mute = new Mute();
-      mute.pipe(process.stdout);
-      const rlWithMute = readline.createInterface({
-        input: process.stdin,
-        output: mute,
-        terminal: true,
-      });
-
-      finalPassword = await new Promise((resolve) => {
-        rlWithMute.question('Please enter your Varvis password: ', (input) => {
-          resolve(input);
-          rlWithMute.close();
-          mute.end();
-          // Print a newline since muted input doesn't show one
-          process.stdout.write('\n');
-        });
-      });
-    }
+    const finalPassword = await resolvePassword(password);
 
     logger.debug('Attempting to log in');
     await authService.login(
@@ -569,7 +524,7 @@ async function main() {
         agent,
         logger,
         restoreArchived,
-        rl,
+        getPromptInterface(),
         restorationFile,
         optionsForRestoration,
       );
@@ -638,7 +593,7 @@ async function main() {
               indexFileUrl,
               indexFilePath,
               agent,
-              rl,
+              getPromptInterface(),
               logger,
               metrics,
               overwrite,
@@ -709,7 +664,7 @@ async function main() {
                 outputFile,
                 overwrite,
                 agent,
-                rl,
+                getPromptInterface(),
                 logger,
                 metrics,
               );
@@ -723,7 +678,7 @@ async function main() {
                     indexFilePath,
                     overwrite,
                     agent,
-                    rl,
+                    getPromptInterface(),
                     logger,
                     metrics,
                   );
@@ -783,7 +738,7 @@ async function main() {
               indexFileUrl,
               indexFilePath,
               agent,
-              rl,
+              getPromptInterface(),
               logger,
               metrics,
               overwrite,
@@ -827,7 +782,7 @@ async function main() {
                 outputFile,
                 overwrite,
                 agent,
-                rl,
+                getPromptInterface(),
                 logger,
                 metrics,
               );
@@ -841,7 +796,7 @@ async function main() {
                     indexFilePath,
                     overwrite,
                     agent,
-                    rl,
+                    getPromptInterface(),
                     logger,
                     metrics,
                   );
@@ -886,23 +841,23 @@ async function main() {
     // Exit successfully
     process.exit(0);
   } catch (error) {
-    logger.error('An error occurred:', getErrorMessage(error));
+    logger.error(`An error occurred: ${getErrorMessage(error)}`);
     const stack = getErrorStack(error);
     if (stack) {
       logger.debug(stack);
     }
     process.exit(1);
   } finally {
-    rl.close();
+    closePromptInterface();
   }
 }
 
 main().catch((error) => {
-  logger.error('An unexpected error occurred:', getErrorMessage(error));
+  logger.error(`An unexpected error occurred: ${getErrorMessage(error)}`);
   const stack = getErrorStack(error);
   if (stack) {
     logger.debug(stack);
   }
-  rl.close();
+  closePromptInterface();
   process.exit(1);
 });

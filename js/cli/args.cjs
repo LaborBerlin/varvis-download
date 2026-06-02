@@ -4,6 +4,105 @@ const nativeRequire = createRequire(__filename);
 /** @type {typeof import('yargs')} */
 const yargs = nativeRequire('yargs');
 
+const EXPLICIT_OPTIONS_KEY = '__varvisExplicitOptions';
+
+/** @type {Record<string, string>} */
+const OPTION_ALIASES = {
+  'analysis-ids': 'analysisIds',
+  a: 'analysisIds',
+  analysisIds: 'analysisIds',
+  bed: 'bed',
+  b: 'bed',
+  c: 'config',
+  config: 'config',
+  d: 'destination',
+  destination: 'destination',
+  f: 'filetypes',
+  filetypes: 'filetypes',
+  F: 'filter',
+  filter: 'filter',
+  g: 'range',
+  h: 'help',
+  help: 'help',
+  l: 'limsIds',
+  limsIds: 'limsIds',
+  'lims-ids': 'limsIds',
+  list: 'list',
+  L: 'list',
+  latest: 'latest',
+  lf: 'logfile',
+  logfile: 'logfile',
+  ll: 'loglevel',
+  loglevel: 'loglevel',
+  o: 'overwrite',
+  overwrite: 'overwrite',
+  p: 'password',
+  password: 'password',
+  proxy: 'proxy',
+  pxp: 'proxyPassword',
+  proxyPassword: 'proxyPassword',
+  'proxy-password': 'proxyPassword',
+  pxu: 'proxyUsername',
+  proxyUsername: 'proxyUsername',
+  'proxy-username': 'proxyUsername',
+  r: 'reportfile',
+  reportfile: 'reportfile',
+  ra: 'restoreArchived',
+  restoreArchived: 'restoreArchived',
+  'restore-archived': 'restoreArchived',
+  rad: 'resumeArchivedDownloads',
+  resumeArchivedDownloads: 'resumeArchivedDownloads',
+  'resume-archived-downloads': 'resumeArchivedDownloads',
+  range: 'range',
+  restorationFile: 'restorationFile',
+  'restoration-file': 'restorationFile',
+  rf: 'restorationFile',
+  s: 'sampleIds',
+  sampleIds: 'sampleIds',
+  'sample-ids': 'sampleIds',
+  t: 'target',
+  target: 'target',
+  u: 'username',
+  username: 'username',
+  U: 'listUrls',
+  'list-urls': 'listUrls',
+  listUrls: 'listUrls',
+  um: 'unmapped',
+  unmapped: 'unmapped',
+  'url-file': 'urlFile',
+  urlFile: 'urlFile',
+  v: 'version',
+  version: 'version',
+  x: 'proxy',
+};
+
+/**
+ * Records which options were explicitly supplied before yargs applies defaults.
+ * @param   {string[]} argv - Raw argument tokens.
+ * @returns {string[]}      - Canonical option names supplied by the user.
+ */
+function collectExplicitOptions(argv) {
+  const explicitOptions = new Set();
+
+  for (const token of argv) {
+    if (token.length === 2 && token.startsWith('--')) {
+      break;
+    }
+    if (!token.startsWith('-') || token === '-') {
+      continue;
+    }
+
+    const optionToken = token.startsWith('--')
+      ? token.slice(2)
+      : token.slice(1);
+    const optionName = optionToken.replace(/^no-/, '').split('=')[0];
+    const canonicalName = OPTION_ALIASES[optionName] || optionName;
+    explicitOptions.add(canonicalName);
+  }
+
+  return [...explicitOptions];
+}
+
 /**
  * Builds the yargs parser for the varvis-download CLI.
  *
@@ -11,7 +110,15 @@ const yargs = nativeRequire('yargs');
  * @returns {import('yargs').Argv}      - Configured yargs parser.
  */
 function buildParser(argv) {
+  const explicitOptions = collectExplicitOptions(argv);
+
   return yargs(argv)
+    .middleware((parsedArgv) => {
+      Object.defineProperty(parsedArgv, EXPLICIT_OPTIONS_KEY, {
+        enumerable: false,
+        value: explicitOptions,
+      });
+    })
     .usage('$0 <command> [args]')
     .version(false)
     .option('config', {

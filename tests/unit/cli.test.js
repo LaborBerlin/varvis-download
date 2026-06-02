@@ -40,15 +40,19 @@ describe('CLI (varvis-download.cjs)', () => {
     });
 
     test('should exit with error when password is missing', () => {
+      let cliError;
       try {
         execSync(
           `node ${cliPath} --username test --target testenv --analysisIds AN001`,
           { encoding: 'utf8', stdio: 'pipe' },
         );
       } catch (error) {
-        expect(error.status).toBe(1);
-        expect(error.stderr || error.stdout).toContain('password');
+        cliError = error;
       }
+
+      expect(cliError).toBeDefined();
+      expect(cliError.status).toBe(1);
+      expect(cliError.stderr || cliError.stdout).toContain('password');
     });
 
     test('should exit with error when target is missing', () => {
