@@ -1,0 +1,18 @@
+{
+  "missing_target": 1,
+  "unmapped_with_bed": 1,
+  "no_ids": 1,
+  "help": 0,
+  "version": 0,
+  "list_success": 0,
+  "list_urls_success": 0,
+  "download_success": 0,
+  "resume_success": 0,
+  "per_file_body_failure_one": 0,
+  "all_files_body_failure": 0,
+  "url_refresh_failure": 1,
+  "ensure_index_failure": 1,
+  "get_download_links_failure": 1,
+  "auth_failure": 1,
+  "unhandled_exception": 1
+}

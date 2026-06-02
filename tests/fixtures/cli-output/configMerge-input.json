@@ -1,0 +1,13 @@
+{
+  "argv": [
+    "--target=playground",
+    "--username=alice",
+    "--password=secret",
+    "--analysisIds=123,456",
+    "--filetypes=bam,bam.bai"
+  ],
+  "configFile": {
+    "destination": "/tmp/downloads",
+    "filters": ["analysisType=SNV"]
+  }
+}
