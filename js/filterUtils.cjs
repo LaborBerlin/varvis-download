@@ -11,8 +11,8 @@
  * <=  less than or equal (lexicographic)
  * ~=  contains (substring match)
  * ^=  starts with (prefix match)
- * @param   {string} filterExpression - The filter expression (e.g., "analysisType=SNV", "enrichmentKitName^=TwistExome")
- * @returns {object}                  - An object containing field, operator, and value (e.g., { field: 'analysisType', operator: '=', value: 'SNV' })
+ * @param   {string}                         filterExpression - The filter expression (e.g., "analysisType=SNV", "enrichmentKitName^=TwistExome")
+ * @returns {import('./types').ParsedFilter}                  - An object containing field, operator, and value (e.g., { field: 'analysisType', operator: '=', value: 'SNV' })
  */
 function parseFilterExpression(filterExpression) {
   const regex = /^(\w+)(~=|\^=|!=|>=|<=|[><=])(.+)$/;
@@ -20,7 +20,9 @@ function parseFilterExpression(filterExpression) {
   if (match) {
     return {
       field: match[1],
-      operator: match[2],
+      operator: /** @type {import('./types').ParsedFilter['operator']} */ (
+        match[2]
+      ),
       value: match[3].trim(),
     };
   }
@@ -29,9 +31,9 @@ function parseFilterExpression(filterExpression) {
 
 /**
  * Applies a single filter to a list of analyses.
- * @param   {Array}  analyses - List of analyses returned by the API.
- * @param   {object} filter   - Parsed filter object (e.g., { field: 'analysisType', operator: '=', value: 'SNV' })
- * @returns {Array}           - Filtered list of analyses.
+ * @param   {import('./types').Analysis[]}   analyses - List of analyses returned by the API.
+ * @param   {import('./types').ParsedFilter} filter   - Parsed filter object (e.g., { field: 'analysisType', operator: '=', value: 'SNV' })
+ * @returns {import('./types').Analysis[]}            - Filtered list of analyses.
  */
 function applyFilter(analyses, filter) {
   const { field, operator, value } = filter;
@@ -63,9 +65,9 @@ function applyFilter(analyses, filter) {
 
 /**
  * Applies multiple filters to a list of analyses sequentially (AND logic).
- * @param   {Array} analyses          - List of analyses returned by the API.
- * @param   {Array} filterExpressions - Array of filter expressions (e.g., ['analysisType=SNV', 'enrichmentKitName^=TwistExome'])
- * @returns {Array}                   - Filtered list of analyses.
+ * @param   {import('./types').Analysis[]} analyses          - List of analyses returned by the API.
+ * @param   {string[]}                     filterExpressions - Array of filter expressions (e.g., ['analysisType=SNV', 'enrichmentKitName^=TwistExome'])
+ * @returns {import('./types').Analysis[]}                   - Filtered list of analyses.
  */
 function applyFilters(analyses, filterExpressions) {
   let filteredAnalyses = analyses;
@@ -82,9 +84,9 @@ function applyFilters(analyses, filterExpressions) {
  * Deduplicates analyses by keeping only the one with the highest analysis ID
  * per unique personLimsId. This ensures only the newest/latest analysis per
  * sample is retained (e.g., when a sample has both original and repeat sequencing).
- * @param   {Array}  analyses - List of analyses (must have id and personLimsId fields).
- * @param   {object} logger   - The logger instance.
- * @returns {Array}           - Deduplicated list with one analysis per personLimsId.
+ * @param   {import('./types').Analysis[]} analyses - List of analyses (must have id and personLimsId fields).
+ * @param   {import('winston').Logger}     logger   - The logger instance.
+ * @returns {import('./types').Analysis[]}          - Deduplicated list with one analysis per personLimsId.
  */
 function deduplicateByLatest(analyses, logger) {
   const byLims = new Map();

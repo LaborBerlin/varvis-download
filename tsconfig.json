@@ -23,7 +23,7 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true
   },
-  "include": ["js/**/*.cjs", "*.cjs"],
+  "include": ["js/**/*.cjs", "*.cjs", "js/**/*.d.ts"],
   "exclude": [
     "node_modules",
     "tests",

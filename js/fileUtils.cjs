@@ -5,10 +5,10 @@ const { fetchWithRetry } = require('./apiClient.cjs');
 
 /**
  * Prompts the user to confirm file overwrite if the file already exists.
- * @param   {string}                   file    - The file path.
- * @param   {object}                   rl      - The readline interface instance.
- * @param   {import('winston').Logger} _logger - The logger instance (unused).
- * @returns {Promise<boolean>}                 - True if the user confirms overwrite, otherwise false.
+ * @param   {string}                            file    - The file path.
+ * @param   {import('node:readline').Interface} rl      - The readline interface instance.
+ * @param   {import('winston').Logger}          _logger - The logger instance (unused).
+ * @returns {Promise<boolean>}                          - True if the user confirms overwrite, otherwise false.
  */
 async function confirmOverwrite(file, rl, _logger) {
   return new Promise((resolve) => {
@@ -20,13 +20,13 @@ async function confirmOverwrite(file, rl, _logger) {
 
 /**
  * Downloads a file from the given URL to the specified output path with progress reporting.
- * @param   {string}        url        - The URL of the file to download.
- * @param   {string}        outputPath - The path where the file should be saved.
- * @param   {boolean}       overwrite  - Flag indicating whether to overwrite existing files.
- * @param   {object}        agent      - The HTTP agent instance.
- * @param   {object}        rl         - The readline interface instance.
- * @param   {object}        logger     - The logger instance.
- * @param   {object}        metrics    - The metrics object for tracking download stats.
+ * @param   {string}                                 url        - The URL of the file to download.
+ * @param   {string}                                 outputPath - The path where the file should be saved.
+ * @param   {boolean}                                overwrite  - Flag indicating whether to overwrite existing files.
+ * @param   {import('./types').HttpDispatcher}       agent      - The HTTP agent instance.
+ * @param   {import('node:readline').Interface|null} rl         - The readline interface instance.
+ * @param   {import('winston').Logger}               logger     - The logger instance.
+ * @param   {import('./types').Metrics}              metrics    - The metrics object for tracking download stats.
  * @returns {Promise<void>}
  */
 async function downloadFile(

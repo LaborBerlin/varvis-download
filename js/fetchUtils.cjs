@@ -3,6 +3,7 @@ const { applyFilters, deduplicateByLatest } = require('./filterUtils.cjs');
 const { triggerRestoreArchivedFile } = require('./archiveUtils.cjs');
 const { fetchWithRetry } = require('./apiClient.cjs');
 
+/** @type {import('./types').Metrics} */
 const metrics = {
   startTime: Date.now(),
   totalFilesDownloaded: 0,
@@ -12,14 +13,15 @@ const metrics = {
 };
 
 // Global variable to store the decision for "all" option.
+/** @type {boolean|undefined} */
 let allDecisionForArchived;
 
 /**
  * Prompts the user to confirm restoration of an archived file.
- * @param   {object}                   file    - The archived file object.
- * @param   {object}                   rl      - The readline interface instance.
- * @param   {import('winston').Logger} _logger - The logger instance (unused).
- * @returns {Promise<boolean>}                 - Resolves to true if the user confirms, otherwise false.
+ * @param   {import('./types').AnalysisFile}    file    - The archived file object.
+ * @param   {import('node:readline').Interface} rl      - The readline interface instance.
+ * @param   {import('winston').Logger}          _logger - The logger instance (unused).
+ * @returns {Promise<boolean>}                          - Resolves to true if the user confirms, otherwise false.
  */
 async function confirmRestore(file, rl, _logger) {
   return new Promise((resolve) => {
@@ -34,15 +36,15 @@ async function confirmRestore(file, rl, _logger) {
 
 /**
  * Fetches analysis IDs based on sample IDs or LIMS IDs.
- * @param   {string}            target    - The target for the Varvis API.
- * @param   {string}            token     - The CSRF token for authentication.
- * @param   {object}            agent     - The HTTP agent instance.
- * @param   {Array<string>}     sampleIds - The sample IDs to filter analyses.
- * @param   {Array<string>}     limsIds   - The LIMS IDs to filter analyses.
- * @param   {Array<string>}     filters   - An array of custom filters to apply.
- * @param   {object}            logger    - The logger instance.
- * @param   {boolean}           latest    - If true, keep only the newest analysis per personLimsId.
- * @returns {Promise<string[]>}           - An array of analysis IDs.
+ * @param   {string}                           target    - The target for the Varvis API.
+ * @param   {string}                           token     - The CSRF token for authentication.
+ * @param   {import('./types').HttpDispatcher} agent     - The HTTP agent instance.
+ * @param   {string[]}                         sampleIds - The sample IDs to filter analyses.
+ * @param   {string[]}                         limsIds   - The LIMS IDs to filter analyses.
+ * @param   {string[]}                         filters   - An array of custom filters to apply.
+ * @param   {import('winston').Logger}         logger    - The logger instance.
+ * @param   {boolean}                          latest    - If true, keep only the newest analysis per personLimsId.
+ * @returns {Promise<string[]>}                          - An array of analysis IDs.
  */
 async function fetchAnalysisIds(
   target,
@@ -67,9 +69,10 @@ async function fetchAnalysisIds(
       logger,
     );
 
-    /** @type {any} */
-    let analyses = await response.json();
-    analyses = analyses.response;
+    const data = /** @type {{ response: import('./types').Analysis[] }} */ (
+      await response.json()
+    );
+    let analyses = data.response;
 
     // Filter out analyses of type "CNV"
     let filteredAnalyses = analyses.filter(
@@ -117,22 +120,22 @@ async function fetchAnalysisIds(
 
 /**
  * Fetches the download links for specified file types from the Varvis API for a given analysis ID.
- * @param   {string}          analysisId              - The analysis ID to get download links for.
- * @param   {Array<string>}   filter                  - An optional array of file types to filter by.
- * @param   {string}          target                  - The Varvis API target.
- * @param   {string}          token                   - The CSRF token for authentication.
- * @param   {object}          agent                   - The HTTP agent instance.
- * @param   {object}          logger                  - The logger instance.
- * @param   {string}          [restoreArchived="ask"] - Restoration mode for archived files.
- *                                                    Accepts:
- *                                                    - "no": skip restoration,
- *                                                    - "ask": prompt for each file,
- *                                                    - "all": ask once for all files,
- *                                                    - "force": restore automatically.
- * @param   {object}          [rl]                    - The readline interface instance for prompting.
- * @param   {string}          [restorationFile]       - Path to the restoration file.
- * @param   {object}          [options]               - Options object for restoration context.
- * @returns {Promise<object>}                         - An object containing the download links for the specified file types.
+ * @param   {string}                                             analysisId              - The analysis ID to get download links for.
+ * @param   {string[]|null}                                      filter                  - An optional array of file types to filter by.
+ * @param   {string}                                             target                  - The Varvis API target.
+ * @param   {string}                                             token                   - The CSRF token for authentication.
+ * @param   {import('./types').HttpDispatcher}                   agent                   - The HTTP agent instance.
+ * @param   {import('winston').Logger}                           logger                  - The logger instance.
+ * @param   {import('./types').RestoreMode}                      [restoreArchived="ask"] - Restoration mode for archived files.
+ *                                                                                       Accepts:
+ *                                                                                       - "no": skip restoration,
+ *                                                                                       - "ask": prompt for each file,
+ *                                                                                       - "all": ask once for all files,
+ *                                                                                       - "force": restore automatically.
+ * @param   {import('node:readline').Interface|null}             [rl]                    - The readline interface instance for prompting.
+ * @param   {string|null}                                        [restorationFile]       - Path to the restoration file.
+ * @param   {Partial<import('./types').RestorationOptions>|null} [options]               - Options object for restoration context.
+ * @returns {Promise<import('./types').FileDict>}                                        - An object containing the download links for the specified file types.
  */
 async function getDownloadLinks(
   analysisId,
@@ -158,10 +161,13 @@ async function getDownloadLinks(
       3,
       logger,
     );
-    /** @type {any} */
-    const data = await response.json();
+    const data =
+      /** @type {{ response: { apiFileLinks: import('./types').AnalysisFile[] } }} */ (
+        await response.json()
+      );
     const apiFileLinks = data.response.apiFileLinks;
 
+    /** @type {import('./types').FileDict} */
     const fileDict = {};
     for (const file of apiFileLinks) {
       // If the file is a BAM and is archived, handle restoration logic.
@@ -285,11 +291,11 @@ async function getDownloadLinks(
 
 /**
  * Lists available files for the specified analysis IDs without triggering any restoration logic.
- * @param   {string}        analysisId - The analysis ID to list files for.
- * @param   {string}        target     - The target for the Varvis API.
- * @param   {string}        token      - The CSRF token for authentication.
- * @param   {object}        agent      - The HTTP agent instance.
- * @param   {object}        logger     - The logger instance.
+ * @param   {string}                           analysisId - The analysis ID to list files for.
+ * @param   {string}                           target     - The target for the Varvis API.
+ * @param   {string}                           token      - The CSRF token for authentication.
+ * @param   {import('./types').HttpDispatcher} agent      - The HTTP agent instance.
+ * @param   {import('winston').Logger}         logger     - The logger instance.
  * @returns {Promise<void>}
  */
 async function listAvailableFiles(analysisId, target, token, agent, logger) {
@@ -318,8 +324,8 @@ async function listAvailableFiles(analysisId, target, token, agent, logger) {
 
 /**
  * Generates a summary report of the download process.
- * @param {string} reportfile - The path to the report file.
- * @param {object} logger     - The logger instance.
+ * @param {string|undefined}         reportfile - The path to the report file.
+ * @param {import('winston').Logger} logger     - The logger instance.
  */
 function generateReport(reportfile, logger) {
   const totalTime = (Date.now() - metrics.startTime) / 1000; // in seconds
@@ -355,12 +361,12 @@ function generateReport(reportfile, logger) {
  * This is a lightweight version of getDownloadLinks that only fetches fresh URLs
  * without the archive restoration logic. Used when existing URLs are expiring.
  *
- * @param   {string}                   analysisId - The analysis ID to fetch URLs for.
- * @param   {string}                   target     - The target for the Varvis API.
- * @param   {string}                   token      - The CSRF token for authentication.
- * @param   {object}                   agent      - The HTTP agent instance.
- * @param   {import('winston').Logger} logger     - The logger instance.
- * @returns {Promise<object>}                     - An object mapping filenames to their download info.
+ * @param   {string}                              analysisId - The analysis ID to fetch URLs for.
+ * @param   {string}                              target     - The target for the Varvis API.
+ * @param   {string}                              token      - The CSRF token for authentication.
+ * @param   {import('./types').HttpDispatcher}    agent      - The HTTP agent instance.
+ * @param   {import('winston').Logger}            logger     - The logger instance.
+ * @returns {Promise<import('./types').FileDict>}            - An object mapping filenames to their download info.
  */
 async function refreshDownloadUrls(analysisId, target, token, agent, logger) {
   try {
@@ -375,10 +381,13 @@ async function refreshDownloadUrls(analysisId, target, token, agent, logger) {
       3,
       logger,
     );
-    /** @type {any} */
-    const data = await response.json();
+    const data =
+      /** @type {{ response: { apiFileLinks: import('./types').AnalysisFile[] } }} */ (
+        await response.json()
+      );
     const apiFileLinks = data.response.apiFileLinks;
 
+    /** @type {import('./types').FileDict} */
     const fileDict = {};
     for (const file of apiFileLinks) {
       // Skip archived files - they don't have valid download URLs

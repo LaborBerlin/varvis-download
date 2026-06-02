@@ -8,14 +8,14 @@ const {
 
 /**
  * Triggers restoration for an archived analysis file using the internal restore endpoint.
- * @param   {string}        analysisId                                    - The analysis ID of the archived file.
- * @param   {object}        file                                          - The file object from the API response (should include fileName).
- * @param   {string}        target                                        - The target for the Varvis API.
- * @param   {string}        token                                         - The CSRF token for authentication.
- * @param   {object}        agent                                         - The HTTP agent instance.
- * @param   {object}        logger                                        - The logger instance.
- * @param   {string}        [restorationFile="awaiting-restoration.json"] - Optional path/name for the awaiting restoration JSON file.
- * @param   {object}        [options={}]                                  - Options object for restoration context.
+ * @param   {string}                                        analysisId                                    - The analysis ID of the archived file.
+ * @param   {import('./types').AnalysisFile}                file                                          - The file object from the API response (should include fileName).
+ * @param   {string}                                        target                                        - The target for the Varvis API.
+ * @param   {string}                                        token                                         - The CSRF token for authentication.
+ * @param   {import('./types').HttpDispatcher}              agent                                         - The HTTP agent instance.
+ * @param   {import('winston').Logger}                      logger                                        - The logger instance.
+ * @param   {string|null}                                   [restorationFile="awaiting-restoration.json"] - Optional path/name for the awaiting restoration JSON file.
+ * @param   {Partial<import('./types').RestorationOptions>} [options={}]                                  - Options object for restoration context.
  * @returns {Promise<void>}
  */
 async function triggerRestoreArchivedFile(
@@ -89,13 +89,13 @@ async function triggerRestoreArchivedFile(
  * Resumes downloads for archived files as specified in the awaiting-restoration JSON file.
  * For each entry, if the current time is past the restoreEstimation, it attempts to download the file
  * using the restored context options. On success, the entry is removed; otherwise, it is kept for later resumption.
- * @param   {string}        restorationFile - The path/name of the awaiting-restoration JSON file.
- * @param   {string}        destination     - The destination folder for downloads.
- * @param   {string}        target          - The Varvis API target.
- * @param   {string}        token           - The CSRF token for authentication.
- * @param   {object}        agent           - The HTTP agent instance.
- * @param   {object}        logger          - The logger instance.
- * @param   {boolean}       overwrite       - Flag indicating whether to overwrite existing files.
+ * @param   {string}                           restorationFile - The path/name of the awaiting-restoration JSON file.
+ * @param   {string}                           destination     - The destination folder for downloads.
+ * @param   {string}                           target          - The Varvis API target.
+ * @param   {string}                           token           - The CSRF token for authentication.
+ * @param   {import('./types').HttpDispatcher} agent           - The HTTP agent instance.
+ * @param   {import('winston').Logger}         logger          - The logger instance.
+ * @param   {boolean}                          overwrite       - Flag indicating whether to overwrite existing files.
  * @returns {Promise<void>}
  */
 async function resumeArchivedDownloads(
@@ -128,6 +128,7 @@ async function resumeArchivedDownloads(
   const { downloadFile } = require('./fileUtils.cjs');
   const metrics = require('./fetchUtils.cjs').metrics;
 
+  /** @type {import('./types').RestorationEntry[]} */
   let updatedData = [];
   const now = new Date();
 
@@ -188,6 +189,7 @@ async function resumeArchivedDownloads(
       const downloadLink = file.downloadLink;
 
       // Handle genomic ranges from restored options
+      /** @type {string[]} */
       let regions = [];
       if (restoredOptions.range) {
         regions = restoredOptions.range.split(' ');
@@ -366,7 +368,7 @@ async function resumeArchivedDownloads(
           logger.info(
             `Performing ranged download for restored VCF file: ${entry.fileName} with range: ${range}`,
           );
-          await rangedDownloadVCF(
+          await /** @type {any} */ (rangedDownloadVCF)(
             downloadLink,
             range,
             outputFile,

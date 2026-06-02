@@ -9,10 +9,10 @@
  * Handles both CLI arguments (which may pass comma-separated values as single strings)
  * and config file arrays. Non-string values (e.g., numbers) pass through unchanged.
  *
- * @param   {Array<string|number>|undefined} cliValue     - Value from CLI arguments.
- * @param   {Array<string|number>|undefined} configValue  - Value from config file.
- * @param   {Array<string|number>}           defaultValue - Default value if both are undefined.
- * @returns {Array<string|number>}                        - Normalized array of values.
+ * @param   {(string|number)[]|undefined} cliValue     - Value from CLI arguments.
+ * @param   {(string|number)[]|undefined} configValue  - Value from config file.
+ * @param   {(string|number)[]}           defaultValue - Default value if both are undefined.
+ * @returns {(string|number)[]}                        - Normalized array of values.
  * @example
  * // CLI passes "id1,id2" as single array element
  * normalizeArrayInput(['id1,id2'], undefined, [])
@@ -48,9 +48,9 @@ function normalizeArrayInput(cliValue, configValue, defaultValue = []) {
  * Normalizes file type inputs with a specific default.
  * File types don't need the Boolean filter since empty strings are valid defaults.
  *
- * @param   {Array|undefined} cliValue    - Value from CLI arguments.
- * @param   {Array|undefined} configValue - Value from config file.
- * @returns {string[]}                    - Normalized array of file types.
+ * @param   {string[]|undefined} cliValue    - Value from CLI arguments.
+ * @param   {string[]|undefined} configValue - Value from config file.
+ * @returns {string[]}                       - Normalized array of file types.
  * @example
  * // Default file types when nothing specified
  * normalizeFiletypes(undefined, undefined)
