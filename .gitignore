@@ -38,7 +38,7 @@ pnpm-debug.log*
 *.vcf.gz.tbi
 
 # download folder
-download/
+/download/
 
 # config files
 *.config.json

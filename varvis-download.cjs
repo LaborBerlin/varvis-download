@@ -23,22 +23,18 @@ const { createHttpAgent } = require('./js/net/httpAgent.cjs');
 const { promptForPassword } = require('./js/io/passwordPrompt.cjs');
 const { parseRegions } = require('./js/io/regionParsing.cjs');
 const { handleUrlListing } = require('./js/io/urlListing.cjs');
+const { getValidDownloadUrl } = require('./js/download/urlRefresh.cjs');
 const { ConfigurationError, OperationalError } = require('./js/errors.cjs');
 const createLogger = require('./js/logger.cjs');
 const AuthService = require('./js/authService.cjs');
 const {
   fetchAnalysisIds,
   getDownloadLinks,
-  refreshDownloadUrls,
   listAvailableFiles,
   generateReport,
   metrics,
 } = require('./js/fetchUtils.cjs');
-const {
-  isUrlExpiringSoon,
-  getUrlRemainingTime,
-  formatRemainingTime,
-} = require('./js/urlUtils.cjs');
+const { isUrlExpiringSoon } = require('./js/urlUtils.cjs');
 const { downloadFile } = require('./js/fileUtils.cjs');
 const {
   checkToolAvailability,
@@ -166,82 +162,6 @@ async function resolvePassword(currentPassword) {
   }
 
   return promptForPassword();
-}
-
-/**
- * Checks if a download URL is expiring soon and refreshes it if needed.
- * This ensures long-running download sessions don't fail due to expired pre-signed URLs.
- *
- * @param   {import('./js/types').FileDict}       fileDict - The current file dictionary with download links.
- * @param   {string}                              fileName - The name of the file to check.
- * @param   {string}                              target   - The Varvis target (tenant).
- * @param   {string}                              token    - The CSRF token for authentication.
- * @param   {import('./js/types').HttpDispatcher} agent    - The HTTP agent instance.
- * @param   {import('winston').Logger}            logger   - The logger instance.
- * @returns {Promise<string>}                              - The valid download URL (refreshed if needed).
- */
-async function getValidDownloadUrl(
-  fileDict,
-  fileName,
-  target,
-  token,
-  agent,
-  logger,
-) {
-  const file = fileDict[fileName];
-  if (!file || !file.downloadLink) {
-    throw new Error(`No download link found for file: ${fileName}`);
-  }
-
-  const downloadLink = file.downloadLink;
-
-  // Check if URL is expiring soon
-  if (isUrlExpiringSoon(downloadLink)) {
-    const remainingTime = getUrlRemainingTime(downloadLink);
-    const formattedTime =
-      remainingTime !== null ? formatRemainingTime(remainingTime) : 'unknown';
-    logger.warn(
-      `Download URL for ${fileName} is expiring soon (${formattedTime} remaining). Refreshing...`,
-    );
-
-    // Get the analysis ID from the file object
-    const analysisId = file.analysisId;
-    if (!analysisId) {
-      logger.warn(
-        `No analysisId found for ${fileName}, using potentially expired URL`,
-      );
-      return downloadLink;
-    }
-
-    // Refresh URLs for this analysis
-    const freshFileDict = await refreshDownloadUrls(
-      analysisId,
-      target,
-      token,
-      agent,
-      logger,
-    );
-
-    // Update the original fileDict with fresh URLs
-    for (const [fname, freshFile] of Object.entries(freshFileDict)) {
-      if (fileDict[fname]) {
-        fileDict[fname].downloadLink = freshFile.downloadLink;
-      }
-    }
-
-    // Return the fresh URL
-    const refreshedFile = freshFileDict[fileName];
-    if (refreshedFile?.downloadLink) {
-      logger.info(`URL refreshed successfully for ${fileName}`);
-      return refreshedFile.downloadLink;
-    }
-
-    logger.warn(
-      `Could not find refreshed URL for ${fileName}, using original URL`,
-    );
-  }
-
-  return downloadLink;
 }
 
 /**
