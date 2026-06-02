@@ -159,7 +159,106 @@ jobs:
           tabix --version 2>&1 | head -1
           bgzip --version 2>&1 | head -1
 
+      - name: Check Playground availability
+        id: playground
+        env:
+          VARVIS_PLAYGROUND_USER: ${{ secrets.VARVIS_PLAYGROUND_USER }}
+          VARVIS_PLAYGROUND_PASS: ${{ secrets.VARVIS_PLAYGROUND_PASS }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const { fetch } = require('undici');
+
+          const outputFile = process.env.GITHUB_OUTPUT;
+          const headers = {
+            'User-Agent': 'varvis-download',
+            'Sec-Fetch-Mode': 'same-origin',
+          };
+
+          function setAvailable(value) {
+            console.log(`available=${value}`);
+            if (outputFile) {
+              fs.appendFileSync(outputFile, `available=${value}\n`);
+            }
+          }
+
+          function skipForOutage(reason) {
+            console.log(`::warning::Skipping E2E integration tests because Varvis Playground is unavailable: ${reason}`);
+            setAvailable('false');
+          }
+
+          async function main() {
+            let csrfResponse;
+            try {
+              csrfResponse = await fetch('https://playground.varvis.com/authenticate', {
+                method: 'HEAD',
+                headers,
+              });
+            } catch (error) {
+              skipForOutage(error.message);
+              return;
+            }
+
+            console.log(`Playground authenticate status: ${csrfResponse.status}`);
+            if (csrfResponse.status >= 500) {
+              skipForOutage(`authenticate returned HTTP ${csrfResponse.status}`);
+              return;
+            }
+
+            const username = process.env.VARVIS_PLAYGROUND_USER;
+            const password = process.env.VARVIS_PLAYGROUND_PASS;
+            if (!username || !password) {
+              console.error('Playground credentials are required when the service is reachable.');
+              process.exit(1);
+            }
+
+            const csrfToken = csrfResponse.headers.get('x-csrf-token');
+            if (!csrfToken) {
+              console.error('Playground did not return an x-csrf-token header.');
+              process.exit(1);
+            }
+
+            const params = new URLSearchParams();
+            params.append('_csrf', csrfToken);
+            params.append('username', username);
+            params.append('password', password);
+
+            let loginResponse;
+            try {
+              loginResponse = await fetch('https://playground.varvis.com/login', {
+                method: 'POST',
+                headers: {
+                  ...headers,
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: params,
+              });
+            } catch (error) {
+              skipForOutage(error.message);
+              return;
+            }
+
+            console.log(`Playground login status: ${loginResponse.status}`);
+            if (loginResponse.status >= 500) {
+              skipForOutage(`login returned HTTP ${loginResponse.status}`);
+              return;
+            }
+            if (loginResponse.status !== 200) {
+              console.error(`Playground login failed with HTTP ${loginResponse.status}.`);
+              process.exit(1);
+            }
+
+            setAvailable('true');
+          }
+
+          main().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+
       - name: Run Integration Tests
+        if: steps.playground.outputs.available == 'true'
         env:
           VARVIS_PLAYGROUND_USER: ${{ secrets.VARVIS_PLAYGROUND_USER }}
           VARVIS_PLAYGROUND_PASS: ${{ secrets.VARVIS_PLAYGROUND_PASS }}
