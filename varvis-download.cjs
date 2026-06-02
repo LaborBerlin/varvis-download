@@ -7,7 +7,6 @@ const { hideBin } = require('yargs/helpers');
 const fs = require('node:fs');
 const path = require('node:path');
 const readline = require('node:readline');
-const Mute = require('mute-stream');
 const {
   version,
   name,
@@ -21,6 +20,7 @@ const { buildParser } = require('./js/cli/args.cjs');
 const { mergeFromArgv } = require('./js/cli/configMerge.cjs');
 const { formatVersionInfo } = require('./js/cli/versionInfo.cjs');
 const { createHttpAgent } = require('./js/net/httpAgent.cjs');
+const { promptForPassword } = require('./js/io/passwordPrompt.cjs');
 const { ConfigurationError } = require('./js/errors.cjs');
 const createLogger = require('./js/logger.cjs');
 const AuthService = require('./js/authService.cjs');
@@ -193,30 +193,7 @@ async function resolvePassword(currentPassword) {
     );
   }
 
-  const promptText = 'Please enter your Varvis password: ';
-  process.stdout.write(promptText);
-
-  const mute = new Mute();
-  mute.pipe(process.stdout);
-  mute.mute();
-  const rlWithMute = readline.createInterface({
-    input: process.stdin,
-    output: mute,
-    terminal: true,
-  });
-
-  /** @type {Promise<string>} */
-  const passwordPrompt = new Promise((resolve) => {
-    rlWithMute.question('', (input) => {
-      resolve(input);
-      rlWithMute.close();
-      mute.unmute();
-      mute.end();
-      // Print a newline since muted input doesn't show one
-      process.stdout.write('\n');
-    });
-  });
-  return passwordPrompt;
+  return promptForPassword();
 }
 
 // Main function to orchestrate the login and download process
