@@ -9,10 +9,14 @@
 [![ESLint](https://img.shields.io/badge/ESLint-9.x-4B32C3.svg)](https://eslint.org/)
 
 <p align="center">
-<img alt="varvis logo" src="assets/varvis_name.svg" style="width:25%; height:auto;">
+<img alt="varvis logo" src="assets/varvis_name.svg" style="width:18%; height:auto;">
 </p>
 
-A command-line interface (CLI) tool for downloading BAM, BAI, and VCF files from the varvis® API. Built for bioinformatics workflows, it supports authentication, file filtering, proxy configuration, and archived file restoration.
+The `varvis-download` package provides an independently developed free software command-line interface (CLI) for
+downloading BAM, BAI, and VCF files from the varvis® API. It supports authentication, session management, file filtering,
+proxy configuration, archived file restoration, genomic range downloads, and detailed reporting for bioinformatics
+workflow automation. This project is not an official varvis® product and is not affiliated with, endorsed by, or
+officially supported by Limbus Medical Technologies GmbH.
 
 ## Table of Contents
 
@@ -24,6 +28,8 @@ A command-line interface (CLI) tool for downloading BAM, BAI, and VCF files from
 - [Advanced Features](#advanced-features)
 - [Development](#development)
 - [API Reference](#api-reference)
+- [Intended Use](#intended-use)
+- [Disclaimer](#disclaimer)
 
 ## Installation
 
@@ -402,6 +408,27 @@ make ci             # Verify everything passes before committing
 ## License
 
 GPL-3.0 - See LICENSE file for details.
+
+## Intended Use
+
+This software is provided solely for research, educational, development, interoperability, and bioinformatics workflow
+automation purposes.
+
+This project is **not** intended by the authors to be used for:
+
+- clinical diagnosis
+- in vitro diagnostic procedures
+- patient stratification
+- treatment selection
+- medical decision-making
+- any other medical purpose as defined under applicable medical device or in vitro diagnostic regulations, including but
+  not limited to Regulation (EU) 2017/746 (IVDR)
+
+The software is not a certified in vitro diagnostic medical device and has not undergone clinical performance studies,
+regulatory assessment, or conformity assessment procedures required for software intended for in vitro diagnostic use.
+
+Users are solely responsible for ensuring compliance with all applicable laws, regulations, institutional policies, and
+validation requirements in their jurisdiction and use case.
 
 ## Disclaimer
 
