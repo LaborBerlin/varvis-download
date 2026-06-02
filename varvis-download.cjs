@@ -21,6 +21,7 @@ const { mergeFromArgv } = require('./js/cli/configMerge.cjs');
 const { formatVersionInfo } = require('./js/cli/versionInfo.cjs');
 const { createHttpAgent } = require('./js/net/httpAgent.cjs');
 const { promptForPassword } = require('./js/io/passwordPrompt.cjs');
+const { handleUrlListing } = require('./js/io/urlListing.cjs');
 const { ConfigurationError } = require('./js/errors.cjs');
 const createLogger = require('./js/logger.cjs');
 const AuthService = require('./js/authService.cjs');
@@ -144,36 +145,6 @@ function closePromptInterface() {
   if (rl) {
     rl.close();
     rl = null;
-  }
-}
-
-/**
- * Handles the output of download URLs, printing to console and/or writing to a file.
- * @param {string[]}                 urls     - An array of URL strings to output.
- * @param {string|null}              filePath - The path to the output file, or null to only use console.
- * @param {import('winston').Logger} logger   - The logger instance.
- */
-function handleUrlListing(urls, filePath, logger) {
-  if (urls.length === 0) {
-    logger.info('No files matching the criteria were found. No URLs to list.');
-    return;
-  }
-
-  const urlOutput = urls.join('\n');
-
-  // Always print to console. We use console.log directly to ensure clean output for piping.
-  console.log(urlOutput);
-
-  // Optionally write to a file
-  if (filePath) {
-    try {
-      fs.writeFileSync(filePath, urlOutput + '\n');
-      logger.info(`Successfully saved ${urls.length} URLs to ${filePath}`);
-    } catch (error) {
-      logger.error(
-        `Failed to write URLs to file ${filePath}: ${getErrorMessage(error)}`,
-      );
-    }
   }
 }
 
