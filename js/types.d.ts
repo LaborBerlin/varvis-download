@@ -67,7 +67,7 @@ export interface RestorationEntry {
   analysisId: string;
   fileName: string;
   restoreEstimation?: string | null;
-  options?: Record<string, any>;
+  options?: Partial<RestorationOptions>;
 }
 
 export interface ReadyEntries {

@@ -14,7 +14,7 @@ const {
  * @param   {string}                                        token                                         - The CSRF token for authentication.
  * @param   {import('./types').HttpDispatcher}              agent                                         - The HTTP agent instance.
  * @param   {import('winston').Logger}                      logger                                        - The logger instance.
- * @param   {string|null}                                   [restorationFile="awaiting-restoration.json"] - Optional path/name for the awaiting restoration JSON file.
+ * @param   {string}                                        [restorationFile="awaiting-restoration.json"] - Optional path/name for the awaiting restoration JSON file.
  * @param   {Partial<import('./types').RestorationOptions>} [options={}]                                  - Options object for restoration context.
  * @returns {Promise<void>}
  */
@@ -274,6 +274,7 @@ async function resumeArchivedDownloads(
               outputFile,
               indexFilePath,
               logger,
+              metrics,
               effectiveOverwrite,
             );
             await indexBAM(outputFile, logger, effectiveOverwrite);
@@ -368,11 +369,13 @@ async function resumeArchivedDownloads(
           logger.info(
             `Performing ranged download for restored VCF file: ${entry.fileName} with range: ${range}`,
           );
-          await /** @type {any} */ (rangedDownloadVCF)(
+          await rangedDownloadVCF(
             downloadLink,
             range,
             outputFile,
+            indexFilePath,
             logger,
+            metrics,
             effectiveOverwrite,
           );
           await indexVCF(outputFile, logger, effectiveOverwrite);
