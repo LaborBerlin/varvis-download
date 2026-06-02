@@ -21,8 +21,9 @@ const { mergeFromArgv } = require('./js/cli/configMerge.cjs');
 const { formatVersionInfo } = require('./js/cli/versionInfo.cjs');
 const { createHttpAgent } = require('./js/net/httpAgent.cjs');
 const { promptForPassword } = require('./js/io/passwordPrompt.cjs');
+const { parseRegions } = require('./js/io/regionParsing.cjs');
 const { handleUrlListing } = require('./js/io/urlListing.cjs');
-const { ConfigurationError } = require('./js/errors.cjs');
+const { ConfigurationError, OperationalError } = require('./js/errors.cjs');
 const createLogger = require('./js/logger.cjs');
 const AuthService = require('./js/authService.cjs');
 const {
@@ -166,9 +167,6 @@ async function resolvePassword(currentPassword) {
 
   return promptForPassword();
 }
-
-// Main function to orchestrate the login and download process
-const os = require('node:os'); // Import for generating temp file paths
 
 /**
  * Checks if a download URL is expiring soon and refreshes it if needed.
@@ -370,60 +368,21 @@ async function main() {
       }
     }
 
-    // Handle regions from command line or BED file
-    /** @type {string[]} */
-    let regions = [];
-    /** @type {string|undefined} */
-    let tempBedPath; // Initialize tempBedPath
-
-    if (finalConfig.range) {
-      regions = finalConfig.range.split(' ');
-      logger.info(`Using regions from command line: ${regions}`);
-
-      // Create a temporary BED file for samtools to read
-      tempBedPath = path.join(os.tmpdir(), 'regions.bed');
-      const bedContent = regions
-        .map((region) => {
-          const [chr, pos] = region.split(':');
-
-          if (!pos) {
-            // Chromosome-only region (e.g., "chr1")
-            // For BAM files with samtools, we need coordinates, so use entire chromosome
-            // For VCF files with tabix, chromosome-only works fine
-            return `${chr}\t1\t300000000`; // Use large end coordinate to cover entire chromosome
-          } else {
-            // Standard chr:start-end format
-            const [start, end] = pos.split('-');
-            return `${chr}\t${start}\t${end}`;
-          }
-        })
-        .join('\n');
-
-      fs.writeFileSync(tempBedPath, bedContent);
-      logger.info(`Generated temporary BED file: ${tempBedPath}`);
-    } else if (finalConfig.bed) {
-      try {
-        const bedFileContent = fs.readFileSync(finalConfig.bed, 'utf8');
-        regions = bedFileContent
-          .split('\n')
-          .filter((line) => line && !line.startsWith('#')) // Filter out comments and empty lines
-          .map((line) => {
-            const [chr, start, end] = line.split('\t');
-            return `${chr}:${start}-${end}`;
-          });
-        logger.info(`Using regions from BED file: ${regions}`);
-
-        // Create a temporary BED file for samtools to read
-        tempBedPath = path.join(os.tmpdir(), 'regions.bed');
-        fs.writeFileSync(tempBedPath, bedFileContent);
-        logger.info(`Generated temporary BED file: ${tempBedPath}`);
-      } catch (error) {
-        logger.error(`Error reading BED file: ${getErrorMessage(error)}`);
-        process.exit(1);
+    /** @type {{regions: string[], tempBedPath?: string}} */
+    let parsedRegions;
+    try {
+      parsedRegions = parseRegions(
+        { range: finalConfig.range, bed: finalConfig.bed },
+        logger,
+      );
+    } catch (error) {
+      if (error instanceof OperationalError) {
+        logger.error(error.message);
+        process.exit(error.exitCode || 1);
       }
-    } else {
-      logger.info('No regions provided. Proceeding with full file download.');
+      throw error;
     }
+    const { regions, tempBedPath } = parsedRegions;
 
     // Output file generation will happen inside the loop based on actual file types
     logger.info('Processing files for download...');
