@@ -1,149 +1,36 @@
 #!/usr/bin/env node
 
-// Load environment variables from .env file
 require('dotenv').config({ quiet: true });
 
-const { hideBin } = require('yargs/helpers');
 const fs = require('node:fs');
-const path = require('node:path');
 const readline = require('node:readline');
+const { hideBin } = require('yargs/helpers');
 const {
-  version,
-  name,
   author,
   license,
+  name,
   repository,
+  version,
 } = require('./package.json');
 
-const { loadLogo, getLastModifiedDate } = require('./js/configUtils.cjs');
+const AuthService = require('./js/authService.cjs');
 const { buildParser } = require('./js/cli/args.cjs');
 const { mergeFromArgv } = require('./js/cli/configMerge.cjs');
 const { formatVersionInfo } = require('./js/cli/versionInfo.cjs');
-const { createHttpAgent } = require('./js/net/httpAgent.cjs');
-const { promptForPassword } = require('./js/io/passwordPrompt.cjs');
-const { parseRegions } = require('./js/io/regionParsing.cjs');
-const { handleUrlListing } = require('./js/io/urlListing.cjs');
-const { getValidDownloadUrl } = require('./js/download/urlRefresh.cjs');
+const { runDownloadCommand } = require('./js/commands/download.cjs');
+const { runListCommand } = require('./js/commands/list.cjs');
+const { resumeArchivedDownloads } = require('./js/commands/resume.cjs');
+const { loadLogo, getLastModifiedDate } = require('./js/configUtils.cjs');
 const { ConfigurationError, OperationalError } = require('./js/errors.cjs');
-const createLogger = require('./js/logger.cjs');
-const AuthService = require('./js/authService.cjs');
-const {
-  fetchAnalysisIds,
-  getDownloadLinks,
-  listAvailableFiles,
-  generateReport,
-  metrics,
-} = require('./js/fetchUtils.cjs');
-const { isUrlExpiringSoon } = require('./js/urlUtils.cjs');
-const { downloadFile } = require('./js/fileUtils.cjs');
-const {
-  checkToolAvailability,
-  ensureIndexFile,
-  rangedDownloadBAM,
-  rangedDownloadVCF,
-  unmappedDownloadBAM,
-  indexBAM,
-  indexVCF,
-  generateOutputFileName,
-} = require('./js/rangedUtils.cjs');
-// Rename the imported function to avoid collision.
-const {
-  resumeArchivedDownloads: resumeArchivedDownloadsFunc,
-} = require('./js/commands/resume.cjs');
 const { getErrorMessage, getErrorStack } = require('./js/errorUtils.cjs');
+const { metrics } = require('./js/fetchUtils.cjs');
+const { parseRegions } = require('./js/io/regionParsing.cjs');
+const { promptForPassword } = require('./js/io/passwordPrompt.cjs');
+const createLogger = require('./js/logger.cjs');
+const { createHttpAgent } = require('./js/net/httpAgent.cjs');
 
-// Command line arguments setup
-/** @type {any} */
-let argv;
-argv = buildParser(hideBin(process.argv)).argv;
-
-// Create logger instance
-const logger = createLogger(argv);
-
-// Show version information if the --version flag is set
-if (argv.version) {
-  const logo = loadLogo();
-  const lastModified = getLastModifiedDate(__filename);
-  console.log(
-    formatVersionInfo({
-      name,
-      version,
-      author,
-      license,
-      repository,
-      lastModified,
-      logo,
-    }),
-  );
-  process.exit(0);
-}
-
-/** @type {import('./js/types').FinalConfig} */
-let finalConfig;
-try {
-  finalConfig = mergeFromArgv(argv, process.env);
-} catch (error) {
-  if (error instanceof ConfigurationError) {
-    logger.error(`Error: ${error.message}`);
-    process.exit(error.exitCode || 1);
-  }
-  throw error;
-}
-
-const {
-  target,
-  password,
-  analysisIds,
-  sampleIds,
-  limsIds,
-  destination,
-  proxy,
-  proxyUsername,
-  proxyPassword,
-  overwrite,
-  filetypes,
-  reportfile,
-  filters,
-  restoreArchived,
-  restorationFile,
-} = finalConfig;
-const userName = finalConfig.username;
-
-const agent = createHttpAgent({
-  proxy,
-  proxyUsername,
-  proxyPassword,
-});
-
-// Initialize AuthService instance
-const authService = new AuthService(logger, agent);
-
-/** @type {readline.Interface|null} */
-let rl = null;
-
-/**
- * Lazily creates the shared prompt interface for non-password prompts.
- * @returns {readline.Interface} - The shared prompt interface.
- */
-function getPromptInterface() {
-  if (!rl) {
-    rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
-  }
-  return rl;
-}
-
-/**
- * Closes the shared prompt interface if it was created.
- */
-function closePromptInterface() {
-  if (rl) {
-    rl.close();
-    rl = null;
-  }
-}
+/** @type {import('winston').Logger|undefined} */
+let activeLogger;
 
 /**
  * Returns an existing password or prompts interactively when possible.
@@ -165,524 +52,114 @@ async function resolvePassword(currentPassword) {
 }
 
 /**
- * Main function to orchestrate the CLI workflow.
- * Handles authentication, file discovery, download/list operations, and archive restoration.
+ * Runs the varvis-download CLI.
  * @returns {Promise<void>}
  */
 async function main() {
-  // If resumeArchivedDownloads flag is set, resume archived downloads and exit.
-  if (finalConfig.resumeArchivedDownloads) {
-    logger.info('Starting in archive resumption mode.');
+  /** @type {any} */
+  const argv = buildParser(hideBin(process.argv)).argv;
+  activeLogger = createLogger(argv);
 
-    const finalPassword = await resolvePassword(password);
-
-    // Authenticate before resuming downloads
-    await authService.login(
-      { username: userName, password: finalPassword },
-      target,
+  if (argv.version) {
+    console.log(
+      formatVersionInfo({
+        author,
+        license,
+        logo: loadLogo(),
+        lastModified: getLastModifiedDate(__filename),
+        name,
+        repository,
+        version,
+      }),
     );
-
-    logger.info('Resuming archived downloads as requested.');
-    await resumeArchivedDownloadsFunc(
-      restorationFile,
-      destination,
-      target,
-      authService.token,
-      agent,
-      logger,
-      overwrite,
-    );
-
-    logger.info('Archive resumption process complete.');
-    process.exit(0);
+    return;
   }
 
-  try {
-    logger.debug('Starting main function');
+  const finalConfig = mergeFromArgv(argv, process.env);
+  const agent = createHttpAgent({
+    proxy: finalConfig.proxy,
+    proxyPassword: finalConfig.proxyPassword,
+    proxyUsername: finalConfig.proxyUsername,
+  });
+  const authService = new AuthService(activeLogger, agent);
 
-    // Ensure the destination directory exists
-    if (!fs.existsSync(destination)) {
-      logger.debug(`Creating destination directory: ${destination}`);
-      fs.mkdirSync(destination, { recursive: true });
-    }
+  const password = await resolvePassword(finalConfig.password);
+  await authService.login(
+    { username: finalConfig.username, password },
+    finalConfig.target,
+  );
 
-    const finalPassword = await resolvePassword(password);
-
-    logger.debug('Attempting to log in');
-    await authService.login(
-      { username: userName, password: finalPassword },
-      target,
+  if (finalConfig.resumeArchivedDownloads) {
+    activeLogger.info('Starting in archive resumption mode.');
+    activeLogger.info('Resuming archived downloads as requested.');
+    await resumeArchivedDownloads(
+      finalConfig.restorationFile,
+      finalConfig.destination,
+      finalConfig.target,
+      authService.token,
+      agent,
+      activeLogger,
+      finalConfig.overwrite,
     );
-    logger.debug('Login successful');
+    activeLogger.info('Archive resumption process complete.');
+    return;
+  }
 
-    // ***************** NEW CODE FOR -L FLAG *****************
-    // If the -L flag is set, list available files for each analysis and exit.
-    if (finalConfig.list) {
-      const ids =
-        analysisIds.length > 0
-          ? analysisIds
-          : await fetchAnalysisIds(
-              target,
-              authService.token,
-              agent,
-              sampleIds,
-              limsIds,
-              filters,
-              logger,
-              finalConfig.latest,
-            );
-      logger.info(`Fetched analysis IDs: ${ids}`);
-      for (const analysisId of ids) {
-        await listAvailableFiles(
-          analysisId,
-          target,
-          authService.token,
-          agent,
-          logger,
-        );
-      }
-      logger.info('Listing complete. Exiting.');
-      process.exit(0);
-    }
-    // ***************** END NEW CODE *****************
+  if (!fs.existsSync(finalConfig.destination)) {
+    activeLogger.debug(
+      `Creating destination directory: ${finalConfig.destination}`,
+    );
+    fs.mkdirSync(finalConfig.destination, { recursive: true });
+  }
 
-    // If subsetting is needed, check that external tools are available.
-    if (finalConfig.range || finalConfig.bed || finalConfig.unmapped) {
-      const samtoolsMinVersion = '1.17';
-      const samtoolsOK = await checkToolAvailability(
-        'samtools',
-        'samtools --version',
-        samtoolsMinVersion,
-        logger,
-      );
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
 
-      if (!samtoolsOK) {
-        logger.error(
-          'samtools is missing or outdated. Please install/update it and try again.',
-        );
-        process.exit(1);
-      }
-
-      // tabix and bgzip are only required for ranged downloads, not for unmapped extraction
-      if (finalConfig.range || finalConfig.bed) {
-        const tabixMinVersion = '1.7';
-        const bgzipMinVersion = '1.7';
-        const tabixOK = await checkToolAvailability(
-          'tabix',
-          'tabix --version',
-          tabixMinVersion,
-          logger,
-        );
-        const bgzipOK = await checkToolAvailability(
-          'bgzip',
-          'bgzip --version',
-          bgzipMinVersion,
-          logger,
-        );
-        if (!tabixOK || !bgzipOK) {
-          logger.error(
-            'One or more required external tools (tabix, bgzip) are missing or outdated. Please install/update them and try again.',
-          );
-          process.exit(1);
-        }
-      }
-    }
-
-    /** @type {{regions: string[], tempBedPath?: string}} */
-    let parsedRegions;
-    try {
-      parsedRegions = parseRegions(
-        { range: finalConfig.range, bed: finalConfig.bed },
-        logger,
-      );
-    } catch (error) {
-      if (error instanceof OperationalError) {
-        logger.error(error.message);
-        process.exit(error.exitCode || 1);
-      }
-      throw error;
-    }
-    const { regions, tempBedPath } = parsedRegions;
-
-    // Output file generation will happen inside the loop based on actual file types
-    logger.info('Processing files for download...');
-
-    // Fetch analysis IDs based on filters or sample IDs
-    const ids =
-      analysisIds.length > 0
-        ? analysisIds
-        : await fetchAnalysisIds(
-            target,
-            authService.token,
-            agent,
-            sampleIds,
-            limsIds,
-            filters,
-            logger,
-            finalConfig.latest,
-          );
-    logger.info(`Fetched analysis IDs: ${ids}`);
-
-    // Create options object for restoration context
-    const optionsForRestoration = {
-      destination: finalConfig.destination,
-      overwrite: finalConfig.overwrite,
-      range: finalConfig.range,
-      bed: finalConfig.bed,
-      unmapped: finalConfig.unmapped,
-      restorationFile: finalConfig.restorationFile,
-      filetypes: filetypes, // Save filetypes for restoration
+  try {
+    const deps = {
+      agent,
+      authService,
+      logger: activeLogger,
+      metrics,
+      rl,
     };
 
-    // Collect all URLs if --list-urls flag is set
-    /** @type {string[]} */
-    const allUrls = [];
-
-    for (const analysisId of ids) {
-      logger.info(`Processing analysis ID: ${analysisId}`);
-      // Pass the restoreArchived flag, rl, restorationFile, and options to getDownloadLinks
-      const fileDict = await getDownloadLinks(
-        analysisId,
-        filetypes,
-        target,
-        authService.token,
-        agent,
-        logger,
-        restoreArchived,
-        getPromptInterface(),
-        restorationFile,
-        optionsForRestoration,
-      );
-      logger.debug(`Fetched download links for analysis ID ${analysisId}`);
-
-      // Collect URLs for --list-urls functionality
-      if (finalConfig.listUrls) {
-        Object.values(fileDict).forEach((file) => {
-          if (file.downloadLink) {
-            allUrls.push(file.downloadLink);
-          }
-        });
-        continue; // Skip to next analysis ID when listing URLs
-      }
-
-      // Filter for primary data files first (BAM, VCF.GZ)
-      const primaryFiles = Object.entries(fileDict).filter(
-        ([fname]) => fname.endsWith('.bam') || fname.endsWith('.vcf.gz'),
-      );
-
-      for (const [fileName, _file] of primaryFiles) {
-        // Get a valid download URL, refreshing if the current one is expiring
-        const downloadLink = await getValidDownloadUrl(
-          fileDict,
-          fileName,
-          target,
-          authService.token,
-          agent,
-          logger,
-        );
-
-        // Generate the output file name for the current file
-        const outputFile = path.join(
-          destination,
-          generateOutputFileName(fileName, regions, logger),
-        );
-
-        if (fileName.endsWith('.bam')) {
-          // BAM file processing - also refresh index URL if needed
-          const indexFileName = `${fileName}.bai`;
-          let indexFileUrl = fileDict[indexFileName]?.downloadLink;
-          if (indexFileUrl && isUrlExpiringSoon(indexFileUrl)) {
-            indexFileUrl = await getValidDownloadUrl(
-              fileDict,
-              indexFileName,
-              target,
-              authService.token,
-              agent,
-              logger,
-            );
-          }
-          const indexFilePath = path.join(destination, `${fileName}.bai`);
-
-          if (regions.length > 0 || finalConfig.unmapped) {
-            // Ranged or unmapped downloads require an index file
-            if (!indexFileUrl) {
-              logger.error(
-                `Index file for BAM (${fileName}) not found. Ranged/unmapped downloads require .bai index. Skipping.`,
-              );
-              continue;
-            }
-
-            // Ensure index file is downloaded
-            await ensureIndexFile(
-              downloadLink,
-              indexFileUrl,
-              indexFilePath,
-              agent,
-              getPromptInterface(),
-              logger,
-              metrics,
-              overwrite,
-            );
-
-            if (regions.length > 0) {
-              if (!tempBedPath) {
-                throw new Error(
-                  'Temporary BED file path missing for ranged BAM download.',
-                );
-              }
-              // Ranged download (optionally including unmapped reads in the same BAM)
-              try {
-                const modeLabel = finalConfig.unmapped
-                  ? 'ranged + unmapped'
-                  : 'ranged';
-                logger.info(
-                  `Performing ${modeLabel} download for BAM file: ${fileName}`,
-                );
-                await rangedDownloadBAM(
-                  downloadLink,
-                  tempBedPath,
-                  outputFile,
-                  indexFilePath,
-                  logger,
-                  metrics,
-                  overwrite,
-                  finalConfig.unmapped,
-                  regions,
-                );
-                await indexBAM(outputFile, logger, overwrite);
-              } catch (error) {
-                logger.error(
-                  `Error during ranged download for ${fileName}: ${getErrorMessage(error)}`,
-                );
-              }
-            } else {
-              // Unmapped-only extraction (no regions specified)
-              const unmappedOutputFile = path.join(
-                destination,
-                generateOutputFileName(fileName, ['unmapped'], logger),
-              );
-              try {
-                logger.info(
-                  `Extracting unmapped reads from BAM file: ${fileName}`,
-                );
-                await unmappedDownloadBAM(
-                  downloadLink,
-                  unmappedOutputFile,
-                  indexFilePath,
-                  logger,
-                  metrics,
-                  overwrite,
-                );
-                await indexBAM(unmappedOutputFile, logger, overwrite);
-              } catch (error) {
-                logger.error(
-                  `Error extracting unmapped reads from ${fileName}: ${getErrorMessage(error)}`,
-                );
-              }
-            }
-          } else {
-            // Perform full download - index file is optional
-            try {
-              logger.info(`Performing full download for BAM file: ${fileName}`);
-              await downloadFile(
-                downloadLink,
-                outputFile,
-                overwrite,
-                agent,
-                getPromptInterface(),
-                logger,
-                metrics,
-              );
-
-              // Download index file if available (optional for full downloads)
-              if (indexFileUrl) {
-                logger.info(`Downloading optional index file: ${fileName}.bai`);
-                try {
-                  await downloadFile(
-                    indexFileUrl,
-                    indexFilePath,
-                    overwrite,
-                    agent,
-                    getPromptInterface(),
-                    logger,
-                    metrics,
-                  );
-                } catch (indexError) {
-                  logger.warn(
-                    `Failed to download index file ${fileName}.bai: ${getErrorMessage(indexError)}`,
-                  );
-                }
-              } else {
-                logger.info(
-                  `Index file for ${fileName} not available, skipping index download.`,
-                );
-              }
-
-              // Generate new index if needed
-              await indexBAM(outputFile, logger, overwrite);
-            } catch (error) {
-              logger.error(
-                `Error during full download for ${fileName}: ${getErrorMessage(error)}`,
-              );
-            }
-          }
-        } else if (fileName.endsWith('.vcf.gz') && finalConfig.unmapped) {
-          // Unmapped extraction only applies to BAM files, skip VCF
-          logger.info(
-            `Skipping VCF file ${fileName} - unmapped read extraction only applies to BAM files.`,
-          );
-          continue;
-        } else if (fileName.endsWith('.vcf.gz')) {
-          // VCF file processing - also refresh index URL if needed
-          const indexFileName = `${fileName}.tbi`;
-          let indexFileUrl = fileDict[indexFileName]?.downloadLink;
-          if (indexFileUrl && isUrlExpiringSoon(indexFileUrl)) {
-            indexFileUrl = await getValidDownloadUrl(
-              fileDict,
-              indexFileName,
-              target,
-              authService.token,
-              agent,
-              logger,
-            );
-          }
-          const indexFilePath = path.join(destination, `${fileName}.tbi`);
-
-          if (regions.length > 0) {
-            // For ranged downloads, index file is required
-            if (!indexFileUrl) {
-              logger.error(
-                `Index file for VCF (${fileName}) not found. Ranged download requires .tbi index. Skipping ranged download.`,
-              );
-              continue;
-            }
-
-            // Ensure index file is downloaded for ranged access
-            await ensureIndexFile(
-              downloadLink,
-              indexFileUrl,
-              indexFilePath,
-              agent,
-              getPromptInterface(),
-              logger,
-              metrics,
-              overwrite,
-            );
-
-            // For tabix, we must process one region at a time.
-            for (const region of regions) {
-              const regionSpecificOutputFile = path.join(
-                destination,
-                generateOutputFileName(fileName, [region], logger), // Pass region as an array
-              );
-
-              try {
-                logger.info(
-                  `Performing ranged download for VCF file: ${fileName} with region: ${region}`,
-                );
-                await rangedDownloadVCF(
-                  downloadLink,
-                  region,
-                  regionSpecificOutputFile,
-                  indexFilePath,
-                  logger,
-                  metrics,
-                  overwrite,
-                );
-
-                // After successful download, index the newly created ranged file.
-                await indexVCF(regionSpecificOutputFile, logger, overwrite);
-              } catch (error) {
-                logger.error(
-                  `Error during ranged download for ${fileName} on region ${region}: ${getErrorMessage(error)}`,
-                );
-              }
-            }
-          } else {
-            // Perform full download - index file is optional
-            try {
-              logger.info(`Performing full download for VCF file: ${fileName}`);
-              await downloadFile(
-                downloadLink,
-                outputFile,
-                overwrite,
-                agent,
-                getPromptInterface(),
-                logger,
-                metrics,
-              );
-
-              // Download index file if available (optional for full downloads)
-              if (indexFileUrl) {
-                logger.info(`Downloading optional index file: ${fileName}.tbi`);
-                try {
-                  await downloadFile(
-                    indexFileUrl,
-                    indexFilePath,
-                    overwrite,
-                    agent,
-                    getPromptInterface(),
-                    logger,
-                    metrics,
-                  );
-                } catch (indexError) {
-                  logger.warn(
-                    `Failed to download index file ${fileName}.tbi: ${getErrorMessage(indexError)}`,
-                  );
-                }
-              } else {
-                logger.info(
-                  `Index file for ${fileName} not available, skipping index download.`,
-                );
-              }
-
-              // Generate new index if needed
-              await indexVCF(outputFile, logger, overwrite);
-            } catch (error) {
-              logger.error(
-                `Error during full download for ${fileName}: ${getErrorMessage(error)}`,
-              );
-            }
-          }
-        }
-      }
+    if (finalConfig.list) {
+      await runListCommand({ finalConfig }, deps);
+      return;
     }
 
-    // Handle URL listing if --list-urls flag is set
-    if (finalConfig.listUrls) {
-      handleUrlListing(allUrls, finalConfig.urlFile, logger);
-      process.exit(0); // Exit successfully after listing URLs
-    }
+    const { regions, tempBedPath } = parseRegions(
+      { bed: finalConfig.bed, range: finalConfig.range },
+      activeLogger,
+    );
+    await runDownloadCommand({ finalConfig, regions, tempBedPath }, deps);
 
-    logger.info('Download complete.');
-    generateReport(reportfile, logger);
-
-    // Clean up the temporary BED file if it was created
     if (tempBedPath) {
       fs.unlinkSync(tempBedPath);
-      logger.info(`Deleted temporary BED file: ${tempBedPath}`);
+      activeLogger.info(`Deleted temporary BED file: ${tempBedPath}`);
     }
-
-    // Exit successfully
-    process.exit(0);
-  } catch (error) {
-    logger.error(`An error occurred: ${getErrorMessage(error)}`);
-    const stack = getErrorStack(error);
-    if (stack) {
-      logger.debug(stack);
-    }
-    process.exit(1);
   } finally {
-    closePromptInterface();
+    rl.close();
   }
 }
 
 main().catch((error) => {
+  const logger = activeLogger || createLogger({});
+  if (
+    error instanceof ConfigurationError ||
+    error instanceof OperationalError
+  ) {
+    logger.error(`Error: ${error.message}`);
+    process.exit(error.exitCode || 1);
+  }
+
   logger.error(`An unexpected error occurred: ${getErrorMessage(error)}`);
   const stack = getErrorStack(error);
   if (stack) {
     logger.debug(stack);
   }
-  closePromptInterface();
   process.exit(1);
 });
