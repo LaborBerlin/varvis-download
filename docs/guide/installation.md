@@ -156,7 +156,7 @@ Expected output:
     │                                                 │
     ╰─────────────────────────────────────────────────╯
 
-varvis-download - Version 0.31.1
+varvis-download - Version 0.31.2
 Date Last Modified: [timestamp]
 Author: Bernt Popp
 Repository: https://github.com/LaborBerlin/varvis-download.git
