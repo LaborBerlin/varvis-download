@@ -1,4 +1,5 @@
 const fs = require('node:fs');
+const { getErrorMessage } = require('./errorUtils.cjs');
 
 /**
  * Deep equality comparison for objects that is order-independent.
@@ -52,7 +53,7 @@ function readRestorationState(restorationFile, logger) {
     return data;
   } catch (error) {
     logger.error(
-      `Failed to parse restoration file ${restorationFile}: ${error.message}`,
+      `Failed to parse restoration file ${restorationFile}: ${getErrorMessage(error)}`,
     );
     return null;
   }

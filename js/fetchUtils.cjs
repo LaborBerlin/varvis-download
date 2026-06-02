@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const { applyFilters, deduplicateByLatest } = require('./filterUtils.cjs');
 const { triggerRestoreArchivedFile } = require('./archiveUtils.cjs');
 const { fetchWithRetry } = require('./apiClient.cjs');
+const { getErrorMessage } = require('./errorUtils.cjs');
 
 /** @type {import('./types').Metrics} */
 const metrics = {
@@ -81,15 +82,19 @@ async function fetchAnalysisIds(
 
     if (sampleIds.length > 0) {
       logger.debug(`Filtering analyses by sampleIds: ${sampleIds.join(', ')}`);
-      filteredAnalyses = filteredAnalyses.filter((analysis) =>
-        sampleIds.includes(analysis.sampleId),
+      filteredAnalyses = filteredAnalyses.filter(
+        (analysis) =>
+          typeof analysis.sampleId === 'string' &&
+          sampleIds.includes(analysis.sampleId),
       );
     }
 
     if (limsIds.length > 0) {
       logger.debug(`Filtering analyses by limsIds: ${limsIds.join(', ')}`);
-      filteredAnalyses = filteredAnalyses.filter((analysis) =>
-        limsIds.includes(analysis.personLimsId),
+      filteredAnalyses = filteredAnalyses.filter(
+        (analysis) =>
+          typeof analysis.personLimsId === 'string' &&
+          limsIds.includes(analysis.personLimsId),
       );
     }
 
@@ -199,7 +204,7 @@ async function getDownloadLinks(
               `User decision for all archived files: ${allDecisionForArchived ? 'restore' : 'skip'}`,
             );
           }
-          shouldRestore = allDecisionForArchived;
+          shouldRestore = allDecisionForArchived === true;
           if (!shouldRestore) {
             logger.info(
               `Skipping archived file ${file.fileName} due to --restoreArchived=all decision`,
@@ -227,8 +232,8 @@ async function getDownloadLinks(
             token,
             agent,
             logger,
-            restorationFile,
-            options,
+            restorationFile ?? undefined,
+            options ?? undefined,
           );
         }
         // In all cases, skip adding this archived file to the download list.
@@ -283,7 +288,7 @@ async function getDownloadLinks(
     return fileDict;
   } catch (error) {
     logger.error(
-      `Failed to get download links for analysis ID ${analysisId}: ${error.message}`,
+      `Failed to get download links for analysis ID ${analysisId}: ${getErrorMessage(error)}`,
     );
     throw error;
   }
@@ -317,7 +322,7 @@ async function listAvailableFiles(analysisId, target, token, agent, logger) {
     }
   } catch (error) {
     logger.error(
-      `Failed to list available files for analysis ID ${analysisId}: ${error.message}`,
+      `Failed to list available files for analysis ID ${analysisId}: ${getErrorMessage(error)}`,
     );
   }
 }
@@ -408,7 +413,7 @@ async function refreshDownloadUrls(analysisId, target, token, agent, logger) {
     return fileDict;
   } catch (error) {
     logger.error(
-      `Failed to refresh download URLs for analysis ${analysisId}: ${error.message}`,
+      `Failed to refresh download URLs for analysis ${analysisId}: ${getErrorMessage(error)}`,
     );
     throw error;
   }

@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const { finished } = require('node:stream/promises');
 const ProgressBar = require('progress');
 const { fetchWithRetry } = require('./apiClient.cjs');
+const { getErrorMessage } = require('./errorUtils.cjs');
 
 /**
  * Prompts the user to confirm file overwrite if the file already exists.
@@ -62,7 +63,10 @@ async function downloadFile(
     let totalBytes = 0;
 
     // Get the total size of the file for progress reporting
-    const totalSize = parseInt(response.headers.get('content-length'), 10);
+    const totalSize = parseInt(
+      String(response.headers.get('content-length')),
+      10,
+    );
     const progressBar = new ProgressBar(
       '  downloading [:bar] :rate/bps :percent :etas',
       {
@@ -72,6 +76,10 @@ async function downloadFile(
         total: totalSize,
       },
     );
+
+    if (!response.body) {
+      throw new Error(`Download response for ${url} did not include a body`);
+    }
 
     for await (const chunk of response.body) {
       totalBytes += chunk.length;
@@ -92,7 +100,9 @@ async function downloadFile(
     metrics.totalBytesDownloaded += totalBytes;
     metrics.downloadSpeeds.push(speed);
   } catch (error) {
-    logger.error(`Download interrupted for ${outputPath}: ${error.message}`);
+    logger.error(
+      `Download interrupted for ${outputPath}: ${getErrorMessage(error)}`,
+    );
     // Properly close the write stream before cleanup using finished()
     if (writer && !writer.destroyed) {
       writer.destroy();
@@ -108,7 +118,7 @@ async function downloadFile(
       }
     } catch (unlinkError) {
       logger.debug(
-        `Could not remove partial download ${outputPath}: ${unlinkError.message}`,
+        `Could not remove partial download ${outputPath}: ${getErrorMessage(unlinkError)}`,
       );
     }
     throw error;

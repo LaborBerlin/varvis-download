@@ -181,6 +181,16 @@ describe('apiClient', () => {
           'Fetch failed after 5 attempts: Server error',
         );
       });
+
+      test('should throw without fetching when retries is zero', async () => {
+        const client = new ApiClient(mockAgent, mockLogger);
+
+        await expect(
+          client.fetchWithRetry('https://api.example.com', {}, 0),
+        ).rejects.toThrow('Fetch failed without executing a request');
+
+        expect(undici.fetch).not.toHaveBeenCalled();
+      });
     });
   });
 

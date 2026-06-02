@@ -1,4 +1,5 @@
 const { spawn } = require('node:child_process');
+const { getErrorMessage } = require('./errorUtils.cjs');
 
 /**
  * Wraps spawn in a Promise to maintain async/await syntax.
@@ -134,7 +135,7 @@ async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
       return false;
     }
   } catch (error) {
-    logger.error(`Error checking ${tool} version: ${error.message}`);
+    logger.error(`Error checking ${tool} version: ${getErrorMessage(error)}`);
     return false;
   }
 }

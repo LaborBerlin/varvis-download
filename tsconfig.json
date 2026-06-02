@@ -11,9 +11,10 @@
     "types": ["node", "jest"],
     "typeRoots": ["./node_modules/@types"],
 
-    "strict": false,
-    "noImplicitAny": false,
-    "noImplicitReturns": false,
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "noImplicitReturns": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
 

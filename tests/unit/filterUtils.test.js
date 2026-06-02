@@ -165,6 +165,18 @@ describe('filterUtils', () => {
       expect(filtered).toHaveLength(0);
     });
 
+    test('should exclude null/undefined fields from comparison filters', () => {
+      const data = [
+        { id: 1, score: 10 },
+        { id: 2, score: null },
+        { id: 3, score: undefined },
+        { id: 4 },
+      ];
+      const filter = { field: 'score', operator: '>', value: '5' };
+      const filtered = applyFilter(data, filter);
+      expect(filtered.map((a) => a.id)).toEqual([1]);
+    });
+
     test('should apply contains filter correctly', () => {
       const kitAnalyses = [
         { enrichmentKitName: 'TwistExomev0.2 (size 37484908bp)' },

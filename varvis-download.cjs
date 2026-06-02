@@ -60,6 +60,7 @@ const {
 const {
   resumeArchivedDownloads: resumeArchivedDownloadsFunc,
 } = require('./js/archiveUtils.cjs');
+const { getErrorMessage, getErrorStack } = require('./js/errorUtils.cjs');
 
 // Command line arguments setup
 /** @type {any} */
@@ -246,11 +247,15 @@ if (argv.version) {
 
 // Load configuration file settings
 // Normalize config path in case the option was specified multiple times
-const configFilePath = path.resolve(normalizeStringOption(argv.config));
+const configFilePath = path.resolve(
+  normalizeStringOption(argv.config) || '.config.json',
+);
 const config = loadConfig(configFilePath);
 
 // Merge command line arguments with configuration file settings
 // Normalize string options that may be arrays due to duplicate CLI arguments
+/** @type {string[]} */
+const rawFilters = argv.filter || config.filter || [];
 const normalizedDestination = normalizeStringOption(argv.destination);
 const normalizedRestorationFile = normalizeStringOption(argv.restorationFile);
 const normalizedUrlFile = normalizeStringOption(argv.urlFile);
@@ -264,7 +269,7 @@ const finalConfig = {
   analysisIds: normalizeArrayInput(argv.analysisIds, config.analysisIds, []),
   sampleIds: normalizeArrayInput(argv.sampleIds, config.sampleIds, []),
   limsIds: normalizeArrayInput(argv.limsIds, config.limsIds, []),
-  filters: (argv.filter || config.filter || []).map((filter) => filter.trim()),
+  filters: rawFilters.map((filter) => filter.trim()),
   destination:
     normalizedDestination !== '.'
       ? normalizedDestination
@@ -356,9 +361,9 @@ const rl = readline.createInterface({
 
 /**
  * Handles the output of download URLs, printing to console and/or writing to a file.
- * @param {string[]}    urls     - An array of URL strings to output.
- * @param {string|null} filePath - The path to the output file, or null to only use console.
- * @param {object}      logger   - The logger instance.
+ * @param {string[]}                 urls     - An array of URL strings to output.
+ * @param {string|null}              filePath - The path to the output file, or null to only use console.
+ * @param {import('winston').Logger} logger   - The logger instance.
  */
 function handleUrlListing(urls, filePath, logger) {
   if (urls.length === 0) {
@@ -378,7 +383,7 @@ function handleUrlListing(urls, filePath, logger) {
       logger.info(`Successfully saved ${urls.length} URLs to ${filePath}`);
     } catch (error) {
       logger.error(
-        `Failed to write URLs to file ${filePath}: ${error.message}`,
+        `Failed to write URLs to file ${filePath}: ${getErrorMessage(error)}`,
       );
     }
   }
@@ -391,13 +396,13 @@ const os = require('node:os'); // Import for generating temp file paths
  * Checks if a download URL is expiring soon and refreshes it if needed.
  * This ensures long-running download sessions don't fail due to expired pre-signed URLs.
  *
- * @param   {object}                   fileDict - The current file dictionary with download links.
- * @param   {string}                   fileName - The name of the file to check.
- * @param   {string}                   target   - The Varvis target (tenant).
- * @param   {string}                   token    - The CSRF token for authentication.
- * @param   {object}                   agent    - The HTTP agent instance.
- * @param   {import('winston').Logger} logger   - The logger instance.
- * @returns {Promise<string>}                   - The valid download URL (refreshed if needed).
+ * @param   {import('./js/types').FileDict}       fileDict - The current file dictionary with download links.
+ * @param   {string}                              fileName - The name of the file to check.
+ * @param   {string}                              target   - The Varvis target (tenant).
+ * @param   {string}                              token    - The CSRF token for authentication.
+ * @param   {import('./js/types').HttpDispatcher} agent    - The HTTP agent instance.
+ * @param   {import('winston').Logger}            logger   - The logger instance.
+ * @returns {Promise<string>}                              - The valid download URL (refreshed if needed).
  */
 async function getValidDownloadUrl(
   fileDict,
@@ -449,9 +454,10 @@ async function getValidDownloadUrl(
     }
 
     // Return the fresh URL
-    if (freshFileDict[fileName]) {
+    const refreshedFile = freshFileDict[fileName];
+    if (refreshedFile?.downloadLink) {
       logger.info(`URL refreshed successfully for ${fileName}`);
-      return freshFileDict[fileName].downloadLink;
+      return refreshedFile.downloadLink;
     }
 
     logger.warn(
@@ -627,7 +633,9 @@ async function main() {
     }
 
     // Handle regions from command line or BED file
+    /** @type {string[]} */
     let regions = [];
+    /** @type {string|undefined} */
     let tempBedPath; // Initialize tempBedPath
 
     if (finalConfig.range) {
@@ -672,7 +680,7 @@ async function main() {
         fs.writeFileSync(tempBedPath, bedFileContent);
         logger.info(`Generated temporary BED file: ${tempBedPath}`);
       } catch (error) {
-        logger.error(`Error reading BED file: ${error.message}`);
+        logger.error(`Error reading BED file: ${getErrorMessage(error)}`);
         process.exit(1);
       }
     } else {
@@ -710,6 +718,7 @@ async function main() {
     };
 
     // Collect all URLs if --list-urls flag is set
+    /** @type {string[]} */
     const allUrls = [];
 
     for (const analysisId of ids) {
@@ -799,6 +808,11 @@ async function main() {
             );
 
             if (regions.length > 0) {
+              if (!tempBedPath) {
+                throw new Error(
+                  'Temporary BED file path missing for ranged BAM download.',
+                );
+              }
               // Ranged download (optionally including unmapped reads in the same BAM)
               try {
                 const modeLabel = finalConfig.unmapped
@@ -821,7 +835,7 @@ async function main() {
                 await indexBAM(outputFile, logger, overwrite);
               } catch (error) {
                 logger.error(
-                  `Error during ranged download for ${fileName}: ${error.message}`,
+                  `Error during ranged download for ${fileName}: ${getErrorMessage(error)}`,
                 );
               }
             } else {
@@ -845,7 +859,7 @@ async function main() {
                 await indexBAM(unmappedOutputFile, logger, overwrite);
               } catch (error) {
                 logger.error(
-                  `Error extracting unmapped reads from ${fileName}: ${error.message}`,
+                  `Error extracting unmapped reads from ${fileName}: ${getErrorMessage(error)}`,
                 );
               }
             }
@@ -878,7 +892,7 @@ async function main() {
                   );
                 } catch (indexError) {
                   logger.warn(
-                    `Failed to download index file ${fileName}.bai: ${indexError.message}`,
+                    `Failed to download index file ${fileName}.bai: ${getErrorMessage(indexError)}`,
                   );
                 }
               } else {
@@ -891,7 +905,7 @@ async function main() {
               await indexBAM(outputFile, logger, overwrite);
             } catch (error) {
               logger.error(
-                `Error during full download for ${fileName}: ${error.message}`,
+                `Error during full download for ${fileName}: ${getErrorMessage(error)}`,
               );
             }
           }
@@ -963,7 +977,7 @@ async function main() {
                 await indexVCF(regionSpecificOutputFile, logger, overwrite);
               } catch (error) {
                 logger.error(
-                  `Error during ranged download for ${fileName} on region ${region}: ${error.message}`,
+                  `Error during ranged download for ${fileName} on region ${region}: ${getErrorMessage(error)}`,
                 );
               }
             }
@@ -996,7 +1010,7 @@ async function main() {
                   );
                 } catch (indexError) {
                   logger.warn(
-                    `Failed to download index file ${fileName}.tbi: ${indexError.message}`,
+                    `Failed to download index file ${fileName}.tbi: ${getErrorMessage(indexError)}`,
                   );
                 }
               } else {
@@ -1009,7 +1023,7 @@ async function main() {
               await indexVCF(outputFile, logger, overwrite);
             } catch (error) {
               logger.error(
-                `Error during full download for ${fileName}: ${error.message}`,
+                `Error during full download for ${fileName}: ${getErrorMessage(error)}`,
               );
             }
           }
@@ -1035,8 +1049,11 @@ async function main() {
     // Exit successfully
     process.exit(0);
   } catch (error) {
-    logger.error('An error occurred:', error.message);
-    logger.debug(error.stack);
+    logger.error('An error occurred:', getErrorMessage(error));
+    const stack = getErrorStack(error);
+    if (stack) {
+      logger.debug(stack);
+    }
     process.exit(1);
   } finally {
     rl.close();
@@ -1044,8 +1061,11 @@ async function main() {
 }
 
 main().catch((error) => {
-  logger.error('An unexpected error occurred:', error.message);
-  logger.debug(error.stack);
+  logger.error('An unexpected error occurred:', getErrorMessage(error));
+  const stack = getErrorStack(error);
+  if (stack) {
+    logger.debug(stack);
+  }
   rl.close();
   process.exit(1);
 });

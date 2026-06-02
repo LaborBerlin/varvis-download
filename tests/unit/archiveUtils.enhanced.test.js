@@ -229,6 +229,46 @@ describe('archiveUtils (enhanced)', () => {
       );
     });
 
+    test('should keep restored files without download links for retry', async () => {
+      const mockData = [
+        {
+          analysisId: 'AN001',
+          fileName: 'sample.bam',
+          restoreEstimation: '2025-01-01T00:00:00Z',
+          options: {},
+        },
+      ];
+
+      fs.existsSync.mockReturnValue(true);
+      fs.readFileSync.mockReturnValue(JSON.stringify(mockData));
+
+      getDownloadLinks.mockResolvedValue({
+        'sample.bam': {
+          fileName: 'sample.bam',
+          currentlyArchived: false,
+        },
+      });
+
+      await resumeArchivedDownloads(
+        'test-restoration.json',
+        './downloads',
+        mockTarget,
+        mockToken,
+        mockAgent,
+        mockLogger,
+        false,
+      );
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'File sample.bam has no download link for analysis AN001. Keeping for retry.',
+      );
+      expect(downloadFile).not.toHaveBeenCalled();
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        'test-restoration.json',
+        expect.stringContaining('AN001'),
+      );
+    });
+
     test('should handle BED file read error during resume', async () => {
       const mockData = [
         {

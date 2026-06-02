@@ -46,13 +46,13 @@ function applyFilter(analyses, filter) {
       case '!=':
         return analysisValue != value;
       case '>':
-        return analysisValue > value;
+        return analysisValue != null && analysisValue > value;
       case '<':
-        return analysisValue < value;
+        return analysisValue != null && analysisValue < value;
       case '>=':
-        return analysisValue >= value;
+        return analysisValue != null && analysisValue >= value;
       case '<=':
-        return analysisValue <= value;
+        return analysisValue != null && analysisValue <= value;
       case '~=':
         return String(analysisValue || '').includes(value);
       case '^=':

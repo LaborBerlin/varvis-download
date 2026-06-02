@@ -5,6 +5,7 @@ const {
   readRestorationState,
   writeRestorationState,
 } = require('./restorationState.cjs');
+const { getErrorMessage } = require('./errorUtils.cjs');
 
 /**
  * Triggers restoration for an archived analysis file using the internal restore endpoint.
@@ -80,7 +81,7 @@ async function triggerRestoreArchivedFile(
     }
   } catch (error) {
     logger.error(
-      `Error triggering restoration for analysis ${analysisId}: ${error.message}`,
+      `Error triggering restoration for analysis ${analysisId}: ${getErrorMessage(error)}`,
     );
   }
 }
@@ -187,6 +188,13 @@ async function resumeArchivedDownloads(
       }
 
       const downloadLink = file.downloadLink;
+      if (!downloadLink) {
+        logger.warn(
+          `File ${entry.fileName} has no download link for analysis ${entry.analysisId}. Keeping for retry.`,
+        );
+        updatedData.push(entry);
+        continue;
+      }
 
       // Handle genomic ranges from restored options
       /** @type {string[]} */
@@ -205,7 +213,7 @@ async function resumeArchivedDownloads(
             });
         } catch (bedError) {
           logger.warn(
-            `Error reading BED file ${restoredOptions.bed}: ${bedError.message}. Proceeding with full download.`,
+            `Error reading BED file ${restoredOptions.bed}: ${getErrorMessage(bedError)}. Proceeding with full download.`,
           );
         }
       }
@@ -219,16 +227,16 @@ async function resumeArchivedDownloads(
       // Handle BAM files
       if (entry.fileName.endsWith('.bam')) {
         const indexFileUrl = fileDict[`${entry.fileName}.bai`]?.downloadLink;
-        if (regions.length > 0 && !indexFileUrl) {
-          logger.error(
-            `Index file for BAM ${entry.fileName} not found for analysis ${entry.analysisId}. Ranged download requires .bai index. Keeping for retry.`,
-          );
-          updatedData.push(entry);
-          continue;
-        }
 
         // Perform ranged or full download based on restored options
         if (regions.length > 0) {
+          if (!indexFileUrl) {
+            logger.error(
+              `Index file for BAM ${entry.fileName} not found for analysis ${entry.analysisId}. Ranged download requires .bai index. Keeping for retry.`,
+            );
+            updatedData.push(entry);
+            continue;
+          }
           const indexFileName = generateOutputFileName(
             `${entry.fileName}.bai`,
             regions,
@@ -325,7 +333,7 @@ async function resumeArchivedDownloads(
               );
             } catch (indexError) {
               logger.warn(
-                `Failed to download index file ${entry.fileName}.bai: ${indexError.message}`,
+                `Failed to download index file ${entry.fileName}.bai: ${getErrorMessage(indexError)}`,
               );
             }
           }
@@ -335,16 +343,16 @@ async function resumeArchivedDownloads(
       } else if (entry.fileName.endsWith('.vcf.gz')) {
         // Handle VCF files
         const indexFileUrl = fileDict[`${entry.fileName}.tbi`]?.downloadLink;
-        if (regions.length > 0 && !indexFileUrl) {
-          logger.error(
-            `Index file for VCF ${entry.fileName} not found for analysis ${entry.analysisId}. Ranged download requires .tbi index. Keeping for retry.`,
-          );
-          updatedData.push(entry);
-          continue;
-        }
 
         // Perform ranged or full download based on restored options
         if (regions.length > 0) {
+          if (!indexFileUrl) {
+            logger.error(
+              `Index file for VCF ${entry.fileName} not found for analysis ${entry.analysisId}. Ranged download requires .tbi index. Keeping for retry.`,
+            );
+            updatedData.push(entry);
+            continue;
+          }
           const indexFileName = generateOutputFileName(
             `${entry.fileName}.tbi`,
             regions,
@@ -420,7 +428,7 @@ async function resumeArchivedDownloads(
               );
             } catch (indexError) {
               logger.warn(
-                `Failed to download index file ${entry.fileName}.tbi: ${indexError.message}`,
+                `Failed to download index file ${entry.fileName}.tbi: ${getErrorMessage(indexError)}`,
               );
             }
           }
@@ -447,7 +455,7 @@ async function resumeArchivedDownloads(
       // Don't add this entry to updatedData on success (it gets removed)
     } catch (error) {
       logger.error(
-        `Error during resume download for ${entry.fileName}: ${error.message}`,
+        `Error during resume download for ${entry.fileName}: ${getErrorMessage(error)}`,
       );
       // Keep the entry for retry
       updatedData.push(entry);

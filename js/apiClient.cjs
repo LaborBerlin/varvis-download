@@ -1,4 +1,5 @@
 const { fetch } = require('undici');
+const { getErrorMessage } = require('./errorUtils.cjs');
 
 /**
  * Default headers for all requests to avoid undici v7's automatic sec-fetch-mode: cors
@@ -48,12 +49,13 @@ class ApiClient {
           await new Promise((res) => setTimeout(res, attempt * 1000)); // Exponential backoff
         } else {
           this.logger.error(
-            `Fetch failed after ${retries} attempts: ${error.message}`,
+            `Fetch failed after ${retries} attempts: ${getErrorMessage(error)}`,
           );
           throw error;
         }
       }
     }
+    throw new Error('Fetch failed without executing a request');
   }
 }
 

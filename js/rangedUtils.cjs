@@ -7,6 +7,7 @@ const {
   compareVersions,
   checkToolAvailability,
 } = require('./toolChecks.cjs');
+const { getErrorMessage } = require('./errorUtils.cjs');
 
 /**
  * Performs a ranged download for a BAM file using samtools.
@@ -94,7 +95,9 @@ async function rangedDownloadBAM(
         /* ignore cleanup errors */
       }
     }
-    logger.error(`Error performing ranged download for BAM: ${error.message}`);
+    logger.error(
+      `Error performing ranged download for BAM: ${getErrorMessage(error)}`,
+    );
     throw error;
   }
 }
@@ -286,7 +289,7 @@ async function unmappedDownloadBAM(
         /* ignore cleanup errors */
       }
     }
-    logger.error(`Error extracting unmapped reads: ${error.message}`);
+    logger.error(`Error extracting unmapped reads: ${getErrorMessage(error)}`);
     throw error;
   }
 }
@@ -311,7 +314,7 @@ async function indexBAM(bamFile, logger, overwrite = false) {
     await spawnPromise('samtools', args, logger);
     logger.info(`Indexed BAM file: ${bamFile}`);
   } catch (error) {
-    logger.error(`Error indexing BAM file: ${error.message}`);
+    logger.error(`Error indexing BAM file: ${getErrorMessage(error)}`);
     throw error;
   }
 }
@@ -336,7 +339,7 @@ async function indexVCF(vcfGzFile, logger, overwrite = false) {
     await spawnPromise('tabix', args, logger);
     logger.info(`Indexed VCF.gz file: ${vcfGzFile}`);
   } catch (error) {
-    logger.error(`Error indexing VCF.gz file: ${error.message}`);
+    logger.error(`Error indexing VCF.gz file: ${getErrorMessage(error)}`);
     throw error;
   }
 }
@@ -381,7 +384,7 @@ async function ensureIndexFile(
     );
     logger.info(`Downloaded index file to ${indexFilePath}`);
   } catch (error) {
-    logger.error(`Error downloading index file: ${error.message}`);
+    logger.error(`Error downloading index file: ${getErrorMessage(error)}`);
     throw error;
   }
 }

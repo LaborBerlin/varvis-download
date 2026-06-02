@@ -44,6 +44,9 @@ class AuthService {
         },
       );
       const csrfToken = response.headers.get('x-csrf-token');
+      if (!csrfToken) {
+        throw new Error('CSRF token missing from authentication response');
+      }
       this.logger.debug(`Received CSRF token: ${csrfToken}`);
       return csrfToken;
     } catch (error) {
@@ -96,7 +99,13 @@ class AuthService {
         },
       );
 
-      this.token = csrfToken2Response.headers.get('x-csrf-token');
+      const csrfToken2 = csrfToken2Response.headers.get('x-csrf-token');
+      if (!csrfToken2) {
+        throw new Error(
+          'CSRF token missing from post-login authentication response',
+        );
+      }
+      this.token = csrfToken2;
 
       this.logger.info('Login successful');
       return { csrfToken: this.token };
