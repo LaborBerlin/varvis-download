@@ -15,8 +15,7 @@
 The `varvis-download` package provides an independently developed free software command-line interface (CLI) for
 downloading BAM, BAI, and VCF files from the varvis® API. It supports authentication, session management, file filtering,
 proxy configuration, archived file restoration, genomic range downloads, and detailed reporting for bioinformatics
-workflow automation. This project is not an official varvis® product and is not affiliated with, endorsed by, or
-officially supported by Limbus Medical Technologies GmbH.
+workflow automation.
 
 ## Table of Contents
 
