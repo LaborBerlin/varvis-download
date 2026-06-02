@@ -3,14 +3,11 @@
 // Load environment variables from .env file
 require('dotenv').config({ quiet: true });
 
-const { CookieJar } = require('tough-cookie');
-const { cookie } = require('http-cookie-agent/undici');
 const { hideBin } = require('yargs/helpers');
 const fs = require('node:fs');
 const path = require('node:path');
 const readline = require('node:readline');
 const Mute = require('mute-stream');
-const { ProxyAgent, Agent } = require('undici');
 const {
   version,
   name,
@@ -23,6 +20,7 @@ const { loadLogo, getLastModifiedDate } = require('./js/configUtils.cjs');
 const { buildParser } = require('./js/cli/args.cjs');
 const { mergeFromArgv } = require('./js/cli/configMerge.cjs');
 const { formatVersionInfo } = require('./js/cli/versionInfo.cjs');
+const { createHttpAgent } = require('./js/net/httpAgent.cjs');
 const { ConfigurationError } = require('./js/errors.cjs');
 const createLogger = require('./js/logger.cjs');
 const AuthService = require('./js/authService.cjs');
@@ -113,18 +111,11 @@ const {
 } = finalConfig;
 const userName = finalConfig.username;
 
-// Setup HTTP agent for proxy and cookie handling
-const jar = new CookieJar();
-/** @type {any} */
-const agentOptions = proxy ? { uri: proxy } : {};
-if (proxyUsername && proxyPassword) {
-  agentOptions.auth = `${proxyUsername}:${proxyPassword}`;
-}
-
-/** @type {any} */
-const agent = proxy
-  ? new ProxyAgent(agentOptions).compose(cookie({ jar }))
-  : new Agent().compose(cookie({ jar }));
+const agent = createHttpAgent({
+  proxy,
+  proxyUsername,
+  proxyPassword,
+});
 
 // Initialize AuthService instance
 const authService = new AuthService(logger, agent);
