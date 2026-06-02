@@ -4,7 +4,7 @@ layout: home
 hero:
   name: 'Varvis Download CLI'
   text: 'Bioinformatics File Download Tool'
-  tagline: 'A powerful command-line interface for downloading BAM, BAI, and VCF files from the Varvis API with advanced filtering and genomic range support.'
+  tagline: 'Independently developed free software for downloading authorized BAM, BAI, and VCF files from the varvis® API for research and bioinformatics workflow automation.'
   image:
     src: /hero-image.svg
     alt: Varvis Download CLI
@@ -19,7 +19,7 @@ hero:
 features:
   - icon: 🚀
     title: Fast & Reliable
-    details: High-performance downloads with retry logic, resume capability, and comprehensive error handling for production workflows.
+    details: High-performance downloads with retry logic, resume capability, and comprehensive error handling for workflow automation.
 
   - icon: 🔒
     title: Secure Authentication
@@ -31,7 +31,7 @@ features:
 
   - icon: 🧬
     title: Genomic Range Support
-    details: Download specific genomic regions using coordinates or BED files with automatic tool integration (samtools, tabix, bgzip).
+    details: Retrieve focused genomic regions using coordinates or BED files with automatic tool integration (samtools, tabix, bgzip).
 
   - icon: 📦
     title: Archive Management
@@ -81,7 +81,12 @@ Support for BAM, BAI, VCF, and VCF.GZ files with automatic index handling.
 
 ### 🎯 **Genomic Range Downloads**
 
-Extract specific genomic regions using coordinates or BED files for targeted analysis.
+Extract specific genomic regions using coordinates or BED files for focused research data retrieval.
+
+### 📋 **Intended Use**
+
+Provided for research, educational, development, interoperability, and bioinformatics workflow automation purposes only.
+Review the [Intended Use](/guide/intended-use) page before using the software in regulated environments.
 
 ### 🔄 **Archive Integration**
 

@@ -6,10 +6,10 @@ This guide will help you get up and running with the Varvis Download CLI tool qu
 
 Before installing Varvis Download CLI, ensure you have:
 
-- [Node.js](https://nodejs.org/) v20.16.0 or higher
+- [Node.js](https://nodejs.org/) v22.22.2 or higher
 - NPM or Yarn for package management
-- Access to a Varvis API instance
-- Valid Varvis credentials
+- Access to a varvis® API instance
+- Valid varvis® credentials
 
 ### External Tools (Optional)
 
@@ -73,7 +73,7 @@ Download BAM files for a specific analysis:
 
 This command will:
 
-- Connect to the `mytarget` Varvis instance
+- Connect to the `mytarget` varvis® instance
 - Download BAM and BAI files for analysis ID `12345`
 - Save files to the current directory
 

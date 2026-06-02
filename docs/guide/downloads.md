@@ -216,7 +216,7 @@ Download specific genomic regions:
 
 ```bash
 # Single genomic range
-./varvis-download.js -t mytarget -a 12345 -g "chr1:155183824-155194915"
+./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000"
 
 # Multiple ranges
 ./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000 chr2:500000-1500000"
@@ -229,9 +229,9 @@ Download specific genomic regions:
 
 ```
 # target_regions.bed
-chr1    155183824    155194915    BRCA1_region
-chr2    25000000     26000000     DNMT3A_region
-chr17   41196311     41277500     BRCA1_full
+chr1    1000000      2000000      region_a
+chr2    500000       1500000      region_b
+chr7    5500000      5600000      region_c
 ```
 
 **VCF Range Downloads**:

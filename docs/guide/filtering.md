@@ -301,27 +301,27 @@ mkdir -p "$DEST"
 
 ### Research Project Filtering
 
-**Cancer panel study:**
+**Research panel cohort:**
 
 ```bash
-# Download all cancer panel analyses for specific samples
+# Download all panel analyses for specific samples
 ./varvis-download.js -t mytarget \
-  -s "$(cat cancer_samples.txt | tr '\n' ',')" \
+  -s "$(cat panel_samples.txt | tr '\n' ',')" \
   -F "analysisType=Panel" \
   -F "coverage>=100" \
-  -d "./cancer_study/"
+  -d "./panel_study/"
 ```
 
-**Germline variant calling:**
+**High-coverage SNV data:**
 
 ```bash
-# High-coverage germline SNV data
+# High-coverage SNV files
 ./varvis-download.js -t mytarget \
-  -l "$(cat germline_lims.txt | tr '\n' ',')" \
+  -l "$(cat research_lims.txt | tr '\n' ',')" \
   -F "analysisType=SNV" \
   -F "coverage>=30" \
   -F "platform=Illumina" \
-  -d "./germline_variants/"
+  -d "./snv_files/"
 ```
 
 ### Quality Control Filtering

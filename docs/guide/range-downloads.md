@@ -6,7 +6,7 @@ Extract specific genomic regions from BAM and VCF files using coordinates or BED
 
 Range downloads allow you to extract specific genomic regions instead of downloading entire files, providing:
 
-- **Targeted analysis** - Focus on regions of interest
+- **Focused data retrieval** - Select regions of interest
 - **Reduced data transfer** - Download only what you need
 - **Storage efficiency** - Smaller files for specific analyses
 - **Faster processing** - Work with relevant data quickly
@@ -67,8 +67,8 @@ Use standard genomic coordinate format: `chromosome:start-end`
 # Multiple regions (space-separated)
 ./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000 chr2:500000-1500000"
 
-# Specific gene regions
-./varvis-download.js -t mytarget -a 12345 -g "chr17:41196311-41277500"  # BRCA1
+# Another region
+./varvis-download.js -t mytarget -a 12345 -g "chr7:5500000-5600000"
 ```
 
 ### BED File Regions
@@ -78,10 +78,10 @@ Use BED files for complex region definitions:
 **Create regions.bed:**
 
 ```bed
-chr1    155183824    155194915    BRCA1_region
-chr2    25000000     26000000     DNMT3A_region
-chr17   41196311     41277500     BRCA1_full
-chrX    153280000    153290000    G6PD_region
+chr1    1000000      2000000      region_a
+chr2    500000       1500000      region_b
+chr7    5500000      5600000      region_c
+chrX    1000000      1100000      region_x
 ```
 
 **Use BED file:**
@@ -136,36 +136,36 @@ sample_001.chr1_1000000_2000000.vcf.gz.tbi # New index
 
 ## Advanced Range Examples
 
-### Gene-Specific Downloads
+### Region-Specific Downloads
 
-**BRCA1/BRCA2 analysis:**
+**Multiple defined regions:**
 
 ```bash
-# BRCA1 region (chr17:41,196,311-41,277,500)
-./varvis-download.js -t mytarget -a 12345 -g "chr17:41196311-41277500"
+# Region A
+./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000"
 
-# BRCA2 region (chr13:32,890,598-32,973,805)
-./varvis-download.js -t mytarget -a 12345 -g "chr13:32890598-32973805"
+# Region B
+./varvis-download.js -t mytarget -a 12345 -g "chr2:500000-1500000"
 
-# Both genes
+# Both regions
 ./varvis-download.js -t mytarget -a 12345 \
-  -g "chr17:41196311-41277500 chr13:32890598-32973805"
+  -g "chr1:1000000-2000000 chr2:500000-1500000"
 ```
 
-**Cancer gene panel:**
+**Research region set:**
 
 ```bash
-# Create cancer_genes.bed
-cat > cancer_genes.bed << EOF
-chr17   41196311    41277500    BRCA1
-chr13   32890598    32973805    BRCA2
-chr3    179198000   179199000   PIK3CA
-chr10   87957915    87965546    PTEN
-chr17   7571719     7590868     TP53
+# Create research_regions.bed
+cat > research_regions.bed << EOF
+chr1    1000000     2000000     region_a
+chr2    500000      1500000     region_b
+chr7    5500000     5600000     region_c
+chr12   25000000    25100000    region_d
+chr20   1000000     1100000     region_e
 EOF
 
-# Download cancer gene regions
-./varvis-download.js -t mytarget -a 12345 -b cancer_genes.bed
+# Download research regions
+./varvis-download.js -t mytarget -a 12345 -b research_regions.bed
 ```
 
 ## Unmapped Read Extraction
@@ -186,34 +186,34 @@ Only samtools is required (no tabix/bgzip). VCF files are automatically skipped.
 When used with `--range`, both ranged and unmapped reads are included in a **single BAM file**:
 
 ```bash
-# Single BAM with BRCA1 region + unmapped reads
-./varvis-download.js -t mytarget -a 12345 -g "chr17:41196311-41277500" --unmapped
+# Single BAM with a genomic region + unmapped reads
+./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000" --unmapped
 ```
 
 This uses command-line regions instead of a BED file to allow the `*` wildcard alongside genomic coordinates.
 
 ### Exome Regions
 
-**Targeted exome analysis:**
+**Target-enriched data retrieval:**
 
 ```bash
 # Download exome target regions
 ./varvis-download.js -t mytarget -a 12345 -b exome_targets.bed -f "bam,bam.bai"
 ```
 
-**Custom panel regions:**
+**Custom region panel:**
 
 ```bash
-# Create custom panel BED file
-cat > cardio_panel.bed << EOF
-chr1    155200000   155210000   CACNA1C
-chr2    166200000   166300000   SCN2A
-chr3    38600000    38700000    SCN5A
-chr7    35900000    36000000    KCNH2
-chr11   17400000    17500000    KCNQ1
+# Create custom region BED file
+cat > custom_regions.bed << EOF
+chr1    1000000     2000000     region_a
+chr2    500000      1500000     region_b
+chr3    2500000     2600000     region_c
+chr7    5500000     5600000     region_d
+chr11   1000000     1100000     region_e
 EOF
 
-./varvis-download.js -t mytarget -a 12345 -b cardio_panel.bed
+./varvis-download.js -t mytarget -a 12345 -b custom_regions.bed
 ```
 
 ### Whole Chromosome Downloads
@@ -245,11 +245,11 @@ EOF
 # range_download_workflow.sh
 
 ANALYSIS_ID="12345"
-TARGET_GENE="BRCA1"
-REGION="chr17:41196311-41277500"
-OUTPUT_DIR="./analysis_${ANALYSIS_ID}_${TARGET_GENE}"
+REGION_LABEL="region_a"
+REGION="chr1:1000000-2000000"
+OUTPUT_DIR="./range_${ANALYSIS_ID}_${REGION_LABEL}"
 
-echo "Starting range download workflow for $TARGET_GENE..."
+echo "Starting range download workflow for $REGION_LABEL..."
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
@@ -297,8 +297,8 @@ echo "Range download workflow complete: $OUTPUT_DIR"
 #!/bin/bash
 # range_qc.sh
 
-REGION_BAM="sample_001.chr17_41196311_41277500.bam"
-REGION_VCF="sample_001.chr17_41196311_41277500.vcf.gz"
+REGION_BAM="sample_001.chr1_1000000_2000000.bam"
+REGION_VCF="sample_001.chr1_1000000_2000000.vcf.gz"
 
 # BAM QC
 echo "BAM Quality Control:"
@@ -317,10 +317,10 @@ zcat "$REGION_VCF" | grep -v "^#" | cut -f7 | sort | uniq -c | sort -nr
 
 **Typical size reductions:**
 
-- **Single gene region**: 99% size reduction
+- **Single small region**: 99% size reduction
 - **Exome regions**: 98% size reduction
 - **Chromosome**: 96% size reduction
-- **Multiple genes**: 95-99% reduction
+- **Multiple regions**: 95-99% reduction
 
 **Size estimation:**
 
@@ -348,7 +348,7 @@ zcat "$REGION_VCF" | grep -v "^#" | cut -f7 | sort | uniq -c | sort -nr
 # Download regions in parallel (separate processes)
 ./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000" &
 ./varvis-download.js -t mytarget -a 12345 -g "chr2:500000-1500000" &
-./varvis-download.js -t mytarget -a 12345 -g "chr17:41196311-41277500" &
+./varvis-download.js -t mytarget -a 12345 -g "chr7:5500000-5600000" &
 wait  # Wait for all downloads to complete
 ```
 
@@ -357,36 +357,36 @@ wait  # Wait for all downloads to complete
 **Efficient storage patterns:**
 
 ```bash
-# Organize by gene/region
-mkdir -p ./regions/{BRCA1,BRCA2,TP53}
+# Organize by region
+mkdir -p ./regions/{region_a,region_b,region_c}
 
 # Download to specific directories
-./varvis-download.js -t mytarget -a 12345 -g "chr17:41196311-41277500" -d "./regions/BRCA1/"
-./varvis-download.js -t mytarget -a 12345 -g "chr13:32890598-32973805" -d "./regions/BRCA2/"
-./varvis-download.js -t mytarget -a 12345 -g "chr17:7571719-7590868" -d "./regions/TP53/"
+./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000" -d "./regions/region_a/"
+./varvis-download.js -t mytarget -a 12345 -g "chr2:500000-1500000" -d "./regions/region_b/"
+./varvis-download.js -t mytarget -a 12345 -g "chr7:5500000-5600000" -d "./regions/region_c/"
 ```
 
-## Integration with Analysis Tools
+## Integration with Downstream Research Tools
 
-### Variant Calling
+### Optional Downstream Processing
 
-**Region-specific variant calling:**
+**Region-specific processing:**
 
 ```bash
 # Download region
-./varvis-download.js -t mytarget -a 12345 -g "chr17:41196311-41277500" -f "bam,bam.bai"
+./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000" -f "bam,bam.bai"
 
-# Run variant calling on region
-REGION_BAM="sample_001.chr17_41196311_41277500.bam"
+# Run a downstream research workflow on the region
+REGION_BAM="sample_001.chr1_1000000_2000000.bam"
 REFERENCE="/data/reference/hg38.fa"
-OUTPUT_VCF="variants.chr17_41196311_41277500.vcf"
+OUTPUT_VCF="research_output.chr1_1000000_2000000.vcf"
 
-# Call variants with your preferred tool
+# Example with a user-managed external tool
 gatk HaplotypeCaller \
   -R "$REFERENCE" \
   -I "$REGION_BAM" \
   -O "$OUTPUT_VCF" \
-  -L "chr17:41196311-41277500"
+  -L "chr1:1000000-2000000"
 ```
 
 ### Coverage Analysis
@@ -395,13 +395,13 @@ gatk HaplotypeCaller \
 
 ```bash
 # Download BAM region
-./varvis-download.js -t mytarget -a 12345 -g "chr17:41196311-41277500" -f "bam,bam.bai"
+./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000" -f "bam,bam.bai"
 
 # Calculate coverage for region
-REGION_BAM="sample_001.chr17_41196311_41277500.bam"
+REGION_BAM="sample_001.chr1_1000000_2000000.bam"
 
 # Per-base coverage
-samtools depth "$REGION_BAM" > coverage.chr17_41196311_41277500.txt
+samtools depth "$REGION_BAM" > coverage.chr1_1000000_2000000.txt
 
 # Coverage statistics
 samtools depth "$REGION_BAM" | awk '{sum+=$3; count++} END {print "Average coverage:", sum/count}'
@@ -410,20 +410,20 @@ samtools depth "$REGION_BAM" | awk '{sum+=$3; count++} END {print "Average cover
 samtools depth "$REGION_BAM" | cut -f3 | sort -n | uniq -c | sort -nr > coverage_histogram.txt
 ```
 
-### Annotation Workflows
+### Research Annotation Workflows
 
-**Region-specific annotation:**
+**Region-specific research annotation:**
 
 ```bash
 # Download VCF region
-./varvis-download.js -t mytarget -a 12345 -g "chr17:41196311-41277500" -f "vcf.gz,vcf.gz.tbi"
+./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000" -f "vcf.gz,vcf.gz.tbi"
 
 # Annotate variants in region
-REGION_VCF="sample_001.chr17_41196311_41277500.vcf.gz"
+REGION_VCF="sample_001.chr1_1000000_2000000.vcf.gz"
 
 # VEP annotation
 vep --input_file "$REGION_VCF" \
-    --output_file "annotated.chr17_41196311_41277500.vcf" \
+    --output_file "annotated.chr1_1000000_2000000.vcf" \
     --format vcf \
     --vcf \
     --symbol \
@@ -515,14 +515,14 @@ tabix original.vcf.gz "chr1:1000000-2000000" | head
 
 ### Region Selection
 
-1. **Use specific regions for targeted analysis**
-2. **Combine related genes in single downloads**
-3. **Consider regulatory regions around genes**
+1. **Use specific regions for focused retrieval**
+2. **Combine related regions in single downloads**
+3. **Document the coordinate source and reference genome build**
 4. **Use standard coordinate systems (0-based or 1-based consistently)**
 
 ### File Management
 
-1. **Organize by gene/region/analysis**
+1. **Organize by region and analysis identifier**
 2. **Use descriptive directory names**
 3. **Keep original and extracted files separate**
 4. **Document region coordinates and purposes**

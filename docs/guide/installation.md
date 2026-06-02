@@ -6,7 +6,7 @@ This guide covers all installation methods and system requirements for the Varvi
 
 ### Required
 
-- **Node.js**: v20.16.0 or higher
+- **Node.js**: v22.22.2 or higher
 - **NPM**: v10.0.0 or higher (included with Node.js)
 - **Operating System**: Linux, macOS, or Windows (WSL recommended)
 - **Memory**: 512MB RAM minimum
@@ -132,7 +132,7 @@ conda activate varvis-tools
 ### Verify Node.js Installation
 
 ```bash
-node --version    # Should show v20.16.0+
+node --version    # Should show v22.22.2+
 npm --version     # Should show v10.0.0+
 ```
 
@@ -156,7 +156,7 @@ Expected output:
     │                                                 │
     ╰─────────────────────────────────────────────────╯
 
-varvis-download - Version 0.17.1
+varvis-download - Version 0.31.1
 Date Last Modified: [timestamp]
 Author: Bernt Popp
 Repository: https://github.com/LaborBerlin/varvis-download.git
@@ -187,13 +187,13 @@ tabix --help 2>&1 | head -1
 node --version
 
 # Update Node.js using NodeSource repository (Ubuntu/Debian)
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt-get install -y nodejs
 
 # Or use nvm (cross-platform)
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-nvm install 20
-nvm use 20
+nvm install 22.22.2
+nvm use 22.22.2
 ```
 
 **Permission errors:**

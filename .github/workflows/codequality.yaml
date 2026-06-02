@@ -1,0 +1,82 @@
+# Run repository quality checks for pushes and pull requests.
+
+name: Code quality checks
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - '.github/workflows/codequality.yaml'
+      - 'js/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'varvis-download.js'
+      - 'eslint.config*.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - 'README.md'
+      - 'docs/**'
+
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - '.github/workflows/codequality.yaml'
+      - 'js/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'varvis-download.js'
+      - 'eslint.config*.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - 'README.md'
+      - 'docs/**'
+
+  workflow_call:
+
+jobs:
+  codequality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Cache quality tools
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/eslint
+            *.tsbuildinfo
+            node_modules/.cache
+          key: ${{ runner.os }}-node22-quality-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.js', '**/*.cjs') }}
+          restore-keys: |
+            ${{ runner.os }}-node22-quality-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Security audit
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Check code formatting
+        run: npx prettier --check .
+
+      - name: Type check JavaScript
+        run: npm run type-check
+
+      - name: Architecture budget check
+        run: npm run architecture:check

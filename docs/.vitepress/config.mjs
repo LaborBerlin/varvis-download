@@ -3,7 +3,7 @@ import { defineConfig } from 'vitepress';
 export default defineConfig({
   title: 'Varvis Download CLI',
   description:
-    'A command-line interface tool for downloading BAM, BAI, and VCF files from the Varvis API',
+    'Independently developed free software for downloading authorized BAM, BAI, and VCF files from the varvis® API',
   base: '/varvis-download/',
   ignoreDeadLinks: [
     // Temporarily ignore missing pages while documentation is being built
@@ -51,6 +51,13 @@ export default defineConfig({
             { text: 'Batch Operations', link: '/guide/batch-operations' },
             { text: 'Proxy Configuration', link: '/guide/proxy' },
             { text: 'Logging & Reports', link: '/guide/logging' },
+          ],
+        },
+        {
+          text: 'Project',
+          items: [
+            { text: 'Intended Use', link: '/guide/intended-use' },
+            { text: 'Development', link: '/guide/development' },
           ],
         },
       ],

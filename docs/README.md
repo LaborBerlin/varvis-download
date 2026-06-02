@@ -30,7 +30,7 @@ docs/
 
 ### Prerequisites
 
-- Node.js v20.16.0 or higher
+- Node.js v22.22.2 or higher
 - npm v10.0.0 or higher
 
 ### Setup
