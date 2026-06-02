@@ -46,7 +46,7 @@
   "author": "Bernt Popp",
   "license": "GPL-3.0",
   "dependencies": {
-    "date-fns": "^4.2.0",
+    "date-fns": "^4.4.0",
     "fs-extra": "^11.3.5",
     "http-cookie-agent": "^8.0.0",
     "mute-stream": "^4.0.0",
