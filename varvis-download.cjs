@@ -5,7 +5,6 @@ require('dotenv').config({ quiet: true });
 
 const { CookieJar } = require('tough-cookie');
 const { cookie } = require('http-cookie-agent/undici');
-const yargs = require('yargs');
 const { hideBin } = require('yargs/helpers');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -25,6 +24,7 @@ const {
   loadLogo,
   getLastModifiedDate,
 } = require('./js/configUtils.cjs');
+const { buildParser } = require('./js/cli/args.cjs');
 const {
   normalizeArrayInput,
   normalizeFiletypes,
@@ -65,170 +65,7 @@ const { getErrorMessage, getErrorStack } = require('./js/errorUtils.cjs');
 // Command line arguments setup
 /** @type {any} */
 let argv;
-argv = yargs(hideBin(process.argv))
-  .usage('$0 <command> [args]')
-  .version(false)
-  .option('config', {
-    alias: 'c',
-    describe: 'Path to the configuration file',
-    type: 'string',
-    default: '.config.json',
-  })
-  .option('username', {
-    alias: 'u',
-    describe: 'Varvis API username',
-    type: 'string',
-  })
-  .option('password', {
-    alias: 'p',
-    describe: 'Varvis API password',
-    type: 'string',
-  })
-  .option('target', {
-    alias: 't',
-    describe: 'Target for the Varvis API',
-    type: 'string',
-  })
-  .option('analysisIds', {
-    alias: 'a',
-    describe: 'Analysis IDs to download files for (comma-separated)',
-    type: 'array',
-  })
-  .option('sampleIds', {
-    alias: 's',
-    describe: 'Sample IDs to filter analyses (comma-separated)',
-    type: 'array',
-  })
-  .option('limsIds', {
-    alias: 'l',
-    describe: 'LIMS IDs to filter analyses (comma-separated)',
-    type: 'array',
-  })
-  .option('list', {
-    alias: 'L',
-    describe: 'List available files for the specified analysis IDs',
-    type: 'boolean',
-  })
-  .option('destination', {
-    alias: 'd',
-    describe: 'Destination folder for the downloaded files',
-    type: 'string',
-    default: '.',
-  })
-  .option('proxy', {
-    alias: 'x',
-    describe: 'Proxy URL',
-    type: 'string',
-  })
-  .option('proxyUsername', {
-    alias: 'pxu',
-    describe: 'Proxy username',
-    type: 'string',
-  })
-  .option('proxyPassword', {
-    alias: 'pxp',
-    describe: 'Proxy password',
-    type: 'string',
-  })
-  .option('overwrite', {
-    alias: 'o',
-    describe: 'Overwrite existing files',
-    type: 'boolean',
-    default: false,
-  })
-  .option('filetypes', {
-    alias: 'f',
-    describe: 'File types to download (comma-separated)',
-    type: 'array',
-    default: ['bam', 'bam.bai'],
-  })
-  .option('loglevel', {
-    alias: 'll',
-    describe: 'Logging level (info, warn, error, debug)',
-    type: 'string',
-    default: 'info',
-  })
-  .option('logfile', {
-    alias: 'lf',
-    describe: 'Path to the log file',
-    type: 'string',
-  })
-  .option('reportfile', {
-    alias: 'r',
-    describe: 'Path to the report file',
-    type: 'string',
-  })
-  .option('filter', {
-    alias: 'F',
-    describe:
-      'Filter expressions. Operators: = != > < >= <= (lexicographic), ~= (contains), ^= (starts with). Multiple filters use AND logic. Examples: "analysisType=SNV", "enrichmentKitName^=TwistExome"',
-    type: 'array',
-    default: [],
-  })
-  .option('latest', {
-    describe:
-      'Keep only the newest analysis per sample (highest analysis ID). Useful when samples have repeat sequencing.',
-    type: 'boolean',
-    default: false,
-  })
-  .option('range', {
-    alias: 'g',
-    describe: 'Genomic range for ranged download (e.g., chr1:1-100000)',
-    type: 'string',
-  })
-  .option('bed', {
-    alias: 'b',
-    describe: 'Path to BED file containing multiple regions',
-    type: 'string',
-  })
-  .option('unmapped', {
-    alias: 'um',
-    describe:
-      'Extract unmapped reads from BAM files (reads with no reference assignment)',
-    type: 'boolean',
-    default: false,
-  })
-  .option('restoreArchived', {
-    alias: 'ra',
-    describe:
-      'Restore archived files. Accepts "no", "ask" (default), "all", or "force".',
-    type: 'string',
-    default: 'ask',
-  })
-  .option('restorationFile', {
-    alias: 'rf',
-    describe:
-      'Path and name for the awaiting-restoration JSON file (default: "awaiting-restoration.json")',
-    type: 'string',
-    default: 'awaiting-restoration.json',
-  })
-  .option('resumeArchivedDownloads', {
-    alias: 'rad',
-    describe:
-      'Resume downloads for archived files from the awaiting-restoration JSON file if restoreEstimation has passed.',
-    type: 'boolean',
-    default: false,
-  })
-  .option('list-urls', {
-    alias: 'U',
-    describe:
-      'List the direct download URLs for the selected files instead of downloading them. Useful for piping to other tools.',
-    type: 'boolean',
-    default: false,
-  })
-  .option('url-file', {
-    describe:
-      'Path to a file to save the download URLs when using --list-urls.',
-    type: 'string',
-  })
-  .option('version', {
-    alias: 'v',
-    type: 'boolean',
-    description: 'Show version information',
-    default: false,
-  })
-  .help()
-  .alias('help', 'h').argv;
+argv = buildParser(hideBin(process.argv)).argv;
 
 // Create logger instance
 const logger = createLogger(argv);
