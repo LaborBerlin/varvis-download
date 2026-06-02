@@ -49,7 +49,7 @@ const {
 // Rename the imported function to avoid collision.
 const {
   resumeArchivedDownloads: resumeArchivedDownloadsFunc,
-} = require('./js/archiveUtils.cjs');
+} = require('./js/commands/resume.cjs');
 const { getErrorMessage, getErrorStack } = require('./js/errorUtils.cjs');
 
 // Command line arguments setup

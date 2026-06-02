@@ -1,10 +1,8 @@
 const fs = require('node:fs');
 const nock = require('nock');
 const { fetchWithRetry } = require('../../js/apiClient');
-const {
-  triggerRestoreArchivedFile,
-  resumeArchivedDownloads,
-} = require('../../js/archiveUtils');
+const { triggerRestoreArchivedFile } = require('../../js/archiveUtils');
+const { resumeArchivedDownloads } = require('../../js/commands/resume');
 const { getDownloadLinks } = require('../../js/fetchUtils');
 
 // Mock fs to avoid writing to real filesystem during tests

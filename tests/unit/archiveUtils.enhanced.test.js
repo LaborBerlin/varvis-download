@@ -1,8 +1,8 @@
 const {
   triggerRestoreArchivedFile,
   appendToAwaitingRestoration,
-  resumeArchivedDownloads,
 } = require('../../js/archiveUtils.cjs');
+const { resumeArchivedDownloads } = require('../../js/commands/resume.cjs');
 const { createMockLogger } = require('../helpers/mockFactories');
 const fs = require('node:fs');
 

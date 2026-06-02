@@ -1,5 +1,5 @@
 const fs = require('node:fs');
-const { resumeArchivedDownloads } = require('../../js/archiveUtils.cjs');
+const { resumeArchivedDownloads } = require('../../js/commands/resume.cjs');
 const { getDownloadLinks, metrics } = require('../../js/fetchUtils.cjs');
 const { readRestorationState } = require('../../js/restorationState.cjs');
 const {
