@@ -8,7 +8,11 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-type--checked-3178C6.svg)](https://www.typescriptlang.org/)
 [![ESLint](https://img.shields.io/badge/ESLint-9.x-4B32C3.svg)](https://eslint.org/)
 
-A command-line interface (CLI) tool for downloading BAM, BAI, and VCF files from the Varvis API. Built for bioinformatics workflows, it supports authentication, file filtering, proxy configuration, and archived file restoration.
+<p align="center">
+<img alt="varvis logo" src="assets/varvis_name.svg" style="width:25%; height:auto;">
+</p>
+
+A command-line interface (CLI) tool for downloading BAM, BAI, and VCF files from the varvis® API. Built for bioinformatics workflows, it supports authentication, file filtering, proxy configuration, and archived file restoration.
 
 ## Table of Contents
 
@@ -398,3 +402,9 @@ make ci             # Verify everything passes before committing
 ## License
 
 GPL-3.0 - See LICENSE file for details.
+
+## Disclaimer
+
+The varvis® logo is a registered trademark of Limbus Medical Technologies GmbH and is used in this project with
+permission. This project is independent and is not affiliated with, endorsed by, or officially supported by Limbus
+Medical Technologies GmbH.
