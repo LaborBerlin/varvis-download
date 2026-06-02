@@ -22,6 +22,7 @@ const {
 const { loadLogo, getLastModifiedDate } = require('./js/configUtils.cjs');
 const { buildParser } = require('./js/cli/args.cjs');
 const { mergeFromArgv } = require('./js/cli/configMerge.cjs');
+const { formatVersionInfo } = require('./js/cli/versionInfo.cjs');
 const { ConfigurationError } = require('./js/errors.cjs');
 const createLogger = require('./js/logger.cjs');
 const AuthService = require('./js/authService.cjs');
@@ -66,12 +67,18 @@ const logger = createLogger(argv);
 // Show version information if the --version flag is set
 if (argv.version) {
   const logo = loadLogo();
-  console.log(logo);
-  console.log(`${name} - Version ${version}`);
-  console.log(`Date Last Modified: ${getLastModifiedDate(__filename)}`);
-  console.log(`Author: ${author}`);
-  console.log(`Repository: ${repository.url}`);
-  console.log(`License: ${license}`);
+  const lastModified = getLastModifiedDate(__filename);
+  console.log(
+    formatVersionInfo({
+      name,
+      version,
+      author,
+      license,
+      repository,
+      lastModified,
+      logo,
+    }),
+  );
   process.exit(0);
 }
 
