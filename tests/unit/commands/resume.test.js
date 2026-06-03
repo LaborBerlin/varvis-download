@@ -21,6 +21,7 @@ jest.mock('../../../js/rangedUtils.cjs', () => ({
   indexVCF: jest.fn(),
   rangedDownloadBAM: jest.fn(),
   rangedDownloadVCF: jest.fn(),
+  unmappedDownloadBAM: jest.fn(),
 }));
 
 jest.mock('../../../js/fileUtils.cjs', () => ({

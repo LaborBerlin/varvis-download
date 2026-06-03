@@ -13,6 +13,7 @@ const {
   indexVCF,
   rangedDownloadBAM,
   rangedDownloadVCF,
+  unmappedDownloadBAM,
 } = require('../rangedUtils.cjs');
 const { downloadFile } = require('../fileUtils.cjs');
 const { getErrorMessage } = require('../errorUtils.cjs');
@@ -135,11 +136,16 @@ async function resumeArchivedDownloads(
           );
         }
       }
+      const includeUnmapped = restoredOptions.unmapped === true;
 
       // Generate output filename using restored context
       const outputFile = path.join(
         effectiveDestination,
-        generateOutputFileName(entry.fileName, regions, logger),
+        generateOutputFileName(
+          entry.fileName,
+          includeUnmapped && regions.length === 0 ? ['unmapped'] : regions,
+          logger,
+        ),
       );
 
       // Handle BAM files
@@ -193,15 +199,29 @@ async function resumeArchivedDownloads(
             logger.info(
               `Performing ranged download for restored BAM file: ${entry.fileName}`,
             );
-            await rangedDownloadBAM(
-              downloadLink,
-              tempBedPath,
-              outputFile,
-              indexFilePath,
-              logger,
-              metrics,
-              effectiveOverwrite,
-            );
+            if (includeUnmapped) {
+              await rangedDownloadBAM(
+                downloadLink,
+                tempBedPath,
+                outputFile,
+                indexFilePath,
+                logger,
+                metrics,
+                effectiveOverwrite,
+                true,
+                regions,
+              );
+            } else {
+              await rangedDownloadBAM(
+                downloadLink,
+                tempBedPath,
+                outputFile,
+                indexFilePath,
+                logger,
+                metrics,
+                effectiveOverwrite,
+              );
+            }
             await indexBAM(outputFile, logger, effectiveOverwrite);
           } finally {
             // Clean up temp file
@@ -209,6 +229,42 @@ async function resumeArchivedDownloads(
               fs.unlinkSync(tempBedPath);
             }
           }
+        } else if (includeUnmapped) {
+          if (!indexFileUrl) {
+            logger.error(
+              `Index file for BAM ${entry.fileName} not found for analysis ${entry.analysisId}. Unmapped download requires .bai index. Keeping for retry.`,
+            );
+            updatedData.push(entry);
+            continue;
+          }
+          const indexFilePath = path.join(
+            effectiveDestination,
+            `${entry.fileName}.bai`,
+          );
+
+          await ensureIndexFile(
+            downloadLink,
+            indexFileUrl,
+            indexFilePath,
+            agent,
+            null, // no rl needed
+            logger,
+            metrics,
+            effectiveOverwrite,
+          );
+
+          logger.info(
+            `Extracting unmapped reads from restored BAM file: ${entry.fileName}`,
+          );
+          await unmappedDownloadBAM(
+            downloadLink,
+            outputFile,
+            indexFilePath,
+            logger,
+            metrics,
+            effectiveOverwrite,
+          );
+          await indexBAM(outputFile, logger, effectiveOverwrite);
         } else {
           // Full download
           logger.info(
