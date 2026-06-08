@@ -70,7 +70,7 @@ jobs:
       # Only upload coverage from primary Node.js version to avoid duplicate reports
       - name: Upload coverage to Codecov
         if: matrix.node-version == '22.x'
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage/lcov.info
