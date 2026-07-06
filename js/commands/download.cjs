@@ -53,18 +53,10 @@ async function runDownloadCommand({ finalConfig, regions, tempBedPath }, deps) {
     }
 
     if (finalConfig.range || finalConfig.bed) {
-      const tabixOK = await checkToolAvailability(
-        'tabix',
-        'tabix --version',
-        '1.7',
-        logger,
-      );
-      const bgzipOK = await checkToolAvailability(
-        'bgzip',
-        'bgzip --version',
-        '1.7',
-        logger,
-      );
+      const [tabixOK, bgzipOK] = await Promise.all([
+        checkToolAvailability('tabix', 'tabix --version', '1.7', logger),
+        checkToolAvailability('bgzip', 'bgzip --version', '1.7', logger),
+      ]);
       if (!tabixOK || !bgzipOK) {
         throw new OperationalError(
           'One or more required external tools (tabix, bgzip) are missing or outdated. Please install/update them and try again.',
