@@ -143,11 +143,6 @@ export interface CommandDeps {
   metrics: Metrics;
 }
 
-export interface RangedDownloadDeps {
-  logger: Logger;
-  metrics: Metrics;
-}
-
 export interface SpawnResult {
   stdout?: string;
 }

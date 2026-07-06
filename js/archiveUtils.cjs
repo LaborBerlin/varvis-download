@@ -48,8 +48,10 @@ async function triggerRestoreArchivedFile(
       3,
       logger,
     );
-    /** @type {any} */
-    const result = await response.json();
+    const result =
+      /** @type {{ success?: boolean; response?: Array<{ restoreEstimation?: string | null }>; errorMessageId?: string }} */ (
+        await response.json()
+      );
     if (result.success) {
       const restoreEstimation =
         result.response && result.response[0]

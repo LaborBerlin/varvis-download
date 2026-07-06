@@ -136,7 +136,8 @@ async function fetchAnalysisIds(
  *                                                                                       - "no": skip restoration,
  *                                                                                       - "ask": prompt for each file,
  *                                                                                       - "all": ask once for all files,
- *                                                                                       - "force": restore automatically.
+ *                                                                                       - "force": restore automatically,
+ *                                                                                       - "none": internal list-mode value that bypasses restoration entirely.
  * @param   {import('node:readline').Interface|null}             [rl]                    - The readline interface instance for prompting.
  * @param   {string|null}                                        [restorationFile]       - Path to the restoration file.
  * @param   {Partial<import('./types').RestorationOptions>|null} [options]               - Options object for restoration context.
