@@ -322,10 +322,9 @@ function mergeConfig({ argv, config = {}, env = {} }) {
       [],
     ),
     filters: normalizeFilters(explicitFilters, configFilters),
-    destination:
-      normalizedDestination && normalizedDestination !== '.'
-        ? normalizedDestination
-        : firstNonEmptyString(config.destination) || '.',
+    destination: hasExplicitOption(argv, 'destination')
+      ? normalizedDestination || '.'
+      : firstNonEmptyString(config.destination) || normalizedDestination || '.',
     restoreArchived: /** @type {import('../types').RestoreMode} */ (
       firstNonEmptyString(
         /** @type {string|string[]|null|undefined} */ (

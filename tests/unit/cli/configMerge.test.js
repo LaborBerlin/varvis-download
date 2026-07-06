@@ -339,3 +339,41 @@ describe('overwrite source tracking', () => {
     expect(result.overwriteFromConfig).toBe(false);
   });
 });
+
+describe('explicit --destination "."', () => {
+  test('explicit -d . wins over config destination', () => {
+    const argv = parseArguments([
+      '--username',
+      'u',
+      '--target',
+      't',
+      '--analysisIds',
+      'AN001',
+      '-d',
+      '.',
+    ]);
+    const result = mergeConfig({
+      argv,
+      config: { destination: '/config/dir' },
+      env: {},
+    });
+    expect(result.destination).toBe('.');
+  });
+
+  test('default "." (no -d) falls through to config destination', () => {
+    const argv = parseArguments([
+      '--username',
+      'u',
+      '--target',
+      't',
+      '--analysisIds',
+      'AN001',
+    ]);
+    const result = mergeConfig({
+      argv,
+      config: { destination: '/config/dir' },
+      env: {},
+    });
+    expect(result.destination).toBe('/config/dir');
+  });
+});
