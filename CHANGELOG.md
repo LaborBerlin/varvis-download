@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.1] - 2026-07-07
+
+### Security
+
+- **Resolved `GHSA-h67p-54hq-rp68`** (js-yaml quadratic-complexity DoS in merge-key handling via repeated aliases). `js-yaml` is a dev-only transitive dependency of the test toolchain (`jest` → `babel-plugin-istanbul` → `@istanbuljs/load-nyc-config`, which requests `^3.13.1`); an npm `overrides` entry now pins it to `^3.15.0`. `npm audit` reports 0 vulnerabilities.
+
 ## [0.32.0] - 2026-07-06
 
 ### Changed
