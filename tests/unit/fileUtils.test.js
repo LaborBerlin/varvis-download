@@ -293,6 +293,36 @@ describe('fileUtils', () => {
       );
     });
 
+    test('should reject when response has no body', async () => {
+      const dir = await testDir.create(`download-no-body-${Date.now()}`);
+      const outputPath = path.join(dir, 'file.txt');
+
+      fetchWithRetry.mockResolvedValue({
+        body: null,
+        headers: {
+          get: () => '0',
+        },
+      });
+
+      await expect(
+        downloadFile(
+          'https://example.com/file.txt',
+          outputPath,
+          true,
+          mockAgent,
+          mockRl,
+          mockLogger,
+          mockMetrics,
+        ),
+      ).rejects.toThrow(
+        'Download response for https://example.com/file.txt did not include a body',
+      );
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('did not include a body'),
+      );
+    });
+
     test('should log debug message at start of download', async () => {
       const dir = await testDir.create(`download-debug-${Date.now()}`);
       const outputPath = path.join(dir, 'file.txt');

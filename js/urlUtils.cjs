@@ -16,9 +16,9 @@ const DEFAULT_EXPIRATION_THRESHOLD_MINUTES = 5;
  * Parses an S3 pre-signed URL to extract expiration information.
  * Pre-signed URLs contain X-Amz-Date (signing time) and X-Amz-Expires (validity in seconds).
  *
- * @param   {string}      url - The S3 pre-signed URL to parse.
- * @returns {object|null}     - Object with signedAt (Date), expiresInSeconds (number),
- *                            and expiresAt (Date), or null if parsing fails.
+ * @param   {string}                                   url - The S3 pre-signed URL to parse.
+ * @returns {import('./types').UrlExpirationInfo|null}     - Object with signedAt (Date), expiresInSeconds (number),
+ *                                                         and expiresAt (Date), or null if parsing fails.
  * @example
  * const info = parseS3UrlExpiration('https://...?X-Amz-Date=20240115T120000Z&X-Amz-Expires=7200...');
  * // Returns: { signedAt: Date, expiresInSeconds: 7200, expiresAt: Date }

@@ -42,7 +42,7 @@ Use the scripts in `package.json` as the primary interface:
 - Docs dev server: `npm run docs:dev`
 - Docs build: `npm run docs:build`
 
-There is no single `npm run check` aggregate yet. The local CI-equivalent gate is:
+The local CI-equivalent gate is `npm run check`, which runs:
 
 ```bash
 npm run lint && npx prettier --check . && npm run type-check && npm test && npm run architecture:check
@@ -93,6 +93,25 @@ Follow a "Think-Plan-Act-Verify" cycle:
 - Default to feature branches and PRs for substantial work. Direct commits to `main` are acceptable for small docs, fixes, or instruction updates after the local gate has passed.
 - Commits use short conventional-ish prefixes: `feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:`, `ci:`.
 - Keep agent manifests short. Put durable project facts in `AGENTS.md`; put tool-specific loading notes only in `CLAUDE.md` or `GEMINI.md`.
+
+## Project Skills
+
+Repo-specific skills live in `.claude/skills/` (Claude Code auto-loads them by
+description; invoke directly with `/<name>`). They encode this repo's conventions
+so you don't rediscover them each time:
+
+- **`splitting-oversized-files`** — the 600-line budget workflow: find the flagged
+  file, cut the seam by cohesion, rewire consumers (no facades), mirror tests,
+  update `KNOWN_OVERSIZED_FILES`.
+- **`testing-varvis-modules`** — Jest patterns: mock-factory catalog, mocking
+  `child_process` and the network, fake-timer cleanup, and the single-file
+  `--coverage` threshold trap.
+- **`writing-typed-jsdoc`** — JSDoc that satisfies both `tsc --noEmit` strict and
+  eslint-plugin-jsdoc: the `import('./types')` idiom, `js/shims/`, error-vs-warn
+  rules, and strict `unknown`/null body idioms.
+- **`scanning-for-bugs`** — the defect-hunt method: history-first hot-seam map,
+  the contracts semantic bugs hide behind (flag precedence, lifecycle, URL
+  expiry), the verify-before-reporting ladder, and the findings report format.
 
 ## Boundaries
 

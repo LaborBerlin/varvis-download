@@ -7,18 +7,19 @@ const {
   compareVersions,
   checkToolAvailability,
 } = require('./toolChecks.cjs');
+const { getErrorMessage } = require('./errorUtils.cjs');
 
 /**
  * Performs a ranged download for a BAM file using samtools.
- * @param   {string}                   url             - The URL of the BAM file.
- * @param   {string}                   bedFile         - Path to BED file with regions.
- * @param   {string}                   outputFile      - The output file name.
- * @param   {string}                   indexFile       - The path to the downloaded .bai index file.
- * @param   {import('winston').Logger} logger          - The logger instance.
- * @param   {object}                   metrics         - Metrics object for tracking stats.
- * @param   {boolean}                  overwrite       - Flag indicating whether to overwrite existing files.
- * @param   {boolean}                  includeUnmapped - Also include unmapped reads (wildcard '*' region).
- * @param   {string[]}                 regions         - Genomic regions in chr:start-end format (used when includeUnmapped is true).
+ * @param   {string}                    url             - The URL of the BAM file.
+ * @param   {string}                    bedFile         - Path to BED file with regions.
+ * @param   {string}                    outputFile      - The output file name.
+ * @param   {string}                    indexFile       - The path to the downloaded .bai index file.
+ * @param   {import('winston').Logger}  logger          - The logger instance.
+ * @param   {import('./types').Metrics} metrics         - Metrics object for tracking stats.
+ * @param   {boolean}                   overwrite       - Flag indicating whether to overwrite existing files.
+ * @param   {boolean}                   includeUnmapped - Also include unmapped reads (wildcard '*' region).
+ * @param   {string[]}                  regions         - Genomic regions in chr:start-end format (used when includeUnmapped is true).
  * @returns {Promise<void>}
  */
 async function rangedDownloadBAM(
@@ -94,20 +95,22 @@ async function rangedDownloadBAM(
         /* ignore cleanup errors */
       }
     }
-    logger.error(`Error performing ranged download for BAM: ${error.message}`);
+    logger.error(
+      `Error performing ranged download for BAM: ${getErrorMessage(error)}`,
+    );
     throw error;
   }
 }
 
 /**
  * Performs a ranged download for a VCF file using a tabix -> bgzip pipeline.
- * @param   {string}                   url        - The URL of the VCF.gz file.
- * @param   {string}                   range      - The genomic range (e.g., 'chr1:1-100000').
- * @param   {string}                   outputFile - The output file name (will be compressed as .vcf.gz).
- * @param   {string}                   indexFile  - The local path to the downloaded .tbi index file.
- * @param   {import('winston').Logger} logger     - The logger instance.
- * @param   {object}                   metrics    - Metrics object for tracking stats.
- * @param   {boolean}                  overwrite  - Flag indicating whether to overwrite existing files.
+ * @param   {string}                    url        - The URL of the VCF.gz file.
+ * @param   {string}                    range      - The genomic range (e.g., 'chr1:1-100000').
+ * @param   {string}                    outputFile - The output file name (will be compressed as .vcf.gz).
+ * @param   {string}                    indexFile  - The local path to the downloaded .tbi index file.
+ * @param   {import('winston').Logger}  logger     - The logger instance.
+ * @param   {import('./types').Metrics} metrics    - Metrics object for tracking stats.
+ * @param   {boolean}                   overwrite  - Flag indicating whether to overwrite existing files.
  * @returns {Promise<void>}
  */
 async function rangedDownloadVCF(
@@ -151,6 +154,7 @@ async function rangedDownloadVCF(
     const outputStream = fs.createWriteStream(outputFile);
 
     // Track completion states to avoid race conditions
+    /** @type {string|null} */
     let processError = null;
     let bgzipClosed = false;
     let streamFinished = false;
@@ -200,6 +204,12 @@ async function rangedDownloadVCF(
       logger.debug(`[bgzip stderr]: ${data.toString().trim()}`);
     });
 
+    /**
+     * Records the first process error encountered in the pipeline.
+     *
+     * @param {string} procName - Process name for the diagnostic message.
+     * @param {Error}  err      - Process error.
+     */
     const onProcessError = (procName, err) => {
       if (!processError) processError = `Error in ${procName}: ${err.message}`;
     };
@@ -237,12 +247,12 @@ async function rangedDownloadVCF(
  * Uses the wildcard chromosome '*' to target reads with no reference assignment.
  * This is particularly useful for Illumina NovaSeq data where unmapped reads
  * may contain contamination, adapter sequences, or novel sequences of interest.
- * @param   {string}                   url        - The URL of the BAM file.
- * @param   {string}                   outputFile - The output file name.
- * @param   {string}                   indexFile  - The path to the downloaded .bai index file.
- * @param   {import('winston').Logger} logger     - The logger instance.
- * @param   {object}                   metrics    - Metrics object for tracking stats.
- * @param   {boolean}                  overwrite  - Flag indicating whether to overwrite existing files.
+ * @param   {string}                    url        - The URL of the BAM file.
+ * @param   {string}                    outputFile - The output file name.
+ * @param   {string}                    indexFile  - The path to the downloaded .bai index file.
+ * @param   {import('winston').Logger}  logger     - The logger instance.
+ * @param   {import('./types').Metrics} metrics    - Metrics object for tracking stats.
+ * @param   {boolean}                   overwrite  - Flag indicating whether to overwrite existing files.
  * @returns {Promise<void>}
  */
 async function unmappedDownloadBAM(
@@ -279,16 +289,16 @@ async function unmappedDownloadBAM(
         /* ignore cleanup errors */
       }
     }
-    logger.error(`Error extracting unmapped reads: ${error.message}`);
+    logger.error(`Error extracting unmapped reads: ${getErrorMessage(error)}`);
     throw error;
   }
 }
 
 /**
  * Indexes a BAM file using samtools.
- * @param   {string}        bamFile   - The path to the BAM file.
- * @param   {object}        logger    - The logger instance.
- * @param   {boolean}       overwrite - Flag indicating whether to overwrite existing index files.
+ * @param   {string}                   bamFile   - The path to the BAM file.
+ * @param   {import('winston').Logger} logger    - The logger instance.
+ * @param   {boolean}                  overwrite - Flag indicating whether to overwrite existing index files.
  * @returns {Promise<void>}
  */
 async function indexBAM(bamFile, logger, overwrite = false) {
@@ -304,16 +314,16 @@ async function indexBAM(bamFile, logger, overwrite = false) {
     await spawnPromise('samtools', args, logger);
     logger.info(`Indexed BAM file: ${bamFile}`);
   } catch (error) {
-    logger.error(`Error indexing BAM file: ${error.message}`);
+    logger.error(`Error indexing BAM file: ${getErrorMessage(error)}`);
     throw error;
   }
 }
 
 /**
  * Indexes a VCF.gz file using tabix.
- * @param   {string}        vcfGzFile - The path to the VCF.gz file.
- * @param   {object}        logger    - The logger instance.
- * @param   {boolean}       overwrite - Flag indicating whether to overwrite existing index files.
+ * @param   {string}                   vcfGzFile - The path to the VCF.gz file.
+ * @param   {import('winston').Logger} logger    - The logger instance.
+ * @param   {boolean}                  overwrite - Flag indicating whether to overwrite existing index files.
  * @returns {Promise<void>}
  */
 async function indexVCF(vcfGzFile, logger, overwrite = false) {
@@ -329,21 +339,21 @@ async function indexVCF(vcfGzFile, logger, overwrite = false) {
     await spawnPromise('tabix', args, logger);
     logger.info(`Indexed VCF.gz file: ${vcfGzFile}`);
   } catch (error) {
-    logger.error(`Error indexing VCF.gz file: ${error.message}`);
+    logger.error(`Error indexing VCF.gz file: ${getErrorMessage(error)}`);
     throw error;
   }
 }
 
 /**
  * Ensures that the required index file is downloaded for a BAM or VCF file.
- * @param   {string}        fileUrl       - The URL of the BAM or VCF file.
- * @param   {string}        indexUrl      - The URL of the index file (.bai or .tbi).
- * @param   {string}        indexFilePath - The local path to the index file.
- * @param   {object}        agent         - The HTTP agent instance.
- * @param   {object}        rl            - The readline interface instance.
- * @param   {object}        logger        - The logger instance.
- * @param   {object}        metrics       - The metrics object for tracking download stats.
- * @param   {boolean}       overwrite     - Flag indicating whether to overwrite existing files.
+ * @param   {string}                                 fileUrl       - The URL of the BAM or VCF file.
+ * @param   {string}                                 indexUrl      - The URL of the index file (.bai or .tbi).
+ * @param   {string}                                 indexFilePath - The local path to the index file.
+ * @param   {import('./types').HttpDispatcher}       agent         - The HTTP agent instance.
+ * @param   {import('node:readline').Interface|null} rl            - The readline interface instance.
+ * @param   {import('winston').Logger}               logger        - The logger instance.
+ * @param   {import('./types').Metrics}              metrics       - The metrics object for tracking download stats.
+ * @param   {boolean}                                overwrite     - Flag indicating whether to overwrite existing files.
  * @returns {Promise<void>}
  */
 async function ensureIndexFile(
@@ -374,7 +384,7 @@ async function ensureIndexFile(
     );
     logger.info(`Downloaded index file to ${indexFilePath}`);
   } catch (error) {
-    logger.error(`Error downloading index file: ${error.message}`);
+    logger.error(`Error downloading index file: ${getErrorMessage(error)}`);
     throw error;
   }
 }
@@ -382,10 +392,10 @@ async function ensureIndexFile(
 /**
  * Generates an output file name by appending the genomic range or "multiple-regions" if more than one range is provided.
  * If no regions are provided, the original filename is returned. This applies to all file types (BAM, VCF, etc.).
- * @param   {string}            fileName - The original file name.
- * @param   {string | string[]} regions  - A string representing a single genomic range or an array of multiple regions.
- * @param   {object}            logger   - The logger instance.
- * @returns {string}                     - The new file name with the range appended, or the original file name.
+ * @param   {string}                   fileName - The original file name.
+ * @param   {string|string[]|null}     regions  - A string representing a single genomic range or an array of multiple regions.
+ * @param   {import('winston').Logger} logger   - The logger instance.
+ * @returns {string}                            - The new file name with the range appended, or the original file name.
  */
 function generateOutputFileName(fileName, regions, logger) {
   logger.debug(

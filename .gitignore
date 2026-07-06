@@ -38,7 +38,7 @@ pnpm-debug.log*
 *.vcf.gz.tbi
 
 # download folder
-download/
+/download/
 
 # config files
 *.config.json
@@ -61,8 +61,9 @@ plan/
 # output files
 awaiting-restoration.json
 
-# claude files and folder
-.claude/
+# claude files and folder (keep shared project skills tracked)
+.claude/*
+!.claude/skills/
 
 # VitePress build files
 docs/.vitepress/dist/

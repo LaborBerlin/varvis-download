@@ -1,1051 +1,244 @@
 #!/usr/bin/env node
 
-// Load environment variables from .env file
 require('dotenv').config({ quiet: true });
 
-const { CookieJar } = require('tough-cookie');
-const { cookie } = require('http-cookie-agent/undici');
-const yargs = require('yargs');
-const { hideBin } = require('yargs/helpers');
 const fs = require('node:fs');
-const path = require('node:path');
 const readline = require('node:readline');
-const Mute = require('mute-stream');
-const { ProxyAgent, Agent } = require('undici');
+const { createRequire } = process.getBuiltinModule('node:module');
+
+// yargs ships ESM-only ("yargs/helpers" has no "require" export condition).
+// A plain require() here would go through Jest's instrumented module loader,
+// which cannot load ESM; a require created via createRequire() uses Node's
+// native loader instead, so it can (see js/cli/args.cjs for the same pattern).
+const nativeRequire = createRequire(__filename);
+const { hideBin } = nativeRequire('yargs/helpers');
 const {
-  version,
-  name,
   author,
   license,
+  name,
   repository,
+  version,
 } = require('./package.json');
 
-const {
-  loadConfig,
-  loadLogo,
-  getLastModifiedDate,
-} = require('./js/configUtils.cjs');
-const {
-  normalizeArrayInput,
-  normalizeFiletypes,
-  normalizeStringOption,
-} = require('./js/arrayUtils.cjs');
-const createLogger = require('./js/logger.cjs');
 const AuthService = require('./js/authService.cjs');
+const { parseArguments } = require('./js/cli/args.cjs');
 const {
-  fetchAnalysisIds,
-  getDownloadLinks,
-  refreshDownloadUrls,
-  listAvailableFiles,
-  generateReport,
-  metrics,
-} = require('./js/fetchUtils.cjs');
+  hasExplicitOption,
+  mergeFromArgv,
+} = require('./js/cli/configMerge.cjs');
+const { formatVersionInfo } = require('./js/cli/versionInfo.cjs');
+const { runDownloadCommand } = require('./js/commands/download.cjs');
+const { runListCommand } = require('./js/commands/list.cjs');
+const { resumeArchivedDownloads } = require('./js/commands/resume.cjs');
+const { loadLogo, getLastModifiedDate } = require('./js/configUtils.cjs');
+const { ConfigurationError, OperationalError } = require('./js/errors.cjs');
+const { getErrorMessage, getErrorStack } = require('./js/errorUtils.cjs');
+const { metrics } = require('./js/fetchUtils.cjs');
+const { parseRegions } = require('./js/io/regionParsing.cjs');
 const {
-  isUrlExpiringSoon,
-  getUrlRemainingTime,
-  formatRemainingTime,
-} = require('./js/urlUtils.cjs');
-const { downloadFile } = require('./js/fileUtils.cjs');
-const {
-  checkToolAvailability,
-  ensureIndexFile,
-  rangedDownloadBAM,
-  rangedDownloadVCF,
-  unmappedDownloadBAM,
-  indexBAM,
-  indexVCF,
-  generateOutputFileName,
-} = require('./js/rangedUtils.cjs');
-// Rename the imported function to avoid collision.
-const {
-  resumeArchivedDownloads: resumeArchivedDownloadsFunc,
-} = require('./js/archiveUtils.cjs');
+  promptForPassword,
+  readPasswordFromStdin,
+} = require('./js/io/passwordPrompt.cjs');
+const createLogger = require('./js/logger.cjs');
+const { createHttpAgent } = require('./js/net/httpAgent.cjs');
 
-// Command line arguments setup
-/** @type {any} */
-let argv;
-argv = yargs(hideBin(process.argv))
-  .usage('$0 <command> [args]')
-  .version(false)
-  .option('config', {
-    alias: 'c',
-    describe: 'Path to the configuration file',
-    type: 'string',
-    default: '.config.json',
-  })
-  .option('username', {
-    alias: 'u',
-    describe: 'Varvis API username',
-    type: 'string',
-  })
-  .option('password', {
-    alias: 'p',
-    describe: 'Varvis API password',
-    type: 'string',
-  })
-  .option('target', {
-    alias: 't',
-    describe: 'Target for the Varvis API',
-    type: 'string',
-  })
-  .option('analysisIds', {
-    alias: 'a',
-    describe: 'Analysis IDs to download files for (comma-separated)',
-    type: 'array',
-  })
-  .option('sampleIds', {
-    alias: 's',
-    describe: 'Sample IDs to filter analyses (comma-separated)',
-    type: 'array',
-  })
-  .option('limsIds', {
-    alias: 'l',
-    describe: 'LIMS IDs to filter analyses (comma-separated)',
-    type: 'array',
-  })
-  .option('list', {
-    alias: 'L',
-    describe: 'List available files for the specified analysis IDs',
-    type: 'boolean',
-  })
-  .option('destination', {
-    alias: 'd',
-    describe: 'Destination folder for the downloaded files',
-    type: 'string',
-    default: '.',
-  })
-  .option('proxy', {
-    alias: 'x',
-    describe: 'Proxy URL',
-    type: 'string',
-  })
-  .option('proxyUsername', {
-    alias: 'pxu',
-    describe: 'Proxy username',
-    type: 'string',
-  })
-  .option('proxyPassword', {
-    alias: 'pxp',
-    describe: 'Proxy password',
-    type: 'string',
-  })
-  .option('overwrite', {
-    alias: 'o',
-    describe: 'Overwrite existing files',
-    type: 'boolean',
-    default: false,
-  })
-  .option('filetypes', {
-    alias: 'f',
-    describe: 'File types to download (comma-separated)',
-    type: 'array',
-    default: ['bam', 'bam.bai'],
-  })
-  .option('loglevel', {
-    alias: 'll',
-    describe: 'Logging level (info, warn, error, debug)',
-    type: 'string',
-    default: 'info',
-  })
-  .option('logfile', {
-    alias: 'lf',
-    describe: 'Path to the log file',
-    type: 'string',
-  })
-  .option('reportfile', {
-    alias: 'r',
-    describe: 'Path to the report file',
-    type: 'string',
-  })
-  .option('filter', {
-    alias: 'F',
-    describe:
-      'Filter expressions. Operators: = != > < >= <= (lexicographic), ~= (contains), ^= (starts with). Multiple filters use AND logic. Examples: "analysisType=SNV", "enrichmentKitName^=TwistExome"',
-    type: 'array',
-    default: [],
-  })
-  .option('latest', {
-    describe:
-      'Keep only the newest analysis per sample (highest analysis ID). Useful when samples have repeat sequencing.',
-    type: 'boolean',
-    default: false,
-  })
-  .option('range', {
-    alias: 'g',
-    describe: 'Genomic range for ranged download (e.g., chr1:1-100000)',
-    type: 'string',
-  })
-  .option('bed', {
-    alias: 'b',
-    describe: 'Path to BED file containing multiple regions',
-    type: 'string',
-  })
-  .option('unmapped', {
-    alias: 'um',
-    describe:
-      'Extract unmapped reads from BAM files (reads with no reference assignment)',
-    type: 'boolean',
-    default: false,
-  })
-  .option('restoreArchived', {
-    alias: 'ra',
-    describe:
-      'Restore archived files. Accepts "no", "ask" (default), "all", or "force".',
-    type: 'string',
-    default: 'ask',
-  })
-  .option('restorationFile', {
-    alias: 'rf',
-    describe:
-      'Path and name for the awaiting-restoration JSON file (default: "awaiting-restoration.json")',
-    type: 'string',
-    default: 'awaiting-restoration.json',
-  })
-  .option('resumeArchivedDownloads', {
-    alias: 'rad',
-    describe:
-      'Resume downloads for archived files from the awaiting-restoration JSON file if restoreEstimation has passed.',
-    type: 'boolean',
-    default: false,
-  })
-  .option('list-urls', {
-    alias: 'U',
-    describe:
-      'List the direct download URLs for the selected files instead of downloading them. Useful for piping to other tools.',
-    type: 'boolean',
-    default: false,
-  })
-  .option('url-file', {
-    describe:
-      'Path to a file to save the download URLs when using --list-urls.',
-    type: 'string',
-  })
-  .option('version', {
-    alias: 'v',
-    type: 'boolean',
-    description: 'Show version information',
-    default: false,
-  })
-  .help()
-  .alias('help', 'h').argv;
-
-// Create logger instance
-const logger = createLogger(argv);
-
-// Show version information if the --version flag is set
-if (argv.version) {
-  const logo = loadLogo();
-  console.log(logo);
-  console.log(`${name} - Version ${version}`);
-  console.log(`Date Last Modified: ${getLastModifiedDate(__filename)}`);
-  console.log(`Author: ${author}`);
-  console.log(`Repository: ${repository.url}`);
-  console.log(`License: ${license}`);
-  process.exit(0);
-}
-
-// Load configuration file settings
-// Normalize config path in case the option was specified multiple times
-const configFilePath = path.resolve(normalizeStringOption(argv.config));
-const config = loadConfig(configFilePath);
-
-// Merge command line arguments with configuration file settings
-// Normalize string options that may be arrays due to duplicate CLI arguments
-const normalizedDestination = normalizeStringOption(argv.destination);
-const normalizedRestorationFile = normalizeStringOption(argv.restorationFile);
-const normalizedUrlFile = normalizeStringOption(argv.urlFile);
-const normalizedRange = normalizeStringOption(argv.range);
-const normalizedBed = normalizeStringOption(argv.bed);
-
-const finalConfig = {
-  ...config,
-  ...argv,
-  filetypes: normalizeFiletypes(argv.filetypes, config.filetypes),
-  analysisIds: normalizeArrayInput(argv.analysisIds, config.analysisIds, []),
-  sampleIds: normalizeArrayInput(argv.sampleIds, config.sampleIds, []),
-  limsIds: normalizeArrayInput(argv.limsIds, config.limsIds, []),
-  filters: (argv.filter || config.filter || []).map((filter) => filter.trim()),
-  destination:
-    normalizedDestination !== '.'
-      ? normalizedDestination
-      : config.destination || '.',
-  restoreArchived: argv.restoreArchived || config.restoreArchived || 'ask',
-  restorationFile:
-    normalizedRestorationFile ||
-    config.restorationFile ||
-    'awaiting-restoration.json',
-  resumeArchivedDownloads:
-    argv.resumeArchivedDownloads || config.resumeArchivedDownloads || false,
-  listUrls: argv.listUrls || config.listUrls || false,
-  urlFile: normalizedUrlFile || config.urlFile || null,
-  range: normalizedRange || config.range || null,
-  bed: normalizedBed || config.bed || null,
-  unmapped: argv.unmapped ?? config.unmapped ?? false,
-  latest: argv.latest ?? config.latest ?? false,
-};
-
-// Validate the final configuration
-const requiredFields = ['username', 'password', 'target'];
-for (const field of requiredFields) {
-  if (!finalConfig[field]) {
-    logger.error(`Error: Missing required argument --${field}`);
-    process.exit(1);
-  }
-}
-
-// Disallow --unmapped with --bed (BED files can have thousands of regions, exceeding OS arg limits)
-if (finalConfig.unmapped && finalConfig.bed) {
-  logger.error(
-    'Error: --unmapped cannot be combined with --bed. Use --unmapped with --range (-g) instead, or use --unmapped alone.',
-  );
-  process.exit(1);
-}
-
-// Ensure at least one of analysisIds, sampleIds, limsIds is provided unless resumeArchivedDownloads is set.
-if (
-  finalConfig.analysisIds.length === 0 &&
-  finalConfig.sampleIds.length === 0 &&
-  finalConfig.limsIds.length === 0 &&
-  !finalConfig.resumeArchivedDownloads
-) {
-  logger.error(
-    'Error: You must provide at least one of the following options: analysisIds (-a), sampleIds (-s), limsIds (-l), or set --resumeArchivedDownloads (rad) to process archived downloads.',
-  );
-  process.exit(1);
-}
-
-// Extract the final configuration values with environment variable priority
-const target = finalConfig.target;
-const userName = process.env.VARVIS_USER || finalConfig.username;
-const password = process.env.VARVIS_PASSWORD || finalConfig.password;
-const analysisIds = finalConfig.analysisIds;
-const sampleIds = finalConfig.sampleIds;
-const limsIds = finalConfig.limsIds;
-const destination = finalConfig.destination;
-const proxy = finalConfig.proxy;
-const proxyUsername = finalConfig.proxyUsername;
-const proxyPassword = finalConfig.proxyPassword;
-const overwrite = finalConfig.overwrite;
-const filetypes = finalConfig.filetypes;
-const reportfile = finalConfig.reportfile;
-const filters = finalConfig.filters;
-const restoreArchived = finalConfig.restoreArchived;
-const restorationFile = finalConfig.restorationFile;
-
-// Setup HTTP agent for proxy and cookie handling
-const jar = new CookieJar();
-/** @type {any} */
-const agentOptions = proxy ? { uri: proxy } : {};
-if (proxyUsername && proxyPassword) {
-  agentOptions.auth = `${proxyUsername}:${proxyPassword}`;
-}
-
-/** @type {any} */
-const agent = proxy
-  ? new ProxyAgent(agentOptions).compose(cookie({ jar }))
-  : new Agent().compose(cookie({ jar }));
-
-// Initialize AuthService instance
-const authService = new AuthService(logger, agent);
-
-// Initialize readline interface for user prompts
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
+/** @type {import('winston').Logger|undefined} */
+let activeLogger;
 
 /**
- * Handles the output of download URLs, printing to console and/or writing to a file.
- * @param {string[]}    urls     - An array of URL strings to output.
- * @param {string|null} filePath - The path to the output file, or null to only use console.
- * @param {object}      logger   - The logger instance.
+ * Resolves the password from stdin, an already-merged value, or a TTY prompt.
+ * @param   {import('./js/types').FinalConfig}          finalConfig - Merged config.
+ * @param   {{
+ *   logger?: import('winston').Logger,
+ *   stdin?: NodeJS.ReadStream,
+ *   readStdin?: typeof readPasswordFromStdin,
+ *   prompt?: typeof promptForPassword,
+ * }} [deps] - Injectable dependencies for tests.
+ * @returns {Promise<string>}                                       - Resolved password.
  */
-function handleUrlListing(urls, filePath, logger) {
-  if (urls.length === 0) {
-    logger.info('No files matching the criteria were found. No URLs to list.');
-    return;
-  }
+async function resolvePassword(finalConfig, deps = {}) {
+  const logger = deps.logger || activeLogger;
+  const stdin = deps.stdin || process.stdin;
+  const readStdin = deps.readStdin || readPasswordFromStdin;
+  const prompt = deps.prompt || promptForPassword;
 
-  const urlOutput = urls.join('\n');
-
-  // Always print to console. We use console.log directly to ensure clean output for piping.
-  console.log(urlOutput);
-
-  // Optionally write to a file
-  if (filePath) {
-    try {
-      fs.writeFileSync(filePath, urlOutput + '\n');
-      logger.info(`Successfully saved ${urls.length} URLs to ${filePath}`);
-    } catch (error) {
-      logger.error(
-        `Failed to write URLs to file ${filePath}: ${error.message}`,
-      );
-    }
-  }
-}
-
-// Main function to orchestrate the login and download process
-const os = require('node:os'); // Import for generating temp file paths
-
-/**
- * Checks if a download URL is expiring soon and refreshes it if needed.
- * This ensures long-running download sessions don't fail due to expired pre-signed URLs.
- *
- * @param   {object}                   fileDict - The current file dictionary with download links.
- * @param   {string}                   fileName - The name of the file to check.
- * @param   {string}                   target   - The Varvis target (tenant).
- * @param   {string}                   token    - The CSRF token for authentication.
- * @param   {object}                   agent    - The HTTP agent instance.
- * @param   {import('winston').Logger} logger   - The logger instance.
- * @returns {Promise<string>}                   - The valid download URL (refreshed if needed).
- */
-async function getValidDownloadUrl(
-  fileDict,
-  fileName,
-  target,
-  token,
-  agent,
-  logger,
-) {
-  const file = fileDict[fileName];
-  if (!file || !file.downloadLink) {
-    throw new Error(`No download link found for file: ${fileName}`);
-  }
-
-  const downloadLink = file.downloadLink;
-
-  // Check if URL is expiring soon
-  if (isUrlExpiringSoon(downloadLink)) {
-    const remainingTime = getUrlRemainingTime(downloadLink);
-    const formattedTime =
-      remainingTime !== null ? formatRemainingTime(remainingTime) : 'unknown';
-    logger.warn(
-      `Download URL for ${fileName} is expiring soon (${formattedTime} remaining). Refreshing...`,
-    );
-
-    // Get the analysis ID from the file object
-    const analysisId = file.analysisId;
-    if (!analysisId) {
+  if (finalConfig.passwordStdin) {
+    if (finalConfig.password && logger) {
       logger.warn(
-        `No analysisId found for ${fileName}, using potentially expired URL`,
+        '--password-stdin overrides the password supplied via --password/VARVIS_PASSWORD.',
       );
-      return downloadLink;
     }
+    return readStdin({ stdin });
+  }
 
-    // Refresh URLs for this analysis
-    const freshFileDict = await refreshDownloadUrls(
-      analysisId,
-      target,
-      token,
-      agent,
-      logger,
-    );
+  if (finalConfig.password) {
+    return finalConfig.password;
+  }
 
-    // Update the original fileDict with fresh URLs
-    for (const [fname, freshFile] of Object.entries(freshFileDict)) {
-      if (fileDict[fname]) {
-        fileDict[fname].downloadLink = freshFile.downloadLink;
-      }
-    }
-
-    // Return the fresh URL
-    if (freshFileDict[fileName]) {
-      logger.info(`URL refreshed successfully for ${fileName}`);
-      return freshFileDict[fileName].downloadLink;
-    }
-
-    logger.warn(
-      `Could not find refreshed URL for ${fileName}, using original URL`,
+  if (!stdin.isTTY) {
+    throw new ConfigurationError(
+      'No password provided. Use --password-stdin, set VARVIS_PASSWORD, or run in an interactive terminal.',
     );
   }
 
-  return downloadLink;
+  return prompt();
 }
 
 /**
- * Main function to orchestrate the CLI workflow.
- * Handles authentication, file discovery, download/list operations, and archive restoration.
+ * Runs the varvis-download CLI.
  * @returns {Promise<void>}
  */
 async function main() {
-  // If resumeArchivedDownloads flag is set, resume archived downloads and exit.
-  if (finalConfig.resumeArchivedDownloads) {
-    logger.info('Starting in archive resumption mode.');
+  /** @type {any} */
+  const argv = parseArguments(hideBin(process.argv));
+  activeLogger = createLogger(argv);
 
-    // Interactive password prompt if password is not available
-    let finalPassword = password;
-    if (!finalPassword) {
-      const mute = new Mute();
-      mute.pipe(process.stdout);
-      const rlWithMute = readline.createInterface({
-        input: process.stdin,
-        output: mute,
-        terminal: true,
-      });
-
-      finalPassword = await new Promise((resolve) => {
-        rlWithMute.question('Please enter your Varvis password: ', (input) => {
-          resolve(input);
-          rlWithMute.close();
-          mute.end();
-          // Print a newline since muted input doesn't show one
-          process.stdout.write('\n');
-        });
-      });
-    }
-
-    // Authenticate before resuming downloads
-    await authService.login(
-      { username: userName, password: finalPassword },
-      target,
+  if (argv.version) {
+    console.log(
+      formatVersionInfo({
+        author,
+        license,
+        logo: loadLogo(),
+        lastModified: getLastModifiedDate(__filename),
+        name,
+        repository,
+        version,
+      }),
     );
-
-    logger.info('Resuming archived downloads as requested.');
-    await resumeArchivedDownloadsFunc(
-      restorationFile,
-      destination,
-      target,
-      authService.token,
-      agent,
-      logger,
-      overwrite,
-    );
-
-    logger.info('Archive resumption process complete.');
-    process.exit(0);
+    return;
   }
 
-  try {
-    logger.debug('Starting main function');
-
-    // Ensure the destination directory exists
-    if (!fs.existsSync(destination)) {
-      logger.debug(`Creating destination directory: ${destination}`);
-      fs.mkdirSync(destination, { recursive: true });
-    }
-
-    // Interactive password prompt if password is not available
-    let finalPassword = password;
-    if (!finalPassword) {
-      const mute = new Mute();
-      mute.pipe(process.stdout);
-      const rlWithMute = readline.createInterface({
-        input: process.stdin,
-        output: mute,
-        terminal: true,
-      });
-
-      finalPassword = await new Promise((resolve) => {
-        rlWithMute.question('Please enter your Varvis password: ', (input) => {
-          resolve(input);
-          rlWithMute.close();
-          mute.end();
-          // Print a newline since muted input doesn't show one
-          process.stdout.write('\n');
-        });
-      });
-    }
-
-    logger.debug('Attempting to log in');
-    await authService.login(
-      { username: userName, password: finalPassword },
-      target,
+  const finalConfig = mergeFromArgv(argv, process.env);
+  if (finalConfig.overwriteFromConfig) {
+    activeLogger.warn(
+      'overwrite enabled via config file; existing files may be replaced.',
     );
-    logger.debug('Login successful');
+  }
+  const agent = createHttpAgent({
+    proxy: finalConfig.proxy,
+    proxyPassword: finalConfig.proxyPassword,
+    proxyUsername: finalConfig.proxyUsername,
+  });
 
-    // ***************** NEW CODE FOR -L FLAG *****************
-    // If the -L flag is set, list available files for each analysis and exit.
-    if (finalConfig.list) {
-      const ids =
-        analysisIds.length > 0
-          ? analysisIds
-          : await fetchAnalysisIds(
-              target,
-              authService.token,
-              agent,
-              sampleIds,
-              limsIds,
-              filters,
-              logger,
-              finalConfig.latest,
-            );
-      logger.info(`Fetched analysis IDs: ${ids}`);
-      for (const analysisId of ids) {
-        await listAvailableFiles(
-          analysisId,
-          target,
-          authService.token,
-          agent,
-          logger,
-        );
-      }
-      logger.info('Listing complete. Exiting.');
-      process.exit(0);
-    }
-    // ***************** END NEW CODE *****************
+  try {
+    const authService = new AuthService(activeLogger, agent);
 
-    // If subsetting is needed, check that external tools are available.
-    if (finalConfig.range || finalConfig.bed || finalConfig.unmapped) {
-      const samtoolsMinVersion = '1.17';
-      const samtoolsOK = await checkToolAvailability(
-        'samtools',
-        'samtools --version',
-        samtoolsMinVersion,
-        logger,
+    // Non-resume mode validates/creates the destination before authenticating,
+    // so an unusable --destination fails fast without a network round-trip.
+    if (
+      !finalConfig.resumeArchivedDownloads &&
+      !fs.existsSync(finalConfig.destination)
+    ) {
+      activeLogger.debug(
+        `Creating destination directory: ${finalConfig.destination}`,
       );
-
-      if (!samtoolsOK) {
-        logger.error(
-          'samtools is missing or outdated. Please install/update it and try again.',
-        );
-        process.exit(1);
-      }
-
-      // tabix and bgzip are only required for ranged downloads, not for unmapped extraction
-      if (finalConfig.range || finalConfig.bed) {
-        const tabixMinVersion = '1.7';
-        const bgzipMinVersion = '1.7';
-        const tabixOK = await checkToolAvailability(
-          'tabix',
-          'tabix --version',
-          tabixMinVersion,
-          logger,
-        );
-        const bgzipOK = await checkToolAvailability(
-          'bgzip',
-          'bgzip --version',
-          bgzipMinVersion,
-          logger,
-        );
-        if (!tabixOK || !bgzipOK) {
-          logger.error(
-            'One or more required external tools (tabix, bgzip) are missing or outdated. Please install/update them and try again.',
-          );
-          process.exit(1);
-        }
-      }
+      fs.mkdirSync(finalConfig.destination, { recursive: true });
     }
 
-    // Handle regions from command line or BED file
-    let regions = [];
-    let tempBedPath; // Initialize tempBedPath
-
-    if (finalConfig.range) {
-      regions = finalConfig.range.split(' ');
-      logger.info(`Using regions from command line: ${regions}`);
-
-      // Create a temporary BED file for samtools to read
-      tempBedPath = path.join(os.tmpdir(), 'regions.bed');
-      const bedContent = regions
-        .map((region) => {
-          const [chr, pos] = region.split(':');
-
-          if (!pos) {
-            // Chromosome-only region (e.g., "chr1")
-            // For BAM files with samtools, we need coordinates, so use entire chromosome
-            // For VCF files with tabix, chromosome-only works fine
-            return `${chr}\t1\t300000000`; // Use large end coordinate to cover entire chromosome
-          } else {
-            // Standard chr:start-end format
-            const [start, end] = pos.split('-');
-            return `${chr}\t${start}\t${end}`;
-          }
-        })
-        .join('\n');
-
-      fs.writeFileSync(tempBedPath, bedContent);
-      logger.info(`Generated temporary BED file: ${tempBedPath}`);
-    } else if (finalConfig.bed) {
-      try {
-        const bedFileContent = fs.readFileSync(finalConfig.bed, 'utf8');
-        regions = bedFileContent
-          .split('\n')
-          .filter((line) => line && !line.startsWith('#')) // Filter out comments and empty lines
-          .map((line) => {
-            const [chr, start, end] = line.split('\t');
-            return `${chr}:${start}-${end}`;
-          });
-        logger.info(`Using regions from BED file: ${regions}`);
-
-        // Create a temporary BED file for samtools to read
-        tempBedPath = path.join(os.tmpdir(), 'regions.bed');
-        fs.writeFileSync(tempBedPath, bedFileContent);
-        logger.info(`Generated temporary BED file: ${tempBedPath}`);
-      } catch (error) {
-        logger.error(`Error reading BED file: ${error.message}`);
-        process.exit(1);
+    // The interactive restore prompt (restoreArchived "ask"/"all") lives in the
+    // download flow (getDownloadLinks); resume and --list return before it, so
+    // the prompt is unreachable there. On a non-TTY, that prompt cannot run:
+    // - if the user explicitly asked for an interactive mode on the CLI, that is
+    //   a deliberate choice incompatible with the environment, so fail fast.
+    // - otherwise (the default "ask" or a config value), downgrade to "no" so a
+    //   scripted/CI download of non-archived files still works, and warn that
+    //   any archived files will be skipped (pass --restoreArchived force to
+    //   restore them non-interactively).
+    const willReachRestorePrompt =
+      !finalConfig.resumeArchivedDownloads && !finalConfig.list;
+    const interactiveRestore =
+      finalConfig.restoreArchived === 'ask' ||
+      finalConfig.restoreArchived === 'all';
+    if (willReachRestorePrompt && interactiveRestore && !process.stdin.isTTY) {
+      if (hasExplicitOption(argv, 'restoreArchived')) {
+        throw new ConfigurationError(
+          'restoreArchived "ask"/"all" needs an interactive terminal. Use --restoreArchived force|no|none for non-interactive runs.',
+        );
       }
-    } else {
-      logger.info('No regions provided. Proceeding with full file download.');
+      activeLogger.warn(
+        'No interactive terminal detected; archived files will be skipped. Pass --restoreArchived force to restore them, or --restoreArchived no to silence this warning.',
+      );
+      finalConfig.restoreArchived = 'no';
     }
 
-    // Output file generation will happen inside the loop based on actual file types
-    logger.info('Processing files for download...');
+    const password = await resolvePassword(finalConfig);
+    await authService.login(
+      { username: finalConfig.username, password },
+      finalConfig.target,
+    );
 
-    // Fetch analysis IDs based on filters or sample IDs
-    const ids =
-      analysisIds.length > 0
-        ? analysisIds
-        : await fetchAnalysisIds(
-            target,
-            authService.token,
-            agent,
-            sampleIds,
-            limsIds,
-            filters,
-            logger,
-            finalConfig.latest,
-          );
-    logger.info(`Fetched analysis IDs: ${ids}`);
-
-    // Create options object for restoration context
-    const optionsForRestoration = {
-      destination: finalConfig.destination,
-      overwrite: finalConfig.overwrite,
-      range: finalConfig.range,
-      bed: finalConfig.bed,
-      unmapped: finalConfig.unmapped,
-      restorationFile: finalConfig.restorationFile,
-      filetypes: filetypes, // Save filetypes for restoration
-    };
-
-    // Collect all URLs if --list-urls flag is set
-    const allUrls = [];
-
-    for (const analysisId of ids) {
-      logger.info(`Processing analysis ID: ${analysisId}`);
-      // Pass the restoreArchived flag, rl, restorationFile, and options to getDownloadLinks
-      const fileDict = await getDownloadLinks(
-        analysisId,
-        filetypes,
-        target,
+    if (finalConfig.resumeArchivedDownloads) {
+      activeLogger.info('Starting in archive resumption mode.');
+      activeLogger.info('Resuming archived downloads as requested.');
+      await resumeArchivedDownloads(
+        finalConfig.restorationFile,
+        finalConfig.destination,
+        finalConfig.target,
         authService.token,
         agent,
-        logger,
-        restoreArchived,
+        activeLogger,
+        finalConfig.overwrite,
+      );
+      activeLogger.info('Archive resumption process complete.');
+      return;
+    }
+
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+
+    try {
+      const deps = {
+        agent,
+        authService,
+        logger: activeLogger,
+        metrics,
         rl,
-        restorationFile,
-        optionsForRestoration,
-      );
-      logger.debug(`Fetched download links for analysis ID ${analysisId}`);
+      };
 
-      // Collect URLs for --list-urls functionality
-      if (finalConfig.listUrls) {
-        Object.values(fileDict).forEach((file) => {
-          if (file.downloadLink) {
-            allUrls.push(file.downloadLink);
-          }
-        });
-        continue; // Skip to next analysis ID when listing URLs
+      if (finalConfig.list) {
+        await runListCommand({ finalConfig }, deps);
+        return;
       }
 
-      // Filter for primary data files first (BAM, VCF.GZ)
-      const primaryFiles = Object.entries(fileDict).filter(
-        ([fname]) => fname.endsWith('.bam') || fname.endsWith('.vcf.gz'),
+      const { regions, tempBedPath } = parseRegions(
+        { bed: finalConfig.bed, range: finalConfig.range },
+        activeLogger,
       );
+      await runDownloadCommand({ finalConfig, regions, tempBedPath }, deps);
 
-      for (const [fileName, _file] of primaryFiles) {
-        // Get a valid download URL, refreshing if the current one is expiring
-        const downloadLink = await getValidDownloadUrl(
-          fileDict,
-          fileName,
-          target,
-          authService.token,
-          agent,
-          logger,
-        );
-
-        // Generate the output file name for the current file
-        const outputFile = path.join(
-          destination,
-          generateOutputFileName(fileName, regions, logger),
-        );
-
-        if (fileName.endsWith('.bam')) {
-          // BAM file processing - also refresh index URL if needed
-          const indexFileName = `${fileName}.bai`;
-          let indexFileUrl = fileDict[indexFileName]?.downloadLink;
-          if (indexFileUrl && isUrlExpiringSoon(indexFileUrl)) {
-            indexFileUrl = await getValidDownloadUrl(
-              fileDict,
-              indexFileName,
-              target,
-              authService.token,
-              agent,
-              logger,
-            );
-          }
-          const indexFilePath = path.join(destination, `${fileName}.bai`);
-
-          if (regions.length > 0 || finalConfig.unmapped) {
-            // Ranged or unmapped downloads require an index file
-            if (!indexFileUrl) {
-              logger.error(
-                `Index file for BAM (${fileName}) not found. Ranged/unmapped downloads require .bai index. Skipping.`,
-              );
-              continue;
-            }
-
-            // Ensure index file is downloaded
-            await ensureIndexFile(
-              downloadLink,
-              indexFileUrl,
-              indexFilePath,
-              agent,
-              rl,
-              logger,
-              metrics,
-              overwrite,
-            );
-
-            if (regions.length > 0) {
-              // Ranged download (optionally including unmapped reads in the same BAM)
-              try {
-                const modeLabel = finalConfig.unmapped
-                  ? 'ranged + unmapped'
-                  : 'ranged';
-                logger.info(
-                  `Performing ${modeLabel} download for BAM file: ${fileName}`,
-                );
-                await rangedDownloadBAM(
-                  downloadLink,
-                  tempBedPath,
-                  outputFile,
-                  indexFilePath,
-                  logger,
-                  metrics,
-                  overwrite,
-                  finalConfig.unmapped,
-                  regions,
-                );
-                await indexBAM(outputFile, logger, overwrite);
-              } catch (error) {
-                logger.error(
-                  `Error during ranged download for ${fileName}: ${error.message}`,
-                );
-              }
-            } else {
-              // Unmapped-only extraction (no regions specified)
-              const unmappedOutputFile = path.join(
-                destination,
-                generateOutputFileName(fileName, ['unmapped'], logger),
-              );
-              try {
-                logger.info(
-                  `Extracting unmapped reads from BAM file: ${fileName}`,
-                );
-                await unmappedDownloadBAM(
-                  downloadLink,
-                  unmappedOutputFile,
-                  indexFilePath,
-                  logger,
-                  metrics,
-                  overwrite,
-                );
-                await indexBAM(unmappedOutputFile, logger, overwrite);
-              } catch (error) {
-                logger.error(
-                  `Error extracting unmapped reads from ${fileName}: ${error.message}`,
-                );
-              }
-            }
-          } else {
-            // Perform full download - index file is optional
-            try {
-              logger.info(`Performing full download for BAM file: ${fileName}`);
-              await downloadFile(
-                downloadLink,
-                outputFile,
-                overwrite,
-                agent,
-                rl,
-                logger,
-                metrics,
-              );
-
-              // Download index file if available (optional for full downloads)
-              if (indexFileUrl) {
-                logger.info(`Downloading optional index file: ${fileName}.bai`);
-                try {
-                  await downloadFile(
-                    indexFileUrl,
-                    indexFilePath,
-                    overwrite,
-                    agent,
-                    rl,
-                    logger,
-                    metrics,
-                  );
-                } catch (indexError) {
-                  logger.warn(
-                    `Failed to download index file ${fileName}.bai: ${indexError.message}`,
-                  );
-                }
-              } else {
-                logger.info(
-                  `Index file for ${fileName} not available, skipping index download.`,
-                );
-              }
-
-              // Generate new index if needed
-              await indexBAM(outputFile, logger, overwrite);
-            } catch (error) {
-              logger.error(
-                `Error during full download for ${fileName}: ${error.message}`,
-              );
-            }
-          }
-        } else if (fileName.endsWith('.vcf.gz') && finalConfig.unmapped) {
-          // Unmapped extraction only applies to BAM files, skip VCF
-          logger.info(
-            `Skipping VCF file ${fileName} - unmapped read extraction only applies to BAM files.`,
-          );
-          continue;
-        } else if (fileName.endsWith('.vcf.gz')) {
-          // VCF file processing - also refresh index URL if needed
-          const indexFileName = `${fileName}.tbi`;
-          let indexFileUrl = fileDict[indexFileName]?.downloadLink;
-          if (indexFileUrl && isUrlExpiringSoon(indexFileUrl)) {
-            indexFileUrl = await getValidDownloadUrl(
-              fileDict,
-              indexFileName,
-              target,
-              authService.token,
-              agent,
-              logger,
-            );
-          }
-          const indexFilePath = path.join(destination, `${fileName}.tbi`);
-
-          if (regions.length > 0) {
-            // For ranged downloads, index file is required
-            if (!indexFileUrl) {
-              logger.error(
-                `Index file for VCF (${fileName}) not found. Ranged download requires .tbi index. Skipping ranged download.`,
-              );
-              continue;
-            }
-
-            // Ensure index file is downloaded for ranged access
-            await ensureIndexFile(
-              downloadLink,
-              indexFileUrl,
-              indexFilePath,
-              agent,
-              rl,
-              logger,
-              metrics,
-              overwrite,
-            );
-
-            // For tabix, we must process one region at a time.
-            for (const region of regions) {
-              const regionSpecificOutputFile = path.join(
-                destination,
-                generateOutputFileName(fileName, [region], logger), // Pass region as an array
-              );
-
-              try {
-                logger.info(
-                  `Performing ranged download for VCF file: ${fileName} with region: ${region}`,
-                );
-                await rangedDownloadVCF(
-                  downloadLink,
-                  region,
-                  regionSpecificOutputFile,
-                  indexFilePath,
-                  logger,
-                  metrics,
-                  overwrite,
-                );
-
-                // After successful download, index the newly created ranged file.
-                await indexVCF(regionSpecificOutputFile, logger, overwrite);
-              } catch (error) {
-                logger.error(
-                  `Error during ranged download for ${fileName} on region ${region}: ${error.message}`,
-                );
-              }
-            }
-          } else {
-            // Perform full download - index file is optional
-            try {
-              logger.info(`Performing full download for VCF file: ${fileName}`);
-              await downloadFile(
-                downloadLink,
-                outputFile,
-                overwrite,
-                agent,
-                rl,
-                logger,
-                metrics,
-              );
-
-              // Download index file if available (optional for full downloads)
-              if (indexFileUrl) {
-                logger.info(`Downloading optional index file: ${fileName}.tbi`);
-                try {
-                  await downloadFile(
-                    indexFileUrl,
-                    indexFilePath,
-                    overwrite,
-                    agent,
-                    rl,
-                    logger,
-                    metrics,
-                  );
-                } catch (indexError) {
-                  logger.warn(
-                    `Failed to download index file ${fileName}.tbi: ${indexError.message}`,
-                  );
-                }
-              } else {
-                logger.info(
-                  `Index file for ${fileName} not available, skipping index download.`,
-                );
-              }
-
-              // Generate new index if needed
-              await indexVCF(outputFile, logger, overwrite);
-            } catch (error) {
-              logger.error(
-                `Error during full download for ${fileName}: ${error.message}`,
-              );
-            }
-          }
-        }
+      if (tempBedPath) {
+        fs.unlinkSync(tempBedPath);
+        activeLogger.info(`Deleted temporary BED file: ${tempBedPath}`);
       }
+    } finally {
+      rl.close();
     }
-
-    // Handle URL listing if --list-urls flag is set
-    if (finalConfig.listUrls) {
-      handleUrlListing(allUrls, finalConfig.urlFile, logger);
-      process.exit(0); // Exit successfully after listing URLs
-    }
-
-    logger.info('Download complete.');
-    generateReport(reportfile, logger);
-
-    // Clean up the temporary BED file if it was created
-    if (tempBedPath) {
-      fs.unlinkSync(tempBedPath);
-      logger.info(`Deleted temporary BED file: ${tempBedPath}`);
-    }
-
-    // Exit successfully
-    process.exit(0);
-  } catch (error) {
-    logger.error('An error occurred:', error.message);
-    logger.debug(error.stack);
-    process.exit(1);
   } finally {
-    rl.close();
+    // Release keep-alive sockets so the CLI exits promptly on completion.
+    await agent.close().catch(() => {});
   }
 }
 
-main().catch((error) => {
-  logger.error('An unexpected error occurred:', error.message);
-  logger.debug(error.stack);
-  rl.close();
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    const logger = activeLogger || createLogger({});
+    if (
+      error instanceof ConfigurationError ||
+      error instanceof OperationalError
+    ) {
+      logger.error(`Error: ${error.message}`);
+      process.exit(error.exitCode || 1);
+    }
+
+    logger.error(`An unexpected error occurred: ${getErrorMessage(error)}`);
+    const stack = getErrorStack(error);
+    if (stack) {
+      logger.debug(stack);
+    }
+    process.exit(1);
+  });
+}
+
+module.exports = { resolvePassword };

@@ -40,15 +40,112 @@ describe('CLI (varvis-download.cjs)', () => {
     });
 
     test('should exit with error when password is missing', () => {
+      let cliError;
       try {
+        // --restoreArchived force sidesteps the non-TTY restore guard (which
+        // would otherwise fire first, since execSync's piped stdin is not a
+        // TTY and restoreArchived defaults to "ask") so this test isolates
+        // the password-missing error path.
         execSync(
-          `node ${cliPath} --username test --target testenv --analysisIds AN001`,
+          `node ${cliPath} --username test --target testenv --analysisIds AN001 --restoreArchived force`,
           { encoding: 'utf8', stdio: 'pipe' },
         );
       } catch (error) {
-        expect(error.status).toBe(1);
-        expect(error.stderr || error.stdout).toContain('password');
+        cliError = error;
       }
+
+      expect(cliError).toBeDefined();
+      expect(cliError.status).toBe(1);
+      expect(cliError.stderr || cliError.stdout).toContain('password');
+    });
+
+    test('should exit with error when restoreArchived is EXPLICITLY interactive and stdin is not a TTY', () => {
+      // An explicit --restoreArchived ask on a non-TTY is a deliberate choice
+      // incompatible with the environment, so the guard fails fast.
+      let cliError;
+      try {
+        execSync(
+          `node ${cliPath} --username test --password test --target testenv --analysisIds AN001 --restoreArchived ask`,
+          { encoding: 'utf8', stdio: 'pipe' },
+        );
+      } catch (error) {
+        cliError = error;
+      }
+
+      expect(cliError).toBeDefined();
+      expect(cliError.status).toBe(1);
+      expect(cliError.stderr || cliError.stdout).toContain(
+        'needs an interactive terminal',
+      );
+    });
+
+    test('should downgrade the DEFAULT restoreArchived to skip on a non-TTY instead of erroring', () => {
+      // With no explicit --restoreArchived, a non-interactive download must not
+      // hard-fail: it downgrades to "no" (skip archived) with a warning and
+      // proceeds. This run still fails (fake credentials at login), but NOT via
+      // the restore guard, and the skip warning must be emitted.
+      let cliError;
+      try {
+        execSync(
+          `node ${cliPath} --username test --password test --target testenv --analysisIds AN001`,
+          { encoding: 'utf8', stdio: 'pipe' },
+        );
+      } catch (error) {
+        cliError = error;
+      }
+
+      expect(cliError).toBeDefined();
+      const output = cliError.stderr || cliError.stdout;
+      expect(output).not.toContain('needs an interactive terminal');
+      expect(output).toContain('archived files will be skipped');
+    });
+
+    test('should not trip the non-TTY restore guard for --resumeArchivedDownloads', () => {
+      // restoreArchived defaults to "ask", but --resumeArchivedDownloads never
+      // reaches the interactive restore prompt (it uses its own restoration
+      // logic and returns before getDownloadLinks is called). This run still
+      // fails (fake credentials, missing restoration file), but it must fail
+      // for a reason other than the restore guard.
+      let cliError;
+      try {
+        execSync(
+          `node ${cliPath} --username test --password test --target testenv --resumeArchivedDownloads`,
+          { encoding: 'utf8', stdio: 'pipe' },
+        );
+      } catch (error) {
+        cliError = error;
+      }
+
+      expect(cliError).toBeDefined();
+      expect(cliError.stderr || cliError.stdout).not.toContain(
+        'needs an interactive terminal',
+      );
+      expect(cliError.stderr || cliError.stdout).not.toContain(
+        'restoreArchived "ask"',
+      );
+    });
+
+    test('should not trip the non-TTY restore guard for --list', () => {
+      // --list resolves analysis IDs and lists files via listAvailableFiles;
+      // it never calls getDownloadLinks, so the interactive restore prompt is
+      // unreachable and the guard must not fire.
+      let cliError;
+      try {
+        execSync(
+          `node ${cliPath} --list --analysisIds AN001 --username test --password test --target testenv`,
+          { encoding: 'utf8', stdio: 'pipe' },
+        );
+      } catch (error) {
+        cliError = error;
+      }
+
+      expect(cliError).toBeDefined();
+      expect(cliError.stderr || cliError.stdout).not.toContain(
+        'needs an interactive terminal',
+      );
+      expect(cliError.stderr || cliError.stdout).not.toContain(
+        'restoreArchived "ask"',
+      );
     });
 
     test('should exit with error when target is missing', () => {

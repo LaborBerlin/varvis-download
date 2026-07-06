@@ -2,13 +2,14 @@ const fs = require('node:fs');
 const { finished } = require('node:stream/promises');
 const ProgressBar = require('progress');
 const { fetchWithRetry } = require('./apiClient.cjs');
+const { getErrorMessage } = require('./errorUtils.cjs');
 
 /**
  * Prompts the user to confirm file overwrite if the file already exists.
- * @param   {string}                   file    - The file path.
- * @param   {object}                   rl      - The readline interface instance.
- * @param   {import('winston').Logger} _logger - The logger instance (unused).
- * @returns {Promise<boolean>}                 - True if the user confirms overwrite, otherwise false.
+ * @param   {string}                            file    - The file path.
+ * @param   {import('node:readline').Interface} rl      - The readline interface instance.
+ * @param   {import('winston').Logger}          _logger - The logger instance (unused).
+ * @returns {Promise<boolean>}                          - True if the user confirms overwrite, otherwise false.
  */
 async function confirmOverwrite(file, rl, _logger) {
   return new Promise((resolve) => {
@@ -20,13 +21,13 @@ async function confirmOverwrite(file, rl, _logger) {
 
 /**
  * Downloads a file from the given URL to the specified output path with progress reporting.
- * @param   {string}        url        - The URL of the file to download.
- * @param   {string}        outputPath - The path where the file should be saved.
- * @param   {boolean}       overwrite  - Flag indicating whether to overwrite existing files.
- * @param   {object}        agent      - The HTTP agent instance.
- * @param   {object}        rl         - The readline interface instance.
- * @param   {object}        logger     - The logger instance.
- * @param   {object}        metrics    - The metrics object for tracking download stats.
+ * @param   {string}                                 url        - The URL of the file to download.
+ * @param   {string}                                 outputPath - The path where the file should be saved.
+ * @param   {boolean}                                overwrite  - Flag indicating whether to overwrite existing files.
+ * @param   {import('./types').HttpDispatcher}       agent      - The HTTP agent instance.
+ * @param   {import('node:readline').Interface|null} rl         - The readline interface instance.
+ * @param   {import('winston').Logger}               logger     - The logger instance.
+ * @param   {import('./types').Metrics}              metrics    - The metrics object for tracking download stats.
  * @returns {Promise<void>}
  */
 async function downloadFile(
@@ -62,7 +63,10 @@ async function downloadFile(
     let totalBytes = 0;
 
     // Get the total size of the file for progress reporting
-    const totalSize = parseInt(response.headers.get('content-length'), 10);
+    const totalSize = parseInt(
+      String(response.headers.get('content-length')),
+      10,
+    );
     const progressBar = new ProgressBar(
       '  downloading [:bar] :rate/bps :percent :etas',
       {
@@ -72,6 +76,10 @@ async function downloadFile(
         total: totalSize,
       },
     );
+
+    if (!response.body) {
+      throw new Error(`Download response for ${url} did not include a body`);
+    }
 
     for await (const chunk of response.body) {
       totalBytes += chunk.length;
@@ -92,7 +100,9 @@ async function downloadFile(
     metrics.totalBytesDownloaded += totalBytes;
     metrics.downloadSpeeds.push(speed);
   } catch (error) {
-    logger.error(`Download interrupted for ${outputPath}: ${error.message}`);
+    logger.error(
+      `Download interrupted for ${outputPath}: ${getErrorMessage(error)}`,
+    );
     // Properly close the write stream before cleanup using finished()
     if (writer && !writer.destroyed) {
       writer.destroy();
@@ -108,7 +118,7 @@ async function downloadFile(
       }
     } catch (unlinkError) {
       logger.debug(
-        `Could not remove partial download ${outputPath}: ${unlinkError.message}`,
+        `Could not remove partial download ${outputPath}: ${getErrorMessage(unlinkError)}`,
       );
     }
     throw error;

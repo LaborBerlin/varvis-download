@@ -28,9 +28,9 @@ async function promptPassword(promptMessage = 'Please enter your password: ') {
 
 /**
  * Prompts the user with a yes/no question.
- * @param   {string}           question - The question to ask.
- * @param   {object}           rl       - The readline interface instance.
- * @returns {Promise<boolean>}          - True if user confirms (y/yes), false otherwise.
+ * @param   {string}                            question - The question to ask.
+ * @param   {import('node:readline').Interface} rl       - The readline interface instance.
+ * @returns {Promise<boolean>}                           - True if user confirms (y/yes), false otherwise.
  */
 async function promptYesNo(question, rl) {
   return new Promise((resolve) => {
@@ -43,10 +43,10 @@ async function promptYesNo(question, rl) {
 
 /**
  * Prompts the user to select from multiple options.
- * @param   {string}          question - The question to ask.
- * @param   {string[]}        options  - Array of option strings.
- * @param   {object}          rl       - The readline interface instance.
- * @returns {Promise<number>}          - The index of the selected option (0-based), or -1 if invalid.
+ * @param   {string}                            question - The question to ask.
+ * @param   {string[]}                          options  - Array of option strings.
+ * @param   {import('node:readline').Interface} rl       - The readline interface instance.
+ * @returns {Promise<number>}                            - The index of the selected option (0-based), or -1 if invalid.
  */
 async function promptSelect(question, options, rl) {
   const optionsText = options
@@ -72,7 +72,7 @@ async function promptSelect(question, options, rl) {
 
 /**
  * Creates a standard readline interface for user interaction.
- * @returns {import('readline').Interface} - A readline interface instance.
+ * @returns {import('node:readline').Interface} - A readline interface instance.
  */
 function createReadlineInterface() {
   return readline.createInterface({

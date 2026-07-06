@@ -1,8 +1,8 @@
 const {
   triggerRestoreArchivedFile,
   appendToAwaitingRestoration,
-  resumeArchivedDownloads,
 } = require('../../js/archiveUtils.cjs');
+const { resumeArchivedDownloads } = require('../../js/commands/resume.cjs');
 const { createMockLogger } = require('../helpers/mockFactories');
 const fs = require('node:fs');
 
@@ -226,6 +226,46 @@ describe('archiveUtils (enhanced)', () => {
 
       expect(mockLogger.warn).toHaveBeenCalledWith(
         'File missing.bam not found or still archived for analysis AN001. Keeping for retry.',
+      );
+    });
+
+    test('should keep restored files without download links for retry', async () => {
+      const mockData = [
+        {
+          analysisId: 'AN001',
+          fileName: 'sample.bam',
+          restoreEstimation: '2025-01-01T00:00:00Z',
+          options: {},
+        },
+      ];
+
+      fs.existsSync.mockReturnValue(true);
+      fs.readFileSync.mockReturnValue(JSON.stringify(mockData));
+
+      getDownloadLinks.mockResolvedValue({
+        'sample.bam': {
+          fileName: 'sample.bam',
+          currentlyArchived: false,
+        },
+      });
+
+      await resumeArchivedDownloads(
+        'test-restoration.json',
+        './downloads',
+        mockTarget,
+        mockToken,
+        mockAgent,
+        mockLogger,
+        false,
+      );
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'File sample.bam has no download link for analysis AN001. Keeping for retry.',
+      );
+      expect(downloadFile).not.toHaveBeenCalled();
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        'test-restoration.json',
+        expect.stringContaining('AN001'),
       );
     });
 

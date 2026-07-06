@@ -2,8 +2,8 @@ const winston = require('winston');
 
 /**
  * Creates a logger with specified configuration.
- * @param   {object} argv - The command line arguments.
- * @returns {object}      - The created logger instance.
+ * @param   {import('./types').LoggerConfig} argv - The command line arguments.
+ * @returns {import('winston').Logger}            - The created logger instance.
  */
 function createLogger(argv) {
   /** @type {any[]} */

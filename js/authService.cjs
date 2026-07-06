@@ -16,8 +16,8 @@ const DEFAULT_HEADERS = {
 class AuthService {
   /**
    * Creates an instance of AuthService.
-   * @param {object} logger - The logger instance.
-   * @param {object} agent  - The HTTP agent instance.
+   * @param {import('winston').Logger}         logger - The logger instance.
+   * @param {import('./types').HttpDispatcher} agent  - The HTTP agent instance.
    */
   constructor(logger, agent) {
     this.logger = logger;
@@ -44,6 +44,9 @@ class AuthService {
         },
       );
       const csrfToken = response.headers.get('x-csrf-token');
+      if (!csrfToken) {
+        throw new Error('CSRF token missing from authentication response');
+      }
       this.logger.debug(`Received CSRF token: ${csrfToken}`);
       return csrfToken;
     } catch (error) {
@@ -54,11 +57,9 @@ class AuthService {
 
   /**
    * Logs in to the Varvis API and retrieves the CSRF token.
-   * @param   {object}          user          - The user credentials.
-   * @param   {string}          user.username - The username.
-   * @param   {string}          user.password - The password.
-   * @param   {string}          target        - The target for the Varvis API.
-   * @returns {Promise<object>}               - The login response containing the CSRF token.
+   * @param   {import('./types').Credentials}          user   - The user credentials.
+   * @param   {string}                                 target - The target for the Varvis API.
+   * @returns {Promise<import('./types').LoginResult>}        - The login response containing the CSRF token.
    */
   async login(user, target) {
     try {
@@ -98,7 +99,13 @@ class AuthService {
         },
       );
 
-      this.token = csrfToken2Response.headers.get('x-csrf-token');
+      const csrfToken2 = csrfToken2Response.headers.get('x-csrf-token');
+      if (!csrfToken2) {
+        throw new Error(
+          'CSRF token missing from post-login authentication response',
+        );
+      }
+      this.token = csrfToken2;
 
       this.logger.info('Login successful');
       return { csrfToken: this.token };

@@ -45,7 +45,11 @@ const os = require('node:os');
 const path = require('node:path');
 
 afterAll(async () => {
-  const testTmpDir = path.join(os.tmpdir(), 'varvis-download-tests');
+  const testTmpDir = path.join(
+    os.tmpdir(),
+    'varvis-download-tests',
+    `worker-${process.env.JEST_WORKER_ID || 'main'}`,
+  );
   try {
     await fs.rm(testTmpDir, { recursive: true, force: true });
   } catch (error) {

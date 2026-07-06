@@ -66,9 +66,18 @@ describe('arrayUtils', () => {
       expect(result).toEqual(['id1', 'id2']);
     });
 
-    test('should handle numeric values in array', () => {
+    test('should coerce numeric values in array to strings', () => {
       const result = normalizeArrayInput([123, '456,789'], undefined, []);
-      expect(result).toEqual([123, '456', '789']);
+      expect(result).toEqual(['123', '456', '789']);
+    });
+
+    test('coerces numeric config IDs to strings so they match string API IDs', () => {
+      // Numeric IDs from a JSON config file must be strings; downstream
+      // filtering uses strict `Array.prototype.includes`, so a numeric 123
+      // would never match the API's string "123".
+      const result = normalizeArrayInput(undefined, [123, 456], []);
+      expect(result).toEqual(['123', '456']);
+      expect(result.every((id) => typeof id === 'string')).toBe(true);
     });
 
     test('should handle string with leading/trailing commas', () => {

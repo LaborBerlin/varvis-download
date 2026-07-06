@@ -13,7 +13,13 @@ const path = require('node:path');
  * Cleans up automatically after tests
  */
 class TestDirectory {
-  constructor(basePath = path.join(os.tmpdir(), 'varvis-download-tests')) {
+  constructor(
+    basePath = path.join(
+      os.tmpdir(),
+      'varvis-download-tests',
+      `worker-${process.env.JEST_WORKER_ID || 'main'}`,
+    ),
+  ) {
     this.basePath = basePath;
     this.created = [];
   }

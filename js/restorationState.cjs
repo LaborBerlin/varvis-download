@@ -1,10 +1,11 @@
 const fs = require('node:fs');
+const { getErrorMessage } = require('./errorUtils.cjs');
 
 /**
  * Deep equality comparison for objects that is order-independent.
- * @param   {object}  obj1 - First object to compare.
- * @param   {object}  obj2 - Second object to compare.
- * @returns {boolean}      - True if objects are deeply equal.
+ * @param   {Record<string, any>|null} obj1 - First object to compare.
+ * @param   {Record<string, any>|null} obj2 - Second object to compare.
+ * @returns {boolean}                       - True if objects are deeply equal.
  */
 function deepEqual(obj1, obj2) {
   if (obj1 === obj2) return true;
@@ -27,9 +28,9 @@ function deepEqual(obj1, obj2) {
 
 /**
  * Reads the restoration state from a JSON file.
- * @param   {string}     restorationFile - The path to the awaiting-restoration JSON file.
- * @param   {object}     logger          - The logger instance.
- * @returns {Array|null}                 - Array of restoration entries, or null if file doesn't exist or is empty.
+ * @param   {string}                                    restorationFile - The path to the awaiting-restoration JSON file.
+ * @param   {import('winston').Logger}                  logger          - The logger instance.
+ * @returns {import('./types').RestorationEntry[]|null}                 - Array of restoration entries, or null if file doesn't exist or is empty.
  */
 function readRestorationState(restorationFile, logger) {
   if (!fs.existsSync(restorationFile)) {
@@ -52,7 +53,7 @@ function readRestorationState(restorationFile, logger) {
     return data;
   } catch (error) {
     logger.error(
-      `Failed to parse restoration file ${restorationFile}: ${error.message}`,
+      `Failed to parse restoration file ${restorationFile}: ${getErrorMessage(error)}`,
     );
     return null;
   }
@@ -60,9 +61,9 @@ function readRestorationState(restorationFile, logger) {
 
 /**
  * Writes the restoration state to a JSON file.
- * @param {Array}  data            - Array of restoration entries to write.
- * @param {string} restorationFile - The path to the awaiting-restoration JSON file.
- * @param {object} logger          - The logger instance.
+ * @param {import('./types').RestorationEntry[]} data            - Array of restoration entries to write.
+ * @param {string}                               restorationFile - The path to the awaiting-restoration JSON file.
+ * @param {import('winston').Logger}             logger          - The logger instance.
  */
 function writeRestorationState(data, restorationFile, logger) {
   fs.writeFileSync(restorationFile, JSON.stringify(data, null, 2));
@@ -72,9 +73,9 @@ function writeRestorationState(data, restorationFile, logger) {
 /**
  * Appends or updates restoration information in an awaiting-restoration JSON file.
  * The entry is identified by matching analysisId, fileName, and options.
- * @param   {object}        restorationInfo                               - An object containing restoration details (analysisId, fileName, restoreEstimation, options).
- * @param   {object}        logger                                        - The logger instance.
- * @param   {string}        [restorationFile="awaiting-restoration.json"] - Optional path/name for the awaiting restoration JSON file.
+ * @param   {import('./types').RestorationEntry} restorationInfo                               - An object containing restoration details (analysisId, fileName, restoreEstimation, options).
+ * @param   {import('winston').Logger}           logger                                        - The logger instance.
+ * @param   {string}                             [restorationFile="awaiting-restoration.json"] - Optional path/name for the awaiting restoration JSON file.
  * @returns {Promise<void>}
  */
 async function appendToAwaitingRestoration(
@@ -82,6 +83,7 @@ async function appendToAwaitingRestoration(
   logger,
   restorationFile = 'awaiting-restoration.json',
 ) {
+  /** @type {import('./types').RestorationEntry[]} */
   let data = [];
   if (fs.existsSync(restorationFile)) {
     try {
@@ -127,11 +129,11 @@ async function appendToAwaitingRestoration(
 
 /**
  * Removes an entry from the restoration state.
- * @param   {string}  analysisId      - The analysis ID to remove.
- * @param   {string}  fileName        - The file name to remove.
- * @param   {string}  restorationFile - The path to the awaiting-restoration JSON file.
- * @param   {object}  logger          - The logger instance.
- * @returns {boolean}                 - True if entry was removed, false if not found.
+ * @param   {string}                   analysisId      - The analysis ID to remove.
+ * @param   {string}                   fileName        - The file name to remove.
+ * @param   {string}                   restorationFile - The path to the awaiting-restoration JSON file.
+ * @param   {import('winston').Logger} logger          - The logger instance.
+ * @returns {boolean}                                  - True if entry was removed, false if not found.
  */
 function removeRestorationEntry(analysisId, fileName, restorationFile, logger) {
   const data = readRestorationState(restorationFile, logger);
@@ -157,9 +159,9 @@ function removeRestorationEntry(analysisId, fileName, restorationFile, logger) {
 
 /**
  * Gets entries that are ready for download (restoration time has passed).
- * @param   {string} restorationFile - The path to the awaiting-restoration JSON file.
- * @param   {object} logger          - The logger instance.
- * @returns {object}                 - Object with ready and pending arrays.
+ * @param   {string}                         restorationFile - The path to the awaiting-restoration JSON file.
+ * @param   {import('winston').Logger}       logger          - The logger instance.
+ * @returns {import('./types').ReadyEntries}                 - Object with ready and pending arrays.
  */
 function getReadyEntries(restorationFile, logger) {
   const data = readRestorationState(restorationFile, logger);
@@ -168,7 +170,9 @@ function getReadyEntries(restorationFile, logger) {
   }
 
   const now = new Date();
+  /** @type {import('./types').RestorationEntry[]} */
   const ready = [];
+  /** @type {import('./types').RestorationEntry[]} */
   const pending = [];
 
   for (const entry of data) {

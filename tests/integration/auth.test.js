@@ -156,8 +156,9 @@ describe('AuthService Integration Tests', () => {
         headers: { get: jest.fn().mockReturnValue(null) },
       });
 
-      const result = await authService.getCsrfToken(target);
-      expect(result).toBeNull();
+      await expect(authService.getCsrfToken(target)).rejects.toThrow(
+        'CSRF token missing from authentication response',
+      );
     });
   });
 

@@ -1,12 +1,13 @@
 const { spawn } = require('node:child_process');
+const { getErrorMessage } = require('./errorUtils.cjs');
 
 /**
  * Wraps spawn in a Promise to maintain async/await syntax.
- * @param   {string}          command       - The command to execute.
- * @param   {Array<string>}   args          - The command arguments.
- * @param   {object}          logger        - The logger instance.
- * @param   {boolean}         captureOutput - Whether to capture stdout for return value.
- * @returns {Promise<object>}               - Resolves with result object when the process completes successfully.
+ * @param   {string}                                 command       - The command to execute.
+ * @param   {string[]}                               args          - The command arguments.
+ * @param   {import('winston').Logger}               logger        - The logger instance.
+ * @param   {boolean}                                captureOutput - Whether to capture stdout for return value.
+ * @returns {Promise<import('./types').SpawnResult>}               - Resolves with result object when the process completes successfully.
  */
 function spawnPromise(command, args, logger, captureOutput = false) {
   return new Promise((resolve, reject) => {
@@ -86,11 +87,11 @@ function compareVersions(version, minVersion) {
 
 /**
  * Checks if a tool is available and meets the minimum version.
- * @param   {string}           tool           - The name of the tool (samtools, tabix, or bgzip).
- * @param   {string}           versionCommand - Command to check the tool version.
- * @param   {string}           minVersion     - The minimal required version.
- * @param   {object}           logger         - The logger instance.
- * @returns {Promise<boolean>}                - Resolves to true if the tool is available and meets the version requirement.
+ * @param   {string}                   tool           - The name of the tool (samtools, tabix, or bgzip).
+ * @param   {string}                   versionCommand - Command to check the tool version.
+ * @param   {string}                   minVersion     - The minimal required version.
+ * @param   {import('winston').Logger} logger         - The logger instance.
+ * @returns {Promise<boolean>}                        - Resolves to true if the tool is available and meets the version requirement.
  */
 async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
   try {
@@ -99,7 +100,9 @@ async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
     const command = commandParts[0];
     const args = commandParts.slice(1);
 
-    const { stdout } = await spawnPromise(command, args, logger, true);
+    const { stdout } = /** @type {import('./types').CapturedSpawnResult} */ (
+      await spawnPromise(command, args, logger, true)
+    );
     const rawOutput = stdout.trim();
     const parts = rawOutput.split(/\s+/).filter(Boolean);
 
@@ -132,7 +135,7 @@ async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
       return false;
     }
   } catch (error) {
-    logger.error(`Error checking ${tool} version: ${error.message}`);
+    logger.error(`Error checking ${tool} version: ${getErrorMessage(error)}`);
     return false;
   }
 }

@@ -1,10 +1,8 @@
 const fs = require('node:fs');
 const nock = require('nock');
 const { fetchWithRetry } = require('../../js/apiClient');
-const {
-  triggerRestoreArchivedFile,
-  resumeArchivedDownloads,
-} = require('../../js/archiveUtils');
+const { triggerRestoreArchivedFile } = require('../../js/archiveUtils');
+const { resumeArchivedDownloads } = require('../../js/commands/resume');
 const { getDownloadLinks } = require('../../js/fetchUtils');
 
 // Mock fs to avoid writing to real filesystem during tests
@@ -368,11 +366,10 @@ describe('Archive Workflow Integration Tests', () => {
         expect.stringContaining('Successfully resumed download'),
       );
 
-      // Should use restored options for destination
+      // Should use restored options for destination (delegated to the
+      // shared BAM handler, which logs without the "restored" qualifier)
       expect(mockLogger.info).toHaveBeenCalledWith(
-        expect.stringContaining(
-          'Performing ranged download for restored BAM file',
-        ),
+        expect.stringContaining('Performing ranged download for BAM file'),
       );
     });
 
@@ -442,11 +439,10 @@ describe('Archive Workflow Integration Tests', () => {
         expect.stringContaining('Successfully resumed download'),
       );
 
-      // Should use restored options for VCF ranged download
+      // Should use restored options for VCF ranged download (delegated to
+      // the shared VCF handler, which logs without the "restored" qualifier)
       expect(mockLogger.info).toHaveBeenCalledWith(
-        expect.stringContaining(
-          'Performing ranged download for restored VCF file',
-        ),
+        expect.stringContaining('Performing ranged download for VCF file'),
       );
 
       // Verify that getDownloadLinks was called with the restored filetypes
@@ -524,10 +520,10 @@ describe('Archive Workflow Integration Tests', () => {
         JSON.stringify([], null, 2),
       );
 
+      // Delegated to the shared BAM handler, which logs without the
+      // "restored" qualifier.
       expect(mockLogger.info).toHaveBeenCalledWith(
-        expect.stringContaining(
-          'Performing full download for restored BAM file',
-        ),
+        expect.stringContaining('Performing full download for BAM file'),
       );
     });
   });
@@ -597,8 +593,10 @@ describe('Archive Workflow Integration Tests', () => {
         JSON.stringify(awaitingData, null, 2),
       );
 
+      // The download failure is caught inside the shared BAM handler (which
+      // reports { ok: false }), not resume's own outer per-entry catch.
       expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining('Error during resume download'),
+        expect.stringContaining('Error during full download'),
       );
     });
 

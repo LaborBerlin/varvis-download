@@ -3,8 +3,8 @@ const path = require('node:path');
 
 /**
  * Loads configuration from a specified file.
- * @param   {string} configFilePath - The path to the configuration file.
- * @returns {object}                - The parsed configuration object.
+ * @param   {string}                      configFilePath - The path to the configuration file.
+ * @returns {import('./types').RawConfig}                - The parsed configuration object.
  */
 function loadConfig(configFilePath) {
   if (fs.existsSync(configFilePath)) {
