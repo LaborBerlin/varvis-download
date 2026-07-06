@@ -32,6 +32,10 @@ supersedes-contract: docs/superpowers/specs/2026-05-26-typescript-readiness-desi
   requires first extracting shared option defs. **D3** warn mechanism specified
   (`mergeConfig` has no logger; compute source + emit from a caller that has
   one). **D4** gained the non-TTY interactive-restore interaction.
+- **rev 3 (2026-07-06):** Codex re-verification confirmed rev 2 resolved all
+  prior points; fixed the one new concern — the non-TTY restore guard must cover
+  both `restoreArchived: 'ask'` **and** `'all'` (both prompt via `rl.question`).
+  Spec marked ready for planning.
 
 ## Context
 
@@ -187,13 +191,14 @@ an interactive terminal."`
   and the new `--password-stdin` flag.
 - **Non-TTY ↔ interactive-restore interaction (Codex-surfaced):** password
   resolution happens before the main `rl`, but a piped stdin (used for
-  `--password-stdin`) is exhausted/non-TTY afterward, so a later
-  `restoreArchived: 'ask'` prompt would hang or auto-resolve. When
-  `!process.stdin.isTTY` and `restoreArchived` would prompt (`'ask'`), fail fast
-  with a clear error directing the user to `--restoreArchived force|no` (i.e.
-  automation must pick a non-interactive restore mode). This keeps the CLI from
-  hanging in pipelines and is the same "no prompts without a TTY" rule as the
-  password path.
+  `--password-stdin`) is exhausted/non-TTY afterward, so a later interactive
+  restore prompt would hang or auto-resolve. **Both `restoreArchived: 'ask'` and
+  `'all'` prompt via `rl.question`** (`fetchUtils.cjs` asks once for `'all'`:
+  `"Restore all archived files? (y/n)"`), so the guard must cover both. When
+  `!process.stdin.isTTY` and `restoreArchived` is `'ask'` or `'all'`, fail fast
+  with a clear error directing the user to a non-interactive restore mode
+  (`--restoreArchived force|no`). This keeps the CLI from hanging in pipelines
+  and is the same "no prompts without a TTY" rule as the password path.
 - **Out of scope (noted):** deprecating raw `--password <value>` per CWE-214.
 
 ### D5 — Process lifecycle: already fixed on the branch (no action)
