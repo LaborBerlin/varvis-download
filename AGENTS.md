@@ -42,7 +42,7 @@ Use the scripts in `package.json` as the primary interface:
 - Docs dev server: `npm run docs:dev`
 - Docs build: `npm run docs:build`
 
-There is no single `npm run check` aggregate yet. The local CI-equivalent gate is:
+The local CI-equivalent gate is `npm run check`, which runs:
 
 ```bash
 npm run lint && npx prettier --check . && npm run type-check && npm test && npm run architecture:check
