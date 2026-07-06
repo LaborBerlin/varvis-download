@@ -14,3 +14,8 @@ yarn.lock
 
 # Ignore Handlebars templates (have their own formatting requirements)
 *.hbs
+
+# Ignore hook-managed skill and planning docs (regenerated automatically;
+# their embedded-code formatting is not prettier-normalized)
+.claude/skills/
+docs/superpowers/
