@@ -109,6 +109,9 @@ so you don't rediscover them each time:
 - **`writing-typed-jsdoc`** — JSDoc that satisfies both `tsc --noEmit` strict and
   eslint-plugin-jsdoc: the `import('./types')` idiom, `js/shims/`, error-vs-warn
   rules, and strict `unknown`/null body idioms.
+- **`scanning-for-bugs`** — the defect-hunt method: history-first hot-seam map,
+  the contracts semantic bugs hide behind (flag precedence, lifecycle, URL
+  expiry), the verify-before-reporting ladder, and the findings report format.
 
 ## Boundaries
 
