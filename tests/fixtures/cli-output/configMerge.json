@@ -13,6 +13,7 @@
   "resumeArchivedDownloads": false,
   "listUrls": false,
   "overwrite": false,
+  "overwriteFromConfig": false,
   "urlFile": null,
   "range": null,
   "bed": null,

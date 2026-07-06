@@ -288,6 +288,12 @@ function mergeConfig({ argv, config = {}, env = {} }) {
       /** @type {string|string[]|null|undefined} */ (config.loglevel),
     ) || 'info';
 
+  const overwrite = mergeBoolean(argv, config, 'overwrite', false);
+  const overwriteFromConfig =
+    overwrite === true &&
+    !hasExplicitOption(argv, 'overwrite') &&
+    config.overwrite === true;
+
   /** @type {import('../types').FinalConfig} */
   const finalConfig = {
     username,
@@ -339,7 +345,8 @@ function mergeConfig({ argv, config = {}, env = {} }) {
       false,
     ),
     listUrls: mergeBoolean(argv, config, 'listUrls', false),
-    overwrite: mergeBoolean(argv, config, 'overwrite', false),
+    overwrite,
+    overwriteFromConfig,
     urlFile:
       normalizedUrlFile ||
       firstNonEmptyString(

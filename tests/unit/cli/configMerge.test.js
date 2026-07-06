@@ -299,3 +299,43 @@ describe('credential precedence (CLI > env > config)', () => {
     expect(result.target).toBe('env-target');
   });
 });
+
+describe('overwrite source tracking', () => {
+  test('flags overwrite sourced from config', () => {
+    const result = mergeConfig({
+      argv: { username: 'u', target: 't', analysisIds: ['AN001'] },
+      config: { overwrite: true },
+      env: {},
+    });
+    expect(result.overwrite).toBe(true);
+    expect(result.overwriteFromConfig).toBe(true);
+  });
+
+  test('does not flag an explicit --overwrite', () => {
+    const argv = { username: 'u', target: 't', overwrite: true };
+    Object.defineProperty(argv, '__varvisExplicitOptions', {
+      enumerable: false,
+      value: ['overwrite'],
+    });
+    const result = mergeConfig({
+      argv,
+      config: {
+        overwrite: true,
+        username: 'u',
+        target: 't',
+        analysisIds: ['AN001'],
+      },
+      env: {},
+    });
+    expect(result.overwriteFromConfig).toBe(false);
+  });
+
+  test('does not flag when overwrite is false', () => {
+    const result = mergeConfig({
+      argv: { username: 'u', target: 't', analysisIds: ['AN001'] },
+      config: {},
+      env: {},
+    });
+    expect(result.overwriteFromConfig).toBe(false);
+  });
+});

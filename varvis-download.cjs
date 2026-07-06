@@ -76,6 +76,11 @@ async function main() {
   }
 
   const finalConfig = mergeFromArgv(argv, process.env);
+  if (finalConfig.overwriteFromConfig) {
+    activeLogger.warn(
+      'overwrite enabled via config file; existing files may be replaced.',
+    );
+  }
   const agent = createHttpAgent({
     proxy: finalConfig.proxy,
     proxyPassword: finalConfig.proxyPassword,

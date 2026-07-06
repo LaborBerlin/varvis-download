@@ -106,6 +106,7 @@ export interface FinalConfig {
   proxyUsername?: string;
   proxyPassword?: string;
   overwrite: boolean;
+  overwriteFromConfig: boolean;
   reportfile?: string;
   restoreArchived: RestoreMode;
   restorationFile: string;
