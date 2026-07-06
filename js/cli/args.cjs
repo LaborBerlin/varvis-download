@@ -6,103 +6,6 @@ const yargs = nativeRequire('yargs');
 
 const EXPLICIT_OPTIONS_KEY = '__varvisExplicitOptions';
 
-/** @type {Record<string, string>} */
-const OPTION_ALIASES = {
-  'analysis-ids': 'analysisIds',
-  a: 'analysisIds',
-  analysisIds: 'analysisIds',
-  bed: 'bed',
-  b: 'bed',
-  c: 'config',
-  config: 'config',
-  d: 'destination',
-  destination: 'destination',
-  f: 'filetypes',
-  filetypes: 'filetypes',
-  F: 'filter',
-  filter: 'filter',
-  g: 'range',
-  h: 'help',
-  help: 'help',
-  l: 'limsIds',
-  limsIds: 'limsIds',
-  'lims-ids': 'limsIds',
-  list: 'list',
-  L: 'list',
-  latest: 'latest',
-  lf: 'logfile',
-  logfile: 'logfile',
-  ll: 'loglevel',
-  loglevel: 'loglevel',
-  o: 'overwrite',
-  overwrite: 'overwrite',
-  p: 'password',
-  password: 'password',
-  proxy: 'proxy',
-  pxp: 'proxyPassword',
-  proxyPassword: 'proxyPassword',
-  'proxy-password': 'proxyPassword',
-  pxu: 'proxyUsername',
-  proxyUsername: 'proxyUsername',
-  'proxy-username': 'proxyUsername',
-  r: 'reportfile',
-  reportfile: 'reportfile',
-  ra: 'restoreArchived',
-  restoreArchived: 'restoreArchived',
-  'restore-archived': 'restoreArchived',
-  rad: 'resumeArchivedDownloads',
-  resumeArchivedDownloads: 'resumeArchivedDownloads',
-  'resume-archived-downloads': 'resumeArchivedDownloads',
-  range: 'range',
-  restorationFile: 'restorationFile',
-  'restoration-file': 'restorationFile',
-  rf: 'restorationFile',
-  s: 'sampleIds',
-  sampleIds: 'sampleIds',
-  'sample-ids': 'sampleIds',
-  t: 'target',
-  target: 'target',
-  u: 'username',
-  username: 'username',
-  U: 'listUrls',
-  'list-urls': 'listUrls',
-  listUrls: 'listUrls',
-  um: 'unmapped',
-  unmapped: 'unmapped',
-  'url-file': 'urlFile',
-  urlFile: 'urlFile',
-  v: 'version',
-  version: 'version',
-  x: 'proxy',
-};
-
-/**
- * Records which options were explicitly supplied before yargs applies defaults.
- * @param   {string[]} argv - Raw argument tokens.
- * @returns {string[]}      - Canonical option names supplied by the user.
- */
-function collectExplicitOptions(argv) {
-  const explicitOptions = new Set();
-
-  for (const token of argv) {
-    if (token.length === 2 && token.startsWith('--')) {
-      break;
-    }
-    if (!token.startsWith('-') || token === '-') {
-      continue;
-    }
-
-    const optionToken = token.startsWith('--')
-      ? token.slice(2)
-      : token.slice(1);
-    const optionName = optionToken.replace(/^no-/, '').split('=')[0];
-    const canonicalName = OPTION_ALIASES[optionName] || optionName;
-    explicitOptions.add(canonicalName);
-  }
-
-  return [...explicitOptions];
-}
-
 /**
  * Builds the yargs parser for the varvis-download CLI.
  *
@@ -110,15 +13,7 @@ function collectExplicitOptions(argv) {
  * @returns {import('yargs').Argv}      - Configured yargs parser.
  */
 function buildParser(argv) {
-  const explicitOptions = collectExplicitOptions(argv);
-
   return yargs(argv)
-    .middleware((parsedArgv) => {
-      Object.defineProperty(parsedArgv, EXPLICIT_OPTIONS_KEY, {
-        enumerable: false,
-        value: explicitOptions,
-      });
-    })
     .usage('$0 <command> [args]')
     .version(false)
     .option('config', {
@@ -284,6 +179,69 @@ function buildParser(argv) {
     .alias('help', 'h');
 }
 
+/**
+ * @typedef {import('yargs-parser').DetailedArguments & {
+ *   defaulted?: Record<string, boolean>,
+ *   aliases?: Record<string, string[]>,
+ * }} ParsedArgsMeta
+ */
+
+/**
+ * Derives the names (canonical + aliases) of options supplied explicitly.
+ * Decides per alias group: explicit iff some member is present in argv and no
+ * member was populated from a parser default.
+ * @param   {Record<string, unknown>} argv   - Parsed argv.
+ * @param   {ParsedArgsMeta}          parsed - yargs parse metadata.
+ * @returns {string[]}                       - Explicit option names (all group members).
+ */
+function computeExplicitOptions(argv, parsed) {
+  const defaulted = parsed.defaulted || {};
+  const aliases = parsed.aliases || {};
+  const explicit = new Set();
+  const grouped = new Set();
+  const hasKey = (/** @type {string} */ key) =>
+    Object.prototype.hasOwnProperty.call(argv, key);
+
+  for (const [canonical, group] of Object.entries(aliases)) {
+    const members = [canonical, ...group];
+    members.forEach((member) => grouped.add(member));
+    const present = members.some(hasKey);
+    const anyDefaulted = members.some((member) => member in defaulted);
+    if (present && !anyDefaulted) {
+      members.forEach((member) => explicit.add(member));
+    }
+  }
+
+  for (const key of Object.keys(argv)) {
+    if (key === '_' || key === '$0' || grouped.has(key)) {
+      continue;
+    }
+    if (!(key in defaulted)) {
+      explicit.add(key);
+    }
+  }
+
+  return [...explicit];
+}
+
+/**
+ * Parses CLI arguments and tags the result with the explicit-option set.
+ * @param   {string[]}                rawArgs - Arguments without the node executable/script path.
+ * @returns {Record<string, unknown>}         - Parsed argv with a non-enumerable explicit-option list.
+ */
+function parseArguments(rawArgs) {
+  const parser = buildParser(rawArgs);
+  const argv = parser.parseSync();
+  const parsed = /** @type {ParsedArgsMeta} */ (parser.parsed);
+  Object.defineProperty(argv, EXPLICIT_OPTIONS_KEY, {
+    enumerable: false,
+    value: computeExplicitOptions(argv, parsed),
+  });
+  return argv;
+}
+
 module.exports = {
+  EXPLICIT_OPTIONS_KEY,
   buildParser,
+  parseArguments,
 };

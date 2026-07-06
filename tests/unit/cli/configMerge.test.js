@@ -1,5 +1,5 @@
 const { mergeConfig } = require('../../../js/cli/configMerge.cjs');
-const { buildParser } = require('../../../js/cli/args.cjs');
+const { parseArguments } = require('../../../js/cli/args.cjs');
 const { ConfigurationError } = require('../../../js/errors.cjs');
 
 describe('CLI config merge', () => {
@@ -90,16 +90,14 @@ describe('CLI config merge', () => {
   });
 
   test('uses config values when real yargs output only contains parser defaults', () => {
-    const argv = buildParser([
+    const argv = parseArguments([
       '--username',
       'argv-user',
       '--target',
       'argv-target',
       '--analysisIds',
       'AN001',
-    ])
-      .exitProcess(false)
-      .parseSync();
+    ]);
 
     const result = mergeConfig({
       argv,

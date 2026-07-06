@@ -1,4 +1,8 @@
-const { buildParser } = require('../../../js/cli/args.cjs');
+const {
+  buildParser,
+  parseArguments,
+  EXPLICIT_OPTIONS_KEY,
+} = require('../../../js/cli/args.cjs');
 
 describe('CLI argument parser', () => {
   function parse(arguments_) {
@@ -47,5 +51,84 @@ describe('CLI argument parser', () => {
       'analysisType=SNV',
       'enrichmentKitName^=TwistExome',
     ]);
+  });
+});
+
+describe('yargs parse metadata (characterization)', () => {
+  function parsed(arguments_) {
+    const parser = buildParser(arguments_).exitProcess(false);
+    parser.parseSync();
+    return parser.parsed;
+  }
+
+  test('bundled short flags -oL are both explicit (not defaulted)', () => {
+    const { defaulted } = parsed(['-oL']);
+    expect('overwrite' in defaulted).toBe(false);
+    expect('list' in defaulted).toBe(false);
+  });
+
+  test('an untouched boolean stays in defaulted', () => {
+    const { defaulted } = parsed([]);
+    expect(defaulted.overwrite).toBe(true);
+  });
+
+  test('aliases expose the canonical camelCase group', () => {
+    const { aliases } = parsed(['--list-urls']);
+    expect(aliases.listUrls).toEqual(
+      expect.arrayContaining(['list-urls', 'U']),
+    );
+  });
+
+  test('multi-char alias --um marks unmapped explicit', () => {
+    const { defaulted } = parsed(['--um']);
+    expect('unmapped' in defaulted).toBe(false);
+  });
+});
+
+describe('parseArguments explicit-option detection', () => {
+  function explicit(arguments_) {
+    return parseArguments(arguments_)[EXPLICIT_OPTIONS_KEY];
+  }
+
+  test('bundled short flags -oL are detected as explicit', () => {
+    const set = explicit(['-oL']);
+    expect(set).toEqual(expect.arrayContaining(['overwrite', 'list']));
+  });
+
+  test('unset options are not explicit', () => {
+    expect(explicit([])).not.toContain('overwrite');
+    expect(explicit([])).not.toContain('unmapped');
+  });
+
+  test('multi-char alias --um marks unmapped explicit', () => {
+    expect(explicit(['--um'])).toContain('unmapped');
+  });
+
+  test('dashed --list-urls maps to canonical listUrls', () => {
+    expect(explicit(['--list-urls'])).toContain('listUrls');
+  });
+
+  test('--no-overwrite is explicit (negation counts as user-supplied)', () => {
+    expect(explicit(['--no-overwrite'])).toContain('overwrite');
+  });
+
+  test('defaulted options (incl. their aliases) are NOT explicit', () => {
+    const set = explicit([]);
+    for (const name of [
+      'config',
+      'destination',
+      'filetypes',
+      'overwrite',
+      'listUrls',
+      'restoreArchived',
+      'unmapped',
+      'latest',
+    ]) {
+      expect(set).not.toContain(name);
+    }
+    // alias keys of defaulted options must not leak in either
+    for (const alias of ['o', 'd', 'c', 'f', 'U', 'ra', 'um']) {
+      expect(set).not.toContain(alias);
+    }
   });
 });

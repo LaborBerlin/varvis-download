@@ -5,6 +5,7 @@ const {
   normalizeFiletypes,
   normalizeStringOption,
 } = require('../arrayUtils.cjs');
+const { EXPLICIT_OPTIONS_KEY } = require('./args.cjs');
 const { loadConfig } = require('../configUtils.cjs');
 const { ConfigurationError } = require('../errors.cjs');
 
@@ -33,8 +34,6 @@ const { ConfigurationError } = require('../errors.cjs');
  *   latest?: boolean,
  * }} MergeSource
  */
-
-const EXPLICIT_OPTIONS_KEY = '__varvisExplicitOptions';
 
 /**
  * @typedef {object} MergeOptions

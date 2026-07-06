@@ -14,7 +14,7 @@ const {
 } = require('./package.json');
 
 const AuthService = require('./js/authService.cjs');
-const { buildParser } = require('./js/cli/args.cjs');
+const { parseArguments } = require('./js/cli/args.cjs');
 const { mergeFromArgv } = require('./js/cli/configMerge.cjs');
 const { formatVersionInfo } = require('./js/cli/versionInfo.cjs');
 const { runDownloadCommand } = require('./js/commands/download.cjs');
@@ -57,7 +57,7 @@ async function resolvePassword(currentPassword) {
  */
 async function main() {
   /** @type {any} */
-  const argv = buildParser(hideBin(process.argv)).argv;
+  const argv = parseArguments(hideBin(process.argv));
   activeLogger = createLogger(argv);
 
   if (argv.version) {
