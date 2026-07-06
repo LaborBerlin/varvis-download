@@ -295,32 +295,26 @@ function mergeConfig({ argv, config = {}, env = {} }) {
     password,
     target,
     filetypes: normalizeFiletypes(explicitFiletypes, config.filetypes),
-    analysisIds: /** @type {string[]} */ (
-      normalizeArrayInput(
-        /** @type {(string|number)[]|undefined} */ (
-          getExplicitOption(argv, 'analysisIds')
-        ),
-        config.analysisIds,
-        [],
-      )
+    analysisIds: normalizeArrayInput(
+      /** @type {(string|number)[]|undefined} */ (
+        getExplicitOption(argv, 'analysisIds')
+      ),
+      config.analysisIds,
+      [],
     ),
-    sampleIds: /** @type {string[]} */ (
-      normalizeArrayInput(
-        /** @type {(string|number)[]|undefined} */ (
-          getExplicitOption(argv, 'sampleIds')
-        ),
-        config.sampleIds,
-        [],
-      )
+    sampleIds: normalizeArrayInput(
+      /** @type {(string|number)[]|undefined} */ (
+        getExplicitOption(argv, 'sampleIds')
+      ),
+      config.sampleIds,
+      [],
     ),
-    limsIds: /** @type {string[]} */ (
-      normalizeArrayInput(
-        /** @type {(string|number)[]|undefined} */ (
-          getExplicitOption(argv, 'limsIds')
-        ),
-        config.limsIds,
-        [],
-      )
+    limsIds: normalizeArrayInput(
+      /** @type {(string|number)[]|undefined} */ (
+        getExplicitOption(argv, 'limsIds')
+      ),
+      config.limsIds,
+      [],
     ),
     filters: normalizeFilters(explicitFilters, configFilters),
     destination:
