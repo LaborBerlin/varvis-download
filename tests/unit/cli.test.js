@@ -59,7 +59,31 @@ describe('CLI (varvis-download.cjs)', () => {
       expect(cliError.stderr || cliError.stdout).toContain('password');
     });
 
-    test('should exit with error when restoreArchived is interactive and stdin is not a TTY', () => {
+    test('should exit with error when restoreArchived is EXPLICITLY interactive and stdin is not a TTY', () => {
+      // An explicit --restoreArchived ask on a non-TTY is a deliberate choice
+      // incompatible with the environment, so the guard fails fast.
+      let cliError;
+      try {
+        execSync(
+          `node ${cliPath} --username test --password test --target testenv --analysisIds AN001 --restoreArchived ask`,
+          { encoding: 'utf8', stdio: 'pipe' },
+        );
+      } catch (error) {
+        cliError = error;
+      }
+
+      expect(cliError).toBeDefined();
+      expect(cliError.status).toBe(1);
+      expect(cliError.stderr || cliError.stdout).toContain(
+        'needs an interactive terminal',
+      );
+    });
+
+    test('should downgrade the DEFAULT restoreArchived to skip on a non-TTY instead of erroring', () => {
+      // With no explicit --restoreArchived, a non-interactive download must not
+      // hard-fail: it downgrades to "no" (skip archived) with a warning and
+      // proceeds. This run still fails (fake credentials at login), but NOT via
+      // the restore guard, and the skip warning must be emitted.
       let cliError;
       try {
         execSync(
@@ -71,8 +95,9 @@ describe('CLI (varvis-download.cjs)', () => {
       }
 
       expect(cliError).toBeDefined();
-      expect(cliError.status).toBe(1);
-      expect(cliError.stderr || cliError.stdout).toContain('restoreArchived');
+      const output = cliError.stderr || cliError.stdout;
+      expect(output).not.toContain('needs an interactive terminal');
+      expect(output).toContain('archived files will be skipped');
     });
 
     test('should not trip the non-TTY restore guard for --resumeArchivedDownloads', () => {

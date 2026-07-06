@@ -25,7 +25,7 @@ automation.
 For scripted or automated runs (CI pipelines, cron jobs, containers), avoid the interactive password prompt and archive-restoration prompt:
 
 - **Password**: pass `--password-stdin` to read the password from the first line of stdin (mirrors `docker login --password-stdin`), or set the `VARVIS_PASSWORD` environment variable. Credentials resolve at `CLI flag > environment variable > config file` precedence — an explicit `--username`/`--password`/`--target` always wins over `VARVIS_USER`/`VARVIS_PASSWORD`/`VARVIS_TARGET`, which in turn win over the config file.
-- **Archive restoration**: pass `--restoreArchived force` or `--restoreArchived no` (`none` also works) instead of the default `ask`. The interactive `ask`/`all` modes require a TTY and now fail fast with a clear error on non-interactive runs, instead of hanging while waiting for input that never arrives.
+- **Archive restoration**: on a non-interactive run the default `ask` mode cannot prompt, so it is automatically downgraded to `no` — archived files are skipped (with a warning) and non-archived files still download. To restore archived files in automation, pass `--restoreArchived force`; to silence the warning, pass `--restoreArchived no`. Only an **explicit** `--restoreArchived ask` or `--restoreArchived all` fails fast on a non-TTY, since those deliberately request a prompt the environment cannot provide.
 
 Example:
 

@@ -412,6 +412,7 @@ function mergeFromArgv(argv, env = process.env) {
 }
 
 module.exports = {
+  hasExplicitOption,
   mergeConfig,
   mergeFromArgv,
 };

@@ -22,7 +22,10 @@ const {
 
 const AuthService = require('./js/authService.cjs');
 const { parseArguments } = require('./js/cli/args.cjs');
-const { mergeFromArgv } = require('./js/cli/configMerge.cjs');
+const {
+  hasExplicitOption,
+  mergeFromArgv,
+} = require('./js/cli/configMerge.cjs');
 const { formatVersionInfo } = require('./js/cli/versionInfo.cjs');
 const { runDownloadCommand } = require('./js/commands/download.cjs');
 const { runListCommand } = require('./js/commands/list.cjs');
@@ -132,17 +135,30 @@ async function main() {
       fs.mkdirSync(finalConfig.destination, { recursive: true });
     }
 
-    // restoreArchived only affects the download flow (getDownloadLinks); resume and
-    // --list return before it, so the interactive prompt is unreachable there.
+    // The interactive restore prompt (restoreArchived "ask"/"all") lives in the
+    // download flow (getDownloadLinks); resume and --list return before it, so
+    // the prompt is unreachable there. On a non-TTY, that prompt cannot run:
+    // - if the user explicitly asked for an interactive mode on the CLI, that is
+    //   a deliberate choice incompatible with the environment, so fail fast.
+    // - otherwise (the default "ask" or a config value), downgrade to "no" so a
+    //   scripted/CI download of non-archived files still works, and warn that
+    //   any archived files will be skipped (pass --restoreArchived force to
+    //   restore them non-interactively).
     const willReachRestorePrompt =
       !finalConfig.resumeArchivedDownloads && !finalConfig.list;
     const interactiveRestore =
       finalConfig.restoreArchived === 'ask' ||
       finalConfig.restoreArchived === 'all';
     if (willReachRestorePrompt && interactiveRestore && !process.stdin.isTTY) {
-      throw new ConfigurationError(
-        'restoreArchived "ask"/"all" needs an interactive terminal. Use --restoreArchived force|no|none for non-interactive runs.',
+      if (hasExplicitOption(argv, 'restoreArchived')) {
+        throw new ConfigurationError(
+          'restoreArchived "ask"/"all" needs an interactive terminal. Use --restoreArchived force|no|none for non-interactive runs.',
+        );
+      }
+      activeLogger.warn(
+        'No interactive terminal detected; archived files will be skipped. Pass --restoreArchived force to restore them, or --restoreArchived no to silence this warning.',
       );
+      finalConfig.restoreArchived = 'no';
     }
 
     const password = await resolvePassword(finalConfig);
