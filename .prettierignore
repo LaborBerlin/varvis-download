@@ -19,3 +19,6 @@ yarn.lock
 # their embedded-code formatting is not prettier-normalized)
 .claude/skills/
 docs/superpowers/
+
+# Ignore local subagent-driven-development scratch (git-ignored working files)
+.superpowers/
