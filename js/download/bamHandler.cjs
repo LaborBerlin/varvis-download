@@ -14,12 +14,12 @@ const { isUrlExpiringSoon } = require('../urlUtils.cjs');
 
 /**
  * @typedef {object} BamHandlerArgs
- * @property {import('../types').FileDict}    fileDict    - File dictionary.
- * @property {string}                         fileName    - BAM file name.
- * @property {import('../types').FinalConfig} finalConfig - Final CLI config.
- * @property {string[]}                       regions     - Genomic regions.
- * @property {string}                         target      - Varvis target.
- * @property {string}                         [tempBedPath] - Temporary BED path.
+ * @property {import('../types').FileDict} fileDict - File dictionary.
+ * @property {string} fileName - BAM file name.
+ * @property {Pick<import('../types').FinalConfig, 'destination'|'overwrite'|'unmapped'>} finalConfig - Final CLI config (only the fields this handler reads; callers may pass the full config).
+ * @property {string[]} regions - Genomic regions.
+ * @property {string} target - Varvis target.
+ * @property {string} [tempBedPath] - Temporary BED path.
  */
 
 /**
