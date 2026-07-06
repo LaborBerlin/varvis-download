@@ -20,6 +20,21 @@ downloading BAM, BAI, and VCF files from the varvis® API. It supports authentic
 proxy configuration, archived file restoration, genomic range downloads, and reporting for bioinformatics workflow
 automation.
 
+## Non-interactive / CI usage
+
+For scripted or automated runs (CI pipelines, cron jobs, containers), avoid the interactive password prompt and archive-restoration prompt:
+
+- **Password**: pass `--password-stdin` to read the password from the first line of stdin (mirrors `docker login --password-stdin`), or set the `VARVIS_PASSWORD` environment variable. Credentials resolve at `CLI flag > environment variable > config file` precedence — an explicit `--username`/`--password`/`--target` always wins over `VARVIS_USER`/`VARVIS_PASSWORD`/`VARVIS_TARGET`, which in turn win over the config file.
+- **Archive restoration**: pass `--restoreArchived force` or `--restoreArchived no` (`none` also works) instead of the default `ask`. The interactive `ask`/`all` modes require a TTY and now fail fast with a clear error on non-interactive runs, instead of hanging while waiting for input that never arrives.
+
+Example:
+
+```bash
+echo "$VARVIS_PASSWORD" | node varvis-download.cjs \
+  --username "$VARVIS_USER" --password-stdin --target "$VARVIS_TARGET" \
+  --analysisIds AN00001 --restoreArchived force
+```
+
 ## Intended Use
 
 This software is provided solely for research, educational, development, interoperability, and bioinformatics workflow

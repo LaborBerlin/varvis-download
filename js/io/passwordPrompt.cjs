@@ -44,4 +44,22 @@ async function promptForPassword(deps = {}) {
   });
 }
 
-module.exports = { promptForPassword };
+/**
+ * Reads a single line (the password) from a stream, without echo concerns.
+ * @param   {{ stdin?: NodeJS.ReadableStream }} [deps] - Injectable stdin for tests.
+ * @returns {Promise<string>}                          - The first line, trimmed of CR.
+ */
+async function readPasswordFromStdin(deps = {}) {
+  const input = deps.stdin || process.stdin;
+  const rl = readline.createInterface({ input });
+  try {
+    for await (const line of rl) {
+      return line.replace(/\r$/, '');
+    }
+    return '';
+  } finally {
+    rl.close();
+  }
+}
+
+module.exports = { promptForPassword, readPasswordFromStdin };

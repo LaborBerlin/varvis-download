@@ -5,6 +5,9 @@ Options:
                                               [string] [default: ".config.json"]
   -u, --username                        Varvis API username             [string]
   -p, --password                        Varvis API password             [string]
+      --password-stdin                  Read the Varvis API password from the
+                                        first line of stdin
+                                                      [boolean] [default: false]
   -t, --target                          Target for the Varvis API       [string]
   -a, --analysisIds                     Analysis IDs to download files for
                                         (comma-separated)                [array]

@@ -1,4 +1,8 @@
-const { promptForPassword } = require('../../../js/io/passwordPrompt.cjs');
+const { Readable } = require('node:stream');
+const {
+  promptForPassword,
+  readPasswordFromStdin,
+} = require('../../../js/io/passwordPrompt.cjs');
 
 describe('io/passwordPrompt.promptForPassword', () => {
   test('exists and is async', () => {
@@ -62,5 +66,17 @@ describe('io/passwordPrompt.promptForPassword', () => {
       'end',
       'write:\n',
     ]);
+  });
+});
+
+describe('readPasswordFromStdin', () => {
+  test('reads the first line from a piped stream', async () => {
+    const stdin = Readable.from(['hunter2\nignored-second-line\n']);
+    await expect(readPasswordFromStdin({ stdin })).resolves.toBe('hunter2');
+  });
+
+  test('trims a trailing carriage return', async () => {
+    const stdin = Readable.from(['hunter2\r\n']);
+    await expect(readPasswordFromStdin({ stdin })).resolves.toBe('hunter2');
   });
 });

@@ -42,8 +42,12 @@ describe('CLI (varvis-download.cjs)', () => {
     test('should exit with error when password is missing', () => {
       let cliError;
       try {
+        // --restoreArchived force sidesteps the non-TTY restore guard (which
+        // would otherwise fire first, since execSync's piped stdin is not a
+        // TTY and restoreArchived defaults to "ask") so this test isolates
+        // the password-missing error path.
         execSync(
-          `node ${cliPath} --username test --target testenv --analysisIds AN001`,
+          `node ${cliPath} --username test --target testenv --analysisIds AN001 --restoreArchived force`,
           { encoding: 'utf8', stdio: 'pipe' },
         );
       } catch (error) {
@@ -53,6 +57,22 @@ describe('CLI (varvis-download.cjs)', () => {
       expect(cliError).toBeDefined();
       expect(cliError.status).toBe(1);
       expect(cliError.stderr || cliError.stdout).toContain('password');
+    });
+
+    test('should exit with error when restoreArchived is interactive and stdin is not a TTY', () => {
+      let cliError;
+      try {
+        execSync(
+          `node ${cliPath} --username test --password test --target testenv --analysisIds AN001`,
+          { encoding: 'utf8', stdio: 'pipe' },
+        );
+      } catch (error) {
+        cliError = error;
+      }
+
+      expect(cliError).toBeDefined();
+      expect(cliError.status).toBe(1);
+      expect(cliError.stderr || cliError.stdout).toContain('restoreArchived');
     });
 
     test('should exit with error when target is missing', () => {

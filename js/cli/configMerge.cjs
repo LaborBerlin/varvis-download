@@ -22,6 +22,7 @@ const { ConfigurationError } = require('../errors.cjs');
  *   listUrls?: boolean,
  *   overwrite?: boolean,
  *   password?: string|string[]|null,
+ *   passwordStdin?: boolean,
  *   range?: string|string[]|null,
  *   restorationFile?: string|string[]|null,
  *   restoreArchived?: string|string[]|null,
@@ -346,6 +347,7 @@ function mergeConfig({ argv, config = {}, env = {} }) {
     listUrls: mergeBoolean(argv, config, 'listUrls', false),
     overwrite,
     overwriteFromConfig,
+    passwordStdin: mergeBoolean(argv, config, 'passwordStdin', false),
     urlFile:
       normalizedUrlFile ||
       firstNonEmptyString(

@@ -39,6 +39,14 @@ describe('CLI argument parser', () => {
     expect(argv.latest).toBe(false);
   });
 
+  test('defaults password-stdin to false', () => {
+    expect(parse([]).passwordStdin).toBe(false);
+  });
+
+  test('parses --password-stdin as a boolean flag', () => {
+    expect(parse(['--password-stdin']).passwordStdin).toBe(true);
+  });
+
   test('parses multiple filter values', () => {
     const argv = parse([
       '--filter',

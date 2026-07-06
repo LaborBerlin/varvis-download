@@ -94,6 +94,7 @@ export interface LoggerConfig {
 export interface FinalConfig {
   username: string;
   password?: string;
+  passwordStdin: boolean;
   target: string;
   analysisIds: string[];
   sampleIds: string[];

@@ -32,6 +32,11 @@ function buildParser(argv) {
       describe: 'Varvis API password',
       type: 'string',
     })
+    .option('password-stdin', {
+      describe: 'Read the Varvis API password from the first line of stdin',
+      type: 'boolean',
+      default: false,
+    })
     .option('target', {
       alias: 't',
       describe: 'Target for the Varvis API',

@@ -253,6 +253,20 @@ describe('CLI config merge', () => {
     );
   });
 
+  test('passes through password-stdin flag', () => {
+    const result = mergeConfig({
+      argv: {
+        username: 'u',
+        target: 't',
+        passwordStdin: true,
+        analysisIds: ['AN001'],
+      },
+      config: {},
+      env: {},
+    });
+    expect(result.passwordStdin).toBe(true);
+  });
+
   test('allows resume without IDs', () => {
     const result = mergeConfig({
       argv: {

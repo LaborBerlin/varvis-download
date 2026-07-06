@@ -4,7 +4,14 @@ require('dotenv').config({ quiet: true });
 
 const fs = require('node:fs');
 const readline = require('node:readline');
-const { hideBin } = require('yargs/helpers');
+const { createRequire } = process.getBuiltinModule('node:module');
+
+// yargs ships ESM-only ("yargs/helpers" has no "require" export condition).
+// A plain require() here would go through Jest's instrumented module loader,
+// which cannot load ESM; a require created via createRequire() uses Node's
+// native loader instead, so it can (see js/cli/args.cjs for the same pattern).
+const nativeRequire = createRequire(__filename);
+const { hideBin } = nativeRequire('yargs/helpers');
 const {
   author,
   license,
@@ -25,7 +32,10 @@ const { ConfigurationError, OperationalError } = require('./js/errors.cjs');
 const { getErrorMessage, getErrorStack } = require('./js/errorUtils.cjs');
 const { metrics } = require('./js/fetchUtils.cjs');
 const { parseRegions } = require('./js/io/regionParsing.cjs');
-const { promptForPassword } = require('./js/io/passwordPrompt.cjs');
+const {
+  promptForPassword,
+  readPasswordFromStdin,
+} = require('./js/io/passwordPrompt.cjs');
 const createLogger = require('./js/logger.cjs');
 const { createHttpAgent } = require('./js/net/httpAgent.cjs');
 
@@ -33,22 +43,42 @@ const { createHttpAgent } = require('./js/net/httpAgent.cjs');
 let activeLogger;
 
 /**
- * Returns an existing password or prompts interactively when possible.
- * @param   {string|undefined} currentPassword - Password from config sources.
- * @returns {Promise<string>}                  - Resolved password.
+ * Resolves the password from stdin, an already-merged value, or a TTY prompt.
+ * @param   {import('./js/types').FinalConfig}          finalConfig - Merged config.
+ * @param   {{
+ *   logger?: import('winston').Logger,
+ *   stdin?: NodeJS.ReadStream,
+ *   readStdin?: typeof readPasswordFromStdin,
+ *   prompt?: typeof promptForPassword,
+ * }} [deps] - Injectable dependencies for tests.
+ * @returns {Promise<string>}                                       - Resolved password.
  */
-async function resolvePassword(currentPassword) {
-  if (currentPassword) {
-    return currentPassword;
+async function resolvePassword(finalConfig, deps = {}) {
+  const logger = deps.logger || activeLogger;
+  const stdin = deps.stdin || process.stdin;
+  const readStdin = deps.readStdin || readPasswordFromStdin;
+  const prompt = deps.prompt || promptForPassword;
+
+  if (finalConfig.passwordStdin) {
+    if (finalConfig.password && logger) {
+      logger.warn(
+        '--password-stdin overrides the password supplied via --password/VARVIS_PASSWORD.',
+      );
+    }
+    return readStdin({ stdin });
   }
 
-  if (!process.stdin.isTTY) {
+  if (finalConfig.password) {
+    return finalConfig.password;
+  }
+
+  if (!stdin.isTTY) {
     throw new ConfigurationError(
-      'Missing required argument --password (or set VARVIS_PASSWORD)',
+      'No password provided. Use --password-stdin, set VARVIS_PASSWORD, or run in an interactive terminal.',
     );
   }
 
-  return promptForPassword();
+  return prompt();
 }
 
 /**
@@ -102,7 +132,16 @@ async function main() {
       fs.mkdirSync(finalConfig.destination, { recursive: true });
     }
 
-    const password = await resolvePassword(finalConfig.password);
+    const interactiveRestore =
+      finalConfig.restoreArchived === 'ask' ||
+      finalConfig.restoreArchived === 'all';
+    if (interactiveRestore && !process.stdin.isTTY) {
+      throw new ConfigurationError(
+        'restoreArchived "ask"/"all" needs an interactive terminal. Use --restoreArchived force|no|none for non-interactive runs.',
+      );
+    }
+
+    const password = await resolvePassword(finalConfig);
     await authService.login(
       { username: finalConfig.username, password },
       finalConfig.target,
@@ -162,20 +201,24 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  const logger = activeLogger || createLogger({});
-  if (
-    error instanceof ConfigurationError ||
-    error instanceof OperationalError
-  ) {
-    logger.error(`Error: ${error.message}`);
-    process.exit(error.exitCode || 1);
-  }
+if (require.main === module) {
+  main().catch((error) => {
+    const logger = activeLogger || createLogger({});
+    if (
+      error instanceof ConfigurationError ||
+      error instanceof OperationalError
+    ) {
+      logger.error(`Error: ${error.message}`);
+      process.exit(error.exitCode || 1);
+    }
 
-  logger.error(`An unexpected error occurred: ${getErrorMessage(error)}`);
-  const stack = getErrorStack(error);
-  if (stack) {
-    logger.debug(stack);
-  }
-  process.exit(1);
-});
+    logger.error(`An unexpected error occurred: ${getErrorMessage(error)}`);
+    const stack = getErrorStack(error);
+    if (stack) {
+      logger.debug(stack);
+    }
+    process.exit(1);
+  });
+}
+
+module.exports = { resolvePassword };
