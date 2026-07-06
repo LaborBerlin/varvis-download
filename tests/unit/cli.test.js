@@ -75,6 +75,54 @@ describe('CLI (varvis-download.cjs)', () => {
       expect(cliError.stderr || cliError.stdout).toContain('restoreArchived');
     });
 
+    test('should not trip the non-TTY restore guard for --resumeArchivedDownloads', () => {
+      // restoreArchived defaults to "ask", but --resumeArchivedDownloads never
+      // reaches the interactive restore prompt (it uses its own restoration
+      // logic and returns before getDownloadLinks is called). This run still
+      // fails (fake credentials, missing restoration file), but it must fail
+      // for a reason other than the restore guard.
+      let cliError;
+      try {
+        execSync(
+          `node ${cliPath} --username test --password test --target testenv --resumeArchivedDownloads`,
+          { encoding: 'utf8', stdio: 'pipe' },
+        );
+      } catch (error) {
+        cliError = error;
+      }
+
+      expect(cliError).toBeDefined();
+      expect(cliError.stderr || cliError.stdout).not.toContain(
+        'needs an interactive terminal',
+      );
+      expect(cliError.stderr || cliError.stdout).not.toContain(
+        'restoreArchived "ask"',
+      );
+    });
+
+    test('should not trip the non-TTY restore guard for --list', () => {
+      // --list resolves analysis IDs and lists files via listAvailableFiles;
+      // it never calls getDownloadLinks, so the interactive restore prompt is
+      // unreachable and the guard must not fire.
+      let cliError;
+      try {
+        execSync(
+          `node ${cliPath} --list --analysisIds AN001 --username test --password test --target testenv`,
+          { encoding: 'utf8', stdio: 'pipe' },
+        );
+      } catch (error) {
+        cliError = error;
+      }
+
+      expect(cliError).toBeDefined();
+      expect(cliError.stderr || cliError.stdout).not.toContain(
+        'needs an interactive terminal',
+      );
+      expect(cliError.stderr || cliError.stdout).not.toContain(
+        'restoreArchived "ask"',
+      );
+    });
+
     test('should exit with error when target is missing', () => {
       try {
         execSync(

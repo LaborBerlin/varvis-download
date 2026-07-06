@@ -132,10 +132,14 @@ async function main() {
       fs.mkdirSync(finalConfig.destination, { recursive: true });
     }
 
+    // restoreArchived only affects the download flow (getDownloadLinks); resume and
+    // --list return before it, so the interactive prompt is unreachable there.
+    const willReachRestorePrompt =
+      !finalConfig.resumeArchivedDownloads && !finalConfig.list;
     const interactiveRestore =
       finalConfig.restoreArchived === 'ask' ||
       finalConfig.restoreArchived === 'all';
-    if (interactiveRestore && !process.stdin.isTTY) {
+    if (willReachRestorePrompt && interactiveRestore && !process.stdin.isTTY) {
       throw new ConfigurationError(
         'restoreArchived "ask"/"all" needs an interactive terminal. Use --restoreArchived force|no|none for non-interactive runs.',
       );
