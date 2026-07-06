@@ -168,7 +168,13 @@ jobs:
           node <<'NODE'
           const fs = require('node:fs');
           const { fetch } = require('undici');
+          const { createHttpAgent } = require('./js/net/httpAgent.cjs');
 
+          // Reuse the CLI's cookie-jar dispatcher. The Varvis CSRF flow is a
+          // double-submit: /authenticate sets a session cookie that must be sent
+          // back with the /login POST. A bare undici fetch keeps no cookie jar,
+          // so login is rejected with HTTP 403 even with valid credentials.
+          const dispatcher = createHttpAgent({});
           const outputFile = process.env.GITHUB_OUTPUT;
           const headers = {
             'User-Agent': 'varvis-download',
@@ -193,6 +199,7 @@ jobs:
               csrfResponse = await fetch('https://playground.varvis.com/authenticate', {
                 method: 'HEAD',
                 headers,
+                dispatcher,
               });
             } catch (error) {
               skipForOutage(error.message);
@@ -232,6 +239,7 @@ jobs:
                   'Content-Type': 'application/x-www-form-urlencoded',
                 },
                 body: params,
+                dispatcher,
               });
             } catch (error) {
               skipForOutage(error.message);
