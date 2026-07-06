@@ -77,9 +77,10 @@ no `--max-warnings=0`), but every file follows it, so match it:**
 
 - **`response.json()` is `unknown`.** Cast at the call site:
   ```js
-  const data = /** @type {{ response: { apiFileLinks: import('./types').AnalysisFile[] } }} */ (
-    await response.json()
-  );
+  const data =
+    /** @type {{ response: { apiFileLinks: import('./types').AnalysisFile[] } }} */ (
+      await response.json()
+    );
   ```
 - **`catch (error)` is `unknown`.** Use `getErrorMessage(error)` / `getErrorStack(error)`
   from `js/errorUtils.cjs`; never touch `error.message` directly. When you rethrow,

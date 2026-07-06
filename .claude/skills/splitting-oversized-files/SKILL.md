@@ -29,7 +29,7 @@ keep the old path, so you cannot "rewire consumers but keep a facade for the
 tests" — the moment a consumer requires the new path, a `jest.mock('old-path')`
 intercepts nothing. It is always full-rewire.
 
-Two situations add *mechanical work* to the rewire but are **not** reasons to
+Two situations add _mechanical work_ to the rewire but are **not** reasons to
 keep a facade:
 
 - **Module singleton** (like `metrics`): give it exactly one new home and repoint
@@ -43,7 +43,7 @@ keep a facade:
 
 ## Recipe
 
-**First, confirm the target.** Run `npm run architecture:check` and read *which*
+**First, confirm the target.** Run `npm run architecture:check` and read _which_
 file it flags — it's often a **test** file (e.g. `tests/unit/*.new.test.js`), not a
 source module. Test files are first-class split targets: split them the same way,
 by `describe` block, under the mirrored path. Don't split a source file that isn't
@@ -51,10 +51,12 @@ the one flagged.
 
 1. **Baseline before touching code.** Run the full gate green and record coverage
    numbers you must not regress (thresholds 60/50/60/60 live in `jest.config.cjs`):
+
    ```bash
    npm test -- --coverage
    npm run architecture:check
    ```
+
    If the change is behaviour-observable (CLI `--help`, config merge, `--version`),
    capture/refresh a baseline fixture under `tests/fixtures/cli-output/` first so
    the refactor is provably behaviour-preserving (precedent: commit `765d99c`,
@@ -85,7 +87,7 @@ the one flagged.
    - `KNOWN_OVERSIZED_FILES` in `scripts/check-architecture-budget.mjs`: **remove**
      the entry once a pinned file drops below 600 (precedent: `8ed7832` removed
      the `varvis-download.cjs` exception). Land the whole split in **one PR** so
-     the blocked state never reaches `main`; only add a *temporary* pin if the
+     the blocked state never reaches `main`; only add a _temporary_ pin if the
      split must span multiple PRs.
    - Update the module's section in `js/README.md`.
    - Verify no new file (including relocated test files) crossed 600.
@@ -95,12 +97,12 @@ the one flagged.
 
 ## Gotchas
 
-| Gotcha | What to do |
-|--------|------------|
-| `docs/scripts/docs-generator.cjs` only scans **top-level** `js/*.cjs` | Modules in `js/<subdir>/` won't appear in generated API docs. Known gap — don't scope-creep the (already oversized) generator; note it in the PR. |
-| Husky/lint-staged runs `eslint --fix` on staged `*.{js,cjs}` | Don't bypass with `--no-verify`. Stage files explicitly; never sweep unrelated working-tree changes into a refactor commit. |
-| `metrics` and other module singletons | Object identity comes from Node's module cache. If you split a singleton out, every consumer must require the same new path, or the singleton splits in two. |
-| Keeping the entry point thin | `varvis-download.cjs` orchestrates only. Don't push domain logic back up into it, and don't couple argv parsing to domain modules — pass plain config objects down. |
+| Gotcha                                                                | What to do                                                                                                                                                          |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/scripts/docs-generator.cjs` only scans **top-level** `js/*.cjs` | Modules in `js/<subdir>/` won't appear in generated API docs. Known gap — don't scope-creep the (already oversized) generator; note it in the PR.                   |
+| Husky/lint-staged runs `eslint --fix` on staged `*.{js,cjs}`          | Don't bypass with `--no-verify`. Stage files explicitly; never sweep unrelated working-tree changes into a refactor commit.                                         |
+| `metrics` and other module singletons                                 | Object identity comes from Node's module cache. If you split a singleton out, every consumer must require the same new path, or the singleton splits in two.        |
+| Keeping the entry point thin                                          | `varvis-download.cjs` orchestrates only. Don't push domain logic back up into it, and don't couple argv parsing to domain modules — pass plain config objects down. |
 
 ## Verify (in CI order — see `.github/workflows/codequality.yaml`)
 

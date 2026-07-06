@@ -24,16 +24,16 @@ them. Keep every test file under 600 lines (see the `splitting-oversized-files` 
 
 Reuse these — don't hand-roll equivalents.
 
-| Need | Helper (from `tests/helpers/`) | Notes |
-|------|-------------------------------|-------|
-| undici HTTP agent | `createMockAgent({ statusCode, body, headers, shouldFail })` (`mockFactories.js`) | Returns `{ request, close }` with jest.fn()s. |
-| Winston logger | `createMockLogger()` | `{ info, error, warn, debug, level }`. |
-| Analysis object | `MockAnalysisBuilder` | Chainable: `.withId().withSampleId().withFiles([...]).archived().build()`. |
-| Progress bar | `createMockProgress()` | Constructor stub with `tick/update/terminate`. |
-| readline prompt | `createMockReadline({ prompt: answer })` | For password/confirm prompts. |
-| Temp dir | `TestDirectory` (`testUtils.js`) | `const dir = await new TestDirectory().create('name')`; `.cleanup()` in `afterEach`. |
-| String → stream | `createMockStream(content)` (`testUtils.js`) | For download-stream tests. |
-| Sample data | `tests/helpers/fixtures.js` | Redacted analyses/files. Never use real API payloads. |
+| Need              | Helper (from `tests/helpers/`)                                                    | Notes                                                                                |
+| ----------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| undici HTTP agent | `createMockAgent({ statusCode, body, headers, shouldFail })` (`mockFactories.js`) | Returns `{ request, close }` with jest.fn()s.                                        |
+| Winston logger    | `createMockLogger()`                                                              | `{ info, error, warn, debug, level }`.                                               |
+| Analysis object   | `MockAnalysisBuilder`                                                             | Chainable: `.withId().withSampleId().withFiles([...]).archived().build()`.           |
+| Progress bar      | `createMockProgress()`                                                            | Constructor stub with `tick/update/terminate`.                                       |
+| readline prompt   | `createMockReadline({ prompt: answer })`                                          | For password/confirm prompts.                                                        |
+| Temp dir          | `TestDirectory` (`testUtils.js`)                                                  | `const dir = await new TestDirectory().create('name')`; `.cleanup()` in `afterEach`. |
+| String → stream   | `createMockStream(content)` (`testUtils.js`)                                      | For download-stream tests.                                                           |
+| Sample data       | `tests/helpers/fixtures.js`                                                       | Redacted analyses/files. Never use real API payloads.                                |
 
 ## Two ways to mock the network — pick by test layer
 
@@ -59,10 +59,17 @@ EventEmitter-shaped fake whose `.on`/`.stdout.on`/`.stderr.on` you drive to fire
 ```js
 jest.mock('node:child_process');
 const { spawn } = require('node:child_process');
-const proc = { stdout: { on: jest.fn() }, stderr: { on: jest.fn() }, on: jest.fn() };
+const proc = {
+  stdout: { on: jest.fn() },
+  stderr: { on: jest.fn() },
+  on: jest.fn(),
+};
 spawn.mockReturnValue(proc);
-proc.on.mockImplementation((event, cb) => { if (event === 'close') cb(0); });
+proc.on.mockImplementation((event, cb) => {
+  if (event === 'close') cb(0);
+});
 ```
+
 For code that calls the repo's own `spawnPromise` wrapper, mocking that wrapper
 is often simpler than faking the whole child process.
 
@@ -74,12 +81,14 @@ assertion. (Some older tests instead use real time with tolerance windows, e.g.
 `> 7190 && <= 7200` — fake timers are the cleaner default for new tests.)
 
 Use modern fake timers and **always restore them**:
+
 ```js
 afterEach(() => jest.useRealTimers());
 // ...
 jest.useFakeTimers({ now: new Date('2026-07-06T11:00:00Z') });
 jest.setSystemTime(new Date('2026-07-06T12:00:00Z'));
 ```
+
 `clearMocks`/`restoreMocks` are `true` globally but they do **not** reset fake
 timers. Leaking a fake clock breaks `tests/setup.js`'s `afterAll` hooks.
 
@@ -104,20 +113,24 @@ npm test -- tests/unit/urlUtils.test.js         # or by path
 
 **Coverage trap.** `--coverage` alone applies the **global** 60/50/60/60 thresholds
 (`jest.config.cjs`) across all of `js/**` + `varvis-download.cjs`. Running one test
-file with `--coverage` therefore *fails* the thresholds because everything else
+file with `--coverage` therefore _fails_ the thresholds because everything else
 reports 0%. To check one module's coverage, scope collection:
+
 ```bash
 npm test -- --testPathPatterns=urlUtils --coverage --collectCoverageFrom=js/urlUtils.cjs
 ```
+
 For the real coverage gate, run the whole suite: `npm test -- --coverage`.
-(`--collectCoverageFrom` *replaces* the config's list, so scoping to one module
+(`--collectCoverageFrom` _replaces_ the config's list, so scoping to one module
 excludes any siblings it requires from the report. The `coverage/` output dir is
 gitignored — no cleanup needed.)
 
 ## Verify before claiming done
 
 Add/adjust the focused test, then run the full gate (CI order):
+
 ```bash
 npm run lint && npx prettier --check . && npm run type-check && npm test -- --coverage && npm run architecture:check
 ```
+
 Never delete or weaken a failing test to go green — fix the cause or report it.
