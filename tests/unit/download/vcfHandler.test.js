@@ -28,6 +28,7 @@ const {
 const {
   fullDownloadWithOptionalIndex,
 } = require('../../../js/download/commonDownload.cjs');
+const { getValidDownloadUrl } = require('../../../js/download/urlRefresh.cjs');
 
 describe('download/vcfHandler.handleVcfFile', () => {
   const mockLogger = {
@@ -146,5 +147,70 @@ describe('download/vcfHandler.handleVcfFile', () => {
     );
     expect(fullDownloadWithOptionalIndex).not.toHaveBeenCalled();
     expect(rangedDownloadVCF).not.toHaveBeenCalled();
+  });
+
+  test('returns { ok: true } on a successful full download', async () => {
+    const result = await handleVcfFile(
+      {
+        fileDict: { ...baseFileDict },
+        fileName: 'sample.vcf.gz',
+        finalConfig: { destination: '/tmp', overwrite: true },
+        regions: [],
+        target: 'demo',
+      },
+      deps,
+    );
+
+    expect(result).toEqual({ ok: true });
+  });
+
+  test('returns { ok: false } when the download body throws (already swallowed)', async () => {
+    fullDownloadWithOptionalIndex.mockRejectedValueOnce(new Error('net'));
+    const result = await handleVcfFile(
+      {
+        fileDict: { ...baseFileDict },
+        fileName: 'sample.vcf.gz',
+        finalConfig: { destination: '/tmp', overwrite: true },
+        regions: [],
+        target: 'demo',
+      },
+      deps,
+    );
+
+    expect(result).toEqual({ ok: false });
+  });
+
+  test('still throws when getValidDownloadUrl fails (not swallowed)', async () => {
+    getValidDownloadUrl.mockRejectedValueOnce(new Error('auth'));
+
+    await expect(
+      handleVcfFile(
+        {
+          fileDict: { ...baseFileDict },
+          fileName: 'sample.vcf.gz',
+          finalConfig: { destination: '/tmp', overwrite: true },
+          regions: [],
+          target: 'demo',
+        },
+        deps,
+      ),
+    ).rejects.toThrow('auth');
+  });
+
+  test('returns { ok: false } when a region download throws but the loop continues', async () => {
+    rangedDownloadVCF.mockRejectedValueOnce(new Error('region-fail'));
+    const result = await handleVcfFile(
+      {
+        fileDict: { ...baseFileDict },
+        fileName: 'sample.vcf.gz',
+        finalConfig: { destination: '/tmp', overwrite: false },
+        regions: ['chr1:1-10', 'chr2:5-15'],
+        target: 'demo',
+      },
+      deps,
+    );
+
+    expect(rangedDownloadVCF).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({ ok: false });
   });
 });

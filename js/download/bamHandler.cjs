@@ -27,13 +27,16 @@ const { isUrlExpiringSoon } = require('../urlUtils.cjs');
  *
  * @param   {BamHandlerArgs}                 args - Handler arguments.
  * @param   {import('../types').CommandDeps} deps - Shared command dependencies.
- * @returns {Promise<void>}
+ * @returns {Promise<{ok: boolean}>}              Outcome; `ok` is false iff a download-body
+ *                                                operation that this handler catches failed.
  */
 async function handleBamFile(args, deps) {
   const { fileDict, fileName, finalConfig, regions, target, tempBedPath } =
     args;
   const { agent, authService, logger, metrics, rl } = deps;
   const { destination, overwrite, unmapped } = finalConfig;
+
+  let ok = true;
 
   const downloadLink = await getValidDownloadUrl(
     fileDict,
@@ -84,18 +87,19 @@ async function handleBamFile(args, deps) {
 
       await indexBAM(outputFile, logger, overwrite);
     } catch (error) {
+      ok = false;
       logger.error(
         `Error during full download for ${fileName}: ${getErrorMessage(error)}`,
       );
     }
-    return;
+    return { ok };
   }
 
   if (!indexFileUrl) {
     logger.error(
       `Index file for BAM (${fileName}) not found. Ranged/unmapped downloads require .bai index. Skipping.`,
     );
-    return;
+    return { ok: false };
   }
 
   await ensureIndexFile(
@@ -132,11 +136,12 @@ async function handleBamFile(args, deps) {
       );
       await indexBAM(outputFile, logger, overwrite);
     } catch (error) {
+      ok = false;
       logger.error(
         `Error during ranged download for ${fileName}: ${getErrorMessage(error)}`,
       );
     }
-    return;
+    return { ok };
   }
 
   const unmappedOutputFile = path.join(
@@ -155,10 +160,12 @@ async function handleBamFile(args, deps) {
     );
     await indexBAM(unmappedOutputFile, logger, overwrite);
   } catch (error) {
+    ok = false;
     logger.error(
       `Error extracting unmapped reads from ${fileName}: ${getErrorMessage(error)}`,
     );
   }
+  return { ok };
 }
 
 module.exports = { handleBamFile };

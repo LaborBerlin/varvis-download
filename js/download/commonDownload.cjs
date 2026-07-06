@@ -26,7 +26,7 @@ const { getErrorMessage } = require('../errorUtils.cjs');
  * @property {import('../types').HttpDispatcher} agent   - HTTP dispatcher.
  * @property {import('winston').Logger}          logger  - Logger instance.
  * @property {import('../types').Metrics}        metrics - Download metrics.
- * @property {import('node:readline').Interface} rl      - Prompt interface.
+ * @property {import('node:readline').Interface|null} rl - Prompt interface.
  */
 
 /**

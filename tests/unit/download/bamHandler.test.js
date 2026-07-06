@@ -30,6 +30,7 @@ const {
 const {
   fullDownloadWithOptionalIndex,
 } = require('../../../js/download/commonDownload.cjs');
+const { getValidDownloadUrl } = require('../../../js/download/urlRefresh.cjs');
 
 describe('download/bamHandler.handleBamFile', () => {
   const mockLogger = {
@@ -169,5 +170,65 @@ describe('download/bamHandler.handleBamFile', () => {
       expect.stringContaining('Index file for BAM'),
     );
     expect(ensureIndexFile).not.toHaveBeenCalled();
+  });
+
+  test('returns { ok: true } on a successful full download', async () => {
+    const result = await handleBamFile(
+      {
+        fileDict: { ...baseFileDict },
+        fileName: 'sample.bam',
+        finalConfig: {
+          destination: '/tmp',
+          overwrite: true,
+          unmapped: false,
+        },
+        regions: [],
+        target: 'demo',
+      },
+      deps,
+    );
+
+    expect(result).toEqual({ ok: true });
+  });
+
+  test('returns { ok: false } when the download body throws (already swallowed)', async () => {
+    fullDownloadWithOptionalIndex.mockRejectedValueOnce(new Error('net'));
+    const result = await handleBamFile(
+      {
+        fileDict: { ...baseFileDict },
+        fileName: 'sample.bam',
+        finalConfig: {
+          destination: '/tmp',
+          overwrite: true,
+          unmapped: false,
+        },
+        regions: [],
+        target: 'demo',
+      },
+      deps,
+    );
+
+    expect(result).toEqual({ ok: false });
+  });
+
+  test('still throws when getValidDownloadUrl fails (not swallowed)', async () => {
+    getValidDownloadUrl.mockRejectedValueOnce(new Error('auth'));
+
+    await expect(
+      handleBamFile(
+        {
+          fileDict: { ...baseFileDict },
+          fileName: 'sample.bam',
+          finalConfig: {
+            destination: '/tmp',
+            overwrite: true,
+            unmapped: false,
+          },
+          regions: [],
+          target: 'demo',
+        },
+        deps,
+      ),
+    ).rejects.toThrow('auth');
   });
 });

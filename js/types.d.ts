@@ -139,9 +139,9 @@ export interface CommandDeps {
   agent: HttpDispatcher;
   authService: {
     token: string;
-    login: (creds: Credentials, target: string) => Promise<LoginResult>;
+    login?: (creds: Credentials, target: string) => Promise<LoginResult>;
   };
-  rl: import('node:readline').Interface;
+  rl: import('node:readline').Interface | null;
   metrics: Metrics;
 }
 

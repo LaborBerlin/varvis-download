@@ -25,18 +25,21 @@ const { isUrlExpiringSoon } = require('../urlUtils.cjs');
  *
  * @param   {VcfHandlerArgs}                 args - Handler arguments.
  * @param   {import('../types').CommandDeps} deps - Shared command dependencies.
- * @returns {Promise<void>}
+ * @returns {Promise<{ok: boolean}>}              Outcome; `ok` is false iff a download-body
+ *                                                operation that this handler catches failed.
  */
 async function handleVcfFile(args, deps) {
   const { fileDict, fileName, finalConfig, regions, target } = args;
   const { agent, authService, logger, metrics, rl } = deps;
   const { destination, overwrite, unmapped } = finalConfig;
 
+  let ok = true;
+
   if (unmapped) {
     logger.info(
       `Skipping VCF file ${fileName} - unmapped read extraction only applies to BAM files.`,
     );
-    return;
+    return { ok: true };
   }
 
   const downloadLink = await getValidDownloadUrl(
@@ -88,18 +91,19 @@ async function handleVcfFile(args, deps) {
 
       await indexVCF(outputFile, logger, overwrite);
     } catch (error) {
+      ok = false;
       logger.error(
         `Error during full download for ${fileName}: ${getErrorMessage(error)}`,
       );
     }
-    return;
+    return { ok };
   }
 
   if (!indexFileUrl) {
     logger.error(
       `Index file for VCF (${fileName}) not found. Ranged download requires .tbi index. Skipping ranged download.`,
     );
-    return;
+    return { ok: false };
   }
 
   await ensureIndexFile(
@@ -134,11 +138,13 @@ async function handleVcfFile(args, deps) {
       );
       await indexVCF(regionSpecificOutputFile, logger, overwrite);
     } catch (error) {
+      ok = false;
       logger.error(
         `Error during ranged download for ${fileName} on region ${region}: ${getErrorMessage(error)}`,
       );
     }
   }
+  return { ok };
 }
 
 module.exports = { handleVcfFile };
