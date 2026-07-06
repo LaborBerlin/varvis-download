@@ -270,3 +270,32 @@ describe('CLI config merge', () => {
     expect(result.limsIds).toEqual([]);
   });
 });
+
+describe('credential precedence (CLI > env > config)', () => {
+  test('explicit --username overrides VARVIS_USER', () => {
+    const result = mergeConfig({
+      argv: { username: 'cli-user', target: 't', analysisIds: ['AN001'] },
+      config: { username: 'config-user' },
+      env: { VARVIS_USER: 'env-user' },
+    });
+    expect(result.username).toBe('cli-user');
+  });
+
+  test('VARVIS_USER overrides config when no CLI flag', () => {
+    const result = mergeConfig({
+      argv: { target: 't', analysisIds: ['AN001'] },
+      config: { username: 'config-user' },
+      env: { VARVIS_USER: 'env-user' },
+    });
+    expect(result.username).toBe('env-user');
+  });
+
+  test('VARVIS_TARGET is honored between CLI and config', () => {
+    const result = mergeConfig({
+      argv: { username: 'u', analysisIds: ['AN001'] },
+      config: { target: 'config-target' },
+      env: { VARVIS_TARGET: 'env-target' },
+    });
+    expect(result.target).toBe('env-target');
+  });
+});
