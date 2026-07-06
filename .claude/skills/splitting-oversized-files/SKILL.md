@@ -41,7 +41,9 @@ that isn't flagged. Test files are first-class split targets: split by
 `describe` block into dot-suffix siblings in the same directory
 (`x.<concern>.test.js`), duplicating the whole header (requires, `jest.mock`
 calls, `beforeEach`) into each shard — `jest.mock` is per-file and can't be
-shared. A test-only split is one commit and needs no `js/README.md` update.
+shared — then pruning requires the shard doesn't use. A test-only split is one
+commit (`refactor(tests): split <file> by describe block`) and needs no
+`js/README.md` update.
 
 1. **Baseline.** Get `npm test -- --coverage` and `npm run architecture:check`
    green and note coverage you must not regress (thresholds 60/50/60/60 in
@@ -70,8 +72,9 @@ shared. A test-only split is one commit and needs no `js/README.md` update.
    never reaches `main`; add a temporary pin only if the split must span PRs.
    For source-module splits, update the module's section in `js/README.md`.
    Check that no new file (relocated tests included) crossed 600.
-7. **One concern per commit** — new module + its relocated test, passing the
-   full gate. Message style: `refactor(<area>): extract <concern> to js/<path>`.
+7. **One concern per commit** (source splits) — new module + its relocated
+   test, passing the full gate. Message style:
+   `refactor(<area>): extract <concern> to js/<path>`.
 
 ## Gotchas
 
