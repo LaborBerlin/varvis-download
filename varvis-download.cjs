@@ -81,68 +81,79 @@ async function main() {
     proxyPassword: finalConfig.proxyPassword,
     proxyUsername: finalConfig.proxyUsername,
   });
-  const authService = new AuthService(activeLogger, agent);
-
-  const password = await resolvePassword(finalConfig.password);
-  await authService.login(
-    { username: finalConfig.username, password },
-    finalConfig.target,
-  );
-
-  if (finalConfig.resumeArchivedDownloads) {
-    activeLogger.info('Starting in archive resumption mode.');
-    activeLogger.info('Resuming archived downloads as requested.');
-    await resumeArchivedDownloads(
-      finalConfig.restorationFile,
-      finalConfig.destination,
-      finalConfig.target,
-      authService.token,
-      agent,
-      activeLogger,
-      finalConfig.overwrite,
-    );
-    activeLogger.info('Archive resumption process complete.');
-    return;
-  }
-
-  if (!fs.existsSync(finalConfig.destination)) {
-    activeLogger.debug(
-      `Creating destination directory: ${finalConfig.destination}`,
-    );
-    fs.mkdirSync(finalConfig.destination, { recursive: true });
-  }
-
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
 
   try {
-    const deps = {
-      agent,
-      authService,
-      logger: activeLogger,
-      metrics,
-      rl,
-    };
+    const authService = new AuthService(activeLogger, agent);
 
-    if (finalConfig.list) {
-      await runListCommand({ finalConfig }, deps);
+    // Non-resume mode validates/creates the destination before authenticating,
+    // so an unusable --destination fails fast without a network round-trip.
+    if (
+      !finalConfig.resumeArchivedDownloads &&
+      !fs.existsSync(finalConfig.destination)
+    ) {
+      activeLogger.debug(
+        `Creating destination directory: ${finalConfig.destination}`,
+      );
+      fs.mkdirSync(finalConfig.destination, { recursive: true });
+    }
+
+    const password = await resolvePassword(finalConfig.password);
+    await authService.login(
+      { username: finalConfig.username, password },
+      finalConfig.target,
+    );
+
+    if (finalConfig.resumeArchivedDownloads) {
+      activeLogger.info('Starting in archive resumption mode.');
+      activeLogger.info('Resuming archived downloads as requested.');
+      await resumeArchivedDownloads(
+        finalConfig.restorationFile,
+        finalConfig.destination,
+        finalConfig.target,
+        authService.token,
+        agent,
+        activeLogger,
+        finalConfig.overwrite,
+      );
+      activeLogger.info('Archive resumption process complete.');
       return;
     }
 
-    const { regions, tempBedPath } = parseRegions(
-      { bed: finalConfig.bed, range: finalConfig.range },
-      activeLogger,
-    );
-    await runDownloadCommand({ finalConfig, regions, tempBedPath }, deps);
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
 
-    if (tempBedPath) {
-      fs.unlinkSync(tempBedPath);
-      activeLogger.info(`Deleted temporary BED file: ${tempBedPath}`);
+    try {
+      const deps = {
+        agent,
+        authService,
+        logger: activeLogger,
+        metrics,
+        rl,
+      };
+
+      if (finalConfig.list) {
+        await runListCommand({ finalConfig }, deps);
+        return;
+      }
+
+      const { regions, tempBedPath } = parseRegions(
+        { bed: finalConfig.bed, range: finalConfig.range },
+        activeLogger,
+      );
+      await runDownloadCommand({ finalConfig, regions, tempBedPath }, deps);
+
+      if (tempBedPath) {
+        fs.unlinkSync(tempBedPath);
+        activeLogger.info(`Deleted temporary BED file: ${tempBedPath}`);
+      }
+    } finally {
+      rl.close();
     }
   } finally {
-    rl.close();
+    // Release keep-alive sockets so the CLI exits promptly on completion.
+    await agent.close().catch(() => {});
   }
 }
 
