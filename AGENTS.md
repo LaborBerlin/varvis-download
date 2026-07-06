@@ -94,6 +94,22 @@ Follow a "Think-Plan-Act-Verify" cycle:
 - Commits use short conventional-ish prefixes: `feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:`, `ci:`.
 - Keep agent manifests short. Put durable project facts in `AGENTS.md`; put tool-specific loading notes only in `CLAUDE.md` or `GEMINI.md`.
 
+## Project Skills
+
+Repo-specific skills live in `.claude/skills/` (Claude Code auto-loads them by
+description; invoke directly with `/<name>`). They encode this repo's conventions
+so you don't rediscover them each time:
+
+- **`splitting-oversized-files`** — the 600-line budget workflow: find the flagged
+  file, cut the seam by cohesion, rewire consumers (no facades), mirror tests,
+  update `KNOWN_OVERSIZED_FILES`.
+- **`testing-varvis-modules`** — Jest patterns: mock-factory catalog, mocking
+  `child_process` and the network, fake-timer cleanup, and the single-file
+  `--coverage` threshold trap.
+- **`writing-typed-jsdoc`** — JSDoc that satisfies both `tsc --noEmit` strict and
+  eslint-plugin-jsdoc: the `import('./types')` idiom, `js/shims/`, error-vs-warn
+  rules, and strict `unknown`/null body idioms.
+
 ## Boundaries
 
 - **Never** run `git push --force` to `main` or `git reset --hard` against uncommitted work without explicit instruction.
