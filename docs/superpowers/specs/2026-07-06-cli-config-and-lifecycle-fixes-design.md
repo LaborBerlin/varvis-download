@@ -13,6 +13,25 @@ supersedes-contract: docs/superpowers/specs/2026-05-26-typescript-readiness-desi
 - **rev 1 (2026-07-06):** initial draft after a deep review of the
   `refactor/typescript-readiness` branch and community-standards research
   (clig.dev, Docker/gh, Cobra/Viper, AWS CLI, CWE-214).
+- **rev 2 (2026-07-06):** Codex high-reasoning review pass, each point verified
+  against current HEAD (the branch moved during review). Changes: **D5 dropped**
+  — `varvis-download.cjs` already closes the agent in a `finally`
+  (`await agent.close().catch(() => {})`). **D7** gained three corrections: VCF
+  delegation must force `unmapped:false` (resume downloads VCFs even when
+  persisted `unmapped:true`, but `handleVcfFile` skips on `unmapped`); the
+  `{ ok }` contract covers only the download-body failures handlers _already_
+  swallow — `getValidDownloadUrl`/`ensureIndexFile` keep throwing (they are
+  outside the handler try/catch today, and the primary path aborts on them);
+  missing-index preflight applies only to index-requiring modes; VCF resume
+  moves from fail-fast to attempt-all-then-requeue (accepted, tested). **D1**
+  corrected: only `VARVIS_USER`/`VARVIS_PASSWORD` flipped from env-wins;
+  `VARVIS_TARGET` is a _new_ env source (old monolith read `target` from
+  argv/config only). **D2** refined to use yargs `.parsed.aliases` alias groups
+  with `.parsed.defaulted` (dashed vs camelCase keys; multi-char aliases
+  `--um`/`--rad`/`--pxu`); the "fallback without re-declaring options" idea
+  requires first extracting shared option defs. **D3** warn mechanism specified
+  (`mergeConfig` has no logger; compute source + emit from a caller that has
+  one). **D4** gained the non-TTY interactive-restore interaction.
 
 ## Context
 
@@ -49,7 +68,7 @@ canonical order and explicitly supersedes the earlier env-first contract.**
 | 2   | `js/cli/args.cjs`                                  | Hand-rolled `collectExplicitOptions` misses bundled short flags (`-oL`); duplicates alias table                          | correctness + altitude                        |
 | 3   | `js/cli/configMerge.cjs`                           | Config-file `overwrite`/`filetypes`/`filter`/`latest`/`unmapped` now honored where yargs defaults previously masked them | behavior change (keep + document + guard)     |
 | 4   | `varvis-download.cjs` / `js/io/passwordPrompt.cjs` | Non-TTY password now throws; implicit piped-stdin read removed                                                           | behavior change (keep + add explicit channel) |
-| 5   | `varvis-download.cjs` / `js/net/httpAgent.cjs`     | Success paths `return` instead of `process.exit(0)`; undici Agent never closed → lingering exit                          | regression                                    |
+| 5   | `varvis-download.cjs`                              | Undici Agent lifecycle — **already fixed on the branch** (agent closed in `finally`); dropped from scope                 | resolved (no action)                          |
 | 6   | `js/cli/configMerge.cjs`                           | Explicit `--destination .` ignored in favor of config value                                                              | correctness                                   |
 | 7   | `js/commands/resume.cjs`                           | ~150 lines duplicate the extracted BAM/VCF download mechanics; no URL-refresh guard                                      | altitude / maintainability                    |
 | 8   | `js/commands/download.cjs`                         | `tabix`/`bgzip` availability probes awaited sequentially                                                                 | efficiency                                    |
@@ -73,9 +92,18 @@ Docker, Viper); explicit flag beats env var.
   source (most non-credential options) simply skip the env layer; the model is
   uniform, not the field set. Do **not** invent new env vars for non-credential
   options (YAGNI).
-- `CHANGELOG.md`: document that explicit `--username` / `--password` /
-  `--target` now override `VARVIS_USER` / `VARVIS_PASSWORD`, a deliberate change
-  from the old env-wins behavior, aligning to the standard precedence.
+- `CHANGELOG.md`, stated precisely (Codex-verified against the old monolith):
+  - Only `VARVIS_USER` / `VARVIS_PASSWORD` **changed**: the old monolith did
+    `process.env.VARVIS_USER || finalConfig.username` (env won over an explicit
+    `--username`); now an explicit flag wins. Document this as the deliberate,
+    standard-aligning change.
+  - `VARVIS_TARGET` is a **new** env source (the old monolith read `target` from
+    argv/config only, `const target = finalConfig.target`). Document it as newly
+    supported, resolved at `CLI > env > config`. Do **not** describe `--target`
+    as reverting an env-wins behavior — it never had one.
+- Primary standards citation for the precedence chain is the **AWS CLI** docs
+  (explicit command-line options override env, which override config); clig.dev
+  corroborates but is cited primarily for interactivity/secrets (D4).
 
 ### D2 — Explicit-flag detection via yargs-parser `defaulted` (foundational)
 
@@ -87,17 +115,29 @@ keys, and for bundled short flags `-oL` it correctly marks **both** `overwrite`
 and `list` as explicit (`defaulted: {}`).
 
 - Replace the hand-rolled `collectExplicitOptions` token scanner and the
-  `OPTION_ALIASES` table in `js/cli/args.cjs` with the yargs `defaulted` set.
-  Preferred access: the yargs instance's `.parsed.defaulted` (populated after
-  parse, using the same option config — no second source of truth). If
-  `.parsed.defaulted` proves unreliable in yargs 18, fall back to calling
-  `yargs-parser.detailed()` with the option config already declared in
-  `buildParser` (shared, not re-declared).
-- `hasExplicitOption(argv, canonicalName)` becomes "canonicalName (or any of
-  its aliases) is present in argv and NOT in the `defaulted` set."
-- This one change resolves finding #2 (bundled short flags), removes the
-  `OPTION_ALIASES` duplication, and dissolves the `__varvisExplicitOptions`
-  magic-string coupling between `args.cjs` and `configMerge.cjs`.
+  `OPTION_ALIASES` table in `js/cli/args.cjs` with yargs' own parse metadata.
+  Access via the yargs instance's `.parsed` (verified populated in yargs 18):
+  `.parsed.defaulted` (map of default-sourced keys) **plus** `.parsed.aliases`
+  (the alias groups, e.g. `listUrls: ['list-urls', 'U']`).
+- **Alias-group + key-shape handling (Codex-surfaced, must-do):**
+  `.parsed.defaulted` reports keys in mixed shapes (camelCase `listUrls` and
+  dashed `list-urls`), and options have multi-character aliases (`um`, `rad`,
+  `pxu`). So `hasExplicitOption(parsed, canonicalName)` must: resolve the full
+  alias group for `canonicalName` from `.parsed.aliases`, then return true iff
+  **at least one** member of that group is present in argv and **no** member of
+  the group is in `defaulted`. Add tests for dashed vs camelCase keys and
+  `--um` / `--rad` / `--pxu`.
+- This resolves finding #2 (bundled short flags — verified: `-oL` yields
+  `defaulted:{}` for both `overwrite` and `list`), removes the `OPTION_ALIASES`
+  duplication, and dissolves the `__varvisExplicitOptions` magic-string coupling
+  between `args.cjs` and `configMerge.cjs` (the parsed metadata travels with the
+  argv object).
+- **On the fallback:** if `.parsed.defaulted` ever proves insufficient, the only
+  robust fallback is calling `yargs-parser.detailed()` — but `buildParser`
+  currently declares options inline in a fluent chain, so that fallback first
+  requires extracting a shared option-definition object. Treat that extraction
+  as the fallback's prerequisite, not a free option. Prefer `.parsed` and avoid
+  the fallback unless forced.
 
 ### D3 — Config values honored over defaults: keep, document, guard destructive case
 
@@ -112,6 +152,14 @@ the default is the lowest precedence layer (clig.dev, Viper #671). Keep it.
   `overwrite` is resolved from the config file (i.e. not explicitly flagged),
   so the behavior is never silently surprising: e.g. `"overwrite enabled via
 config file (.config.json); existing files may be replaced."`
+- **Warn mechanism (Codex-surfaced):** `mergeConfig` takes no logger and returns
+  only final values, so it cannot emit the warning itself. The condition is
+  computable with D2's detection: `overwrite === true && !hasExplicitOption(...,
+'overwrite') && config.overwrite === true`. Emit the warn from a caller that
+  has a logger — either expose a small `overwriteFromConfig` boolean on the
+  merged result (cheap, explicit) and have `main()` log it, or pass the logger
+  into `mergeConfig`. The spec prefers the boolean-on-result approach to keep
+  `mergeConfig` logger-free and pure.
 
 ### D4 — Non-interactive password: keep TTY guard, add `--password-stdin`
 
@@ -137,19 +185,25 @@ fast when there is no TTY is correct — never prompt or block without a TTY
 an interactive terminal."`
 - `CHANGELOG.md`: document the removal of implicit piped-stdin password reading
   and the new `--password-stdin` flag.
+- **Non-TTY ↔ interactive-restore interaction (Codex-surfaced):** password
+  resolution happens before the main `rl`, but a piped stdin (used for
+  `--password-stdin`) is exhausted/non-TTY afterward, so a later
+  `restoreArchived: 'ask'` prompt would hang or auto-resolve. When
+  `!process.stdin.isTTY` and `restoreArchived` would prompt (`'ask'`), fail fast
+  with a clear error directing the user to `--restoreArchived force|no` (i.e.
+  automation must pick a non-interactive restore mode). This keeps the CLI from
+  hanging in pipelines and is the same "no prompts without a TTY" rule as the
+  password path.
 - **Out of scope (noted):** deprecating raw `--password <value>` per CWE-214.
 
-### D5 — Process lifecycle: close the undici agent for prompt exit
+### D5 — Process lifecycle: already fixed on the branch (no action)
 
-- The undici `Agent` from `createHttpAgent` has default keep-alive and is never
-  closed; success paths now `return` instead of `process.exit(0)`, so pooled
-  sockets can delay natural exit.
-- Wrap the command dispatch in `main()` so `await agent.close()` runs in a
-  `finally` (alongside `rl.close()`), guaranteeing the dispatcher releases the
-  agent on every path. Do not reintroduce `process.exit(0)` on the happy path;
-  the error handler in `main().catch` keeps its explicit non-zero exits.
-- `ProxyAgent` also exposes async `close()`; the same call covers both agent
-  types returned by `createHttpAgent`.
+**Codex-verified:** `varvis-download.cjs` already creates the agent before
+dispatch and closes it in an outer `finally` with
+`await agent.close().catch(() => {})` (covering both the composed `Agent` and
+`ProxyAgent`). The lingering-exit regression is resolved. **Dropped from scope.**
+Optional: a regression test asserting `agent.close()` runs on both success and
+error paths, folded into the D-series test work if cheap.
 
 ### D6 — Explicit `--destination .` honored
 
@@ -181,24 +235,51 @@ by the handler, resume's `catch` would never fire, and the entry would be
 lost-retry regression. The consolidation therefore must not bake the failure
 _policy_ into the shared handler.
 
-**Contract:** `handleBamFile` / `handleVcfFile` return an outcome
-`{ ok: boolean }` (`ok:false` when the primary download or any region/index step
-failed) while still catching internally. This is **non-breaking for the primary
-path**, which ignores the return value and keeps its tolerate-and-continue
-behavior unchanged. Resume reads the outcome and requeues when `ok === false`
-(or the call throws), preserving its retry guarantee.
+**Contract (refined after Codex review).** The handlers do **not** catch
+everything today: `getValidDownloadUrl` and `ensureIndexFile` run _outside_ the
+per-operation try/catch, so a URL-refresh or index-acquisition failure currently
+**throws and aborts** the primary batch, while only the download-body operations
+(`fullDownloadWithOptionalIndex` / `rangedDownload*` / `unmappedDownloadBAM`) are
+caught and swallowed. So a blanket "catch all → `{ ok:false }`" would newly make
+the primary path tolerate failures it currently aborts on — a behavior change.
+
+The correct contract: handlers return `{ ok: boolean }` reflecting **only the
+failures they already swallow** (the download-body ops); they continue to
+**throw** on the currently-throwing failures (`getValidDownloadUrl`,
+`ensureIndexFile`). This is genuinely **non-breaking for the primary path**: it
+ignores the return value and still aborts on the throwing failures, exactly as
+today. Resume wraps each delegation in its existing per-entry `try/catch`, so
+both channels converge on requeue: a swallowed body failure yields `ok:false`
+→ requeue; a thrown refresh/index failure is caught by resume → requeue. Retry
+guarantee preserved either way.
 
 - resume retains what is genuinely resume-specific: the entry loop, the
   restoration-state read/write, and the **pre-flight** requeue decisions
-  (still-archived / not-found / no-download-link / missing `.bai`/`.tbi` index →
-  push back to `updatedData` before delegating). Because resume guarantees the
-  index exists before delegating, the handler's own missing-index skip branch is
-  unreachable from resume, so the skip-vs-requeue divergence is preserved.
+  (still-archived / not-found / no-download-link → push back to `updatedData`
+  before delegating). The **missing-index preflight applies only to
+  index-requiring modes** (ranged BAM, unmapped BAM, ranged VCF); full downloads
+  treat the index as optional, matching today's resume. Because resume
+  guarantees the index exists before delegating in those modes, the handler's
+  own missing-index skip branch is unreachable from resume, so the
+  skip-vs-requeue divergence is preserved.
 - resume delegates the actual per-file download to `handleBamFile` /
-  `handleVcfFile`, constructing a compatible `args`
-  (`{ fileDict, fileName, finalConfig: { destination, overwrite, unmapped },
-regions, target, tempBedPath }`) and `deps`
+  `handleVcfFile`, constructing a compatible `args` and `deps`
   (`{ agent, authService: { token }, logger, metrics, rl: null }`).
+- **VCF `unmapped` guard (Codex-surfaced blocker).** `handleVcfFile` skips the
+  file entirely when `finalConfig.unmapped` is true, but resume today downloads
+  VCFs regardless of a persisted `unmapped:true` (its `includeUnmapped` gates
+  only the BAM branches). So VCF delegation must pass
+  `finalConfig: { destination, overwrite, unmapped: false }` — never propagate a
+  persisted `unmapped` into the VCF handler. BAM delegation passes the real
+  `unmapped`. The existing test asserting no spurious `.unmapped` infix on
+  resumed VCFs must stay green.
+- **VCF per-region semantics change (accepted).** Resume's current VCF ranged
+  loop has no per-region try/catch, so it **fails fast** on the first region
+  error and requeues the entry. `handleVcfFile` catches per region and continues,
+  then (per the contract) returns `ok:false` → resume requeues. Net: resume moves
+  from fail-fast to **attempt-all-regions-then-requeue**, which makes more
+  progress before a retry and still requeues on any failure. This is an accepted,
+  intentional change; add a test for partial-region-failure → entry requeued.
 - Temp-BED lifecycle: the handler only _reads_ `tempBedPath` (the caller owns
   cleanup, as `main()` does on the primary path). Resume builds regions + a
   per-entry temp BED, passes it in, and unlinks it in a `finally` around the
@@ -230,10 +311,12 @@ implementation.
 
 ## Sequencing & risk
 
-1. **D2** (explicit-flag detection) — foundational; D3 and D6 consume it.
+1. **D2** (explicit-flag detection via yargs `.parsed`) — foundational; D3 and
+   D6 consume it.
 2. **D1**, **D3**, **D6** — config-merge behavior + docs.
-3. **D4** — password channel.
-4. **D5**, **D8** — lifecycle + efficiency (independent, low risk).
+3. **D4** — password channel + non-TTY restore guard.
+4. **D8** — parallelize tool probes (independent, trivial). (**D5** already done
+   on the branch — no work.)
 5. **D7** — consolidation; largest and riskiest, lands last after everything
    above is green.
 
