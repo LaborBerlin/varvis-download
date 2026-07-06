@@ -25,6 +25,7 @@ const {
   ensureIndexFile,
   indexBAM,
   rangedDownloadBAM,
+  unmappedDownloadBAM,
 } = require('../../../js/rangedUtils.cjs');
 const {
   fullDownloadWithOptionalIndex,
@@ -107,6 +108,40 @@ describe('download/bamHandler.handleBamFile', () => {
       deps,
     );
     expect(rangedDownloadBAM).not.toHaveBeenCalled();
+  });
+
+  test('unmapped-only download extracts reads to a distinct .unmapped output', async () => {
+    await handleBamFile(
+      {
+        fileDict: { ...baseFileDict },
+        fileName: 'sample.bam',
+        finalConfig: {
+          destination: '/tmp',
+          overwrite: false,
+          unmapped: true,
+        },
+        regions: [],
+        target: 'demo',
+      },
+      deps,
+    );
+
+    expect(ensureIndexFile).toHaveBeenCalled();
+    expect(unmappedDownloadBAM).toHaveBeenCalledWith(
+      'https://sample.bam',
+      '/tmp/out_sample.bam_unmapped',
+      '/tmp/sample.bam.bai',
+      mockLogger,
+      deps.metrics,
+      false,
+    );
+    expect(indexBAM).toHaveBeenCalledWith(
+      '/tmp/out_sample.bam_unmapped',
+      mockLogger,
+      false,
+    );
+    expect(rangedDownloadBAM).not.toHaveBeenCalled();
+    expect(fullDownloadWithOptionalIndex).not.toHaveBeenCalled();
   });
 
   test('logs and skips ranged download when required index is missing', async () => {
