@@ -8,6 +8,8 @@
 
 **Tech Stack:** Node.js ≥ 22.22.2 (CommonJS `.cjs`), yargs 18 / yargs-parser, undici, winston, Jest 30, ESLint 10, `tsc --noEmit` strict checkJs.
 
+**Rev 2 (2026-07-06):** revised after a Codex high-reasoning plan review (all points verified against the repo). Fixed the `computeExplicitOptions` alias-default bug, the `defaulted` type gap, the removed-middleware test breakage, false-green tests (Task 4 destination, Task 5 flag, Task 6 concurrency), snapshot/fixture updates for the new `overwriteFromConfig`/`passwordStdin` fields, an injectable `resolvePassword`, the `CommandDeps`/`DownloadDeps` nullable-`rl`/optional-`login` widening, and the resume success-log fall-through.
+
 ## Global Constraints
 
 - Runtime code is CommonJS `.cjs` — `require()` / `module.exports`, never ESM `import`/`export`.
@@ -113,8 +115,30 @@ describe('parseArguments explicit-option detection', () => {
   test('--no-overwrite is explicit (negation counts as user-supplied)', () => {
     expect(explicit(['--no-overwrite'])).toContain('overwrite');
   });
+
+  test('defaulted options (incl. their aliases) are NOT explicit', () => {
+    const set = explicit([]);
+    for (const name of [
+      'config',
+      'destination',
+      'filetypes',
+      'overwrite',
+      'listUrls',
+      'restoreArchived',
+      'unmapped',
+      'latest',
+    ]) {
+      expect(set).not.toContain(name);
+    }
+    // alias keys of defaulted options must not leak in either
+    for (const alias of ['o', 'd', 'c', 'f', 'U', 'ra', 'um']) {
+      expect(set).not.toContain(alias);
+    }
+  });
 });
 ```
+
+This negative test is the guard against the alias-default bug (Codex-flagged): if `computeExplicitOptions` marked defaulted aliases like `o`/`d` as explicit, config precedence would silently break.
 
 - [ ] **Step 4: Run to verify it fails**
 
@@ -125,32 +149,47 @@ Expected: FAIL — `parseArguments is not a function` / `EXPLICIT_OPTIONS_KEY` u
 
 In `js/cli/args.cjs`, delete the `OPTION_ALIASES` object (lines ~9-77) and the `collectExplicitOptions` function (lines ~79-104) and the `.middleware(...)` block inside `buildParser`. Keep `EXPLICIT_OPTIONS_KEY`. Add:
 
+**Algorithm note (Codex-corrected — this is subtle).** yargs mirrors defaults onto alias keys too. With no args, `argv` contains alias keys like `o`, `d`, `c` (aliases of `overwrite`/`destination`/`config`), but `parsed.defaulted` marks only the **canonical** keys (`overwrite`, `destination`, `config`). So decide explicitness **per alias group**, not per raw argv key: a group is explicit only when some member is present in argv **and no** member is in `defaulted`; when explicit, add **every** group member (so a later `hasExplicitOption(argv, 'listUrls')` matches whether the key is camelCase or dashed). `@types/yargs-parser`'s `DetailedArguments` does not declare `defaulted`, so define a local typedef intersection for strict `tsc`.
+
 ```js
 /**
- * Derives the canonical names of options the user supplied explicitly.
- * An option is explicit when a key in its alias group appears in argv and no
- * member of that group was populated from a parser default.
+ * @typedef {import('yargs-parser').DetailedArguments & {
+ *   defaulted?: Record<string, boolean>,
+ *   aliases?: Record<string, string[]>,
+ * }} ParsedArgsMeta
+ */
+
+/**
+ * Derives the names (canonical + aliases) of options supplied explicitly.
+ * Decides per alias group: explicit iff some member is present in argv and no
+ * member was populated from a parser default.
  * @param   {Record<string, unknown>} argv   - Parsed argv.
- * @param   {import('yargs-parser').DetailedArguments} parsed - yargs parse metadata.
- * @returns {string[]}                        - Canonical explicit option names.
+ * @param   {ParsedArgsMeta}          parsed - yargs parse metadata.
+ * @returns {string[]}                       - Explicit option names (all group members).
  */
 function computeExplicitOptions(argv, parsed) {
   const defaulted = parsed.defaulted || {};
   const aliases = parsed.aliases || {};
   const explicit = new Set();
+  const grouped = new Set();
+  const hasKey = (key) => Object.prototype.hasOwnProperty.call(argv, key);
+
+  for (const [canonical, group] of Object.entries(aliases)) {
+    const members = [canonical, ...group];
+    members.forEach((member) => grouped.add(member));
+    const present = members.some(hasKey);
+    const anyDefaulted = members.some((member) => member in defaulted);
+    if (present && !anyDefaulted) {
+      members.forEach((member) => explicit.add(member));
+    }
+  }
 
   for (const key of Object.keys(argv)) {
-    if (key === '_' || key === '$0') {
+    if (key === '_' || key === '$0' || grouped.has(key)) {
       continue;
     }
-    if (key in defaulted) {
-      continue;
-    }
-    explicit.add(key);
-    for (const [canonical, group] of Object.entries(aliases)) {
-      if (canonical === key || group.includes(key)) {
-        explicit.add(canonical);
-      }
+    if (!(key in defaulted)) {
+      explicit.add(key);
     }
   }
 
@@ -165,10 +204,10 @@ function computeExplicitOptions(argv, parsed) {
 function parseArguments(rawArgs) {
   const parser = buildParser(rawArgs);
   const argv = parser.parseSync();
-  const explicit = computeExplicitOptions(argv, parser.parsed);
+  const parsed = /** @type {ParsedArgsMeta} */ (parser.parsed);
   Object.defineProperty(argv, EXPLICIT_OPTIONS_KEY, {
     enumerable: false,
-    value: explicit,
+    value: computeExplicitOptions(argv, parsed),
   });
   return argv;
 }
@@ -206,16 +245,49 @@ const argv = parseArguments(hideBin(process.argv));
 
 (Keep the existing `buildParser` import only if still referenced; remove it if now unused to satisfy `no-unused-vars`.)
 
+No require cycle is introduced: `args.cjs` does not import `configMerge.cjs` (it only requires `yargs`), so `configMerge → args` is a one-way edge.
+
+- [ ] **Step 6b: Migrate existing merge tests off the removed middleware (Codex blocker)**
+
+Removing the `.middleware` means `buildParser(...).parseSync()` no longer attaches `EXPLICIT_OPTIONS_KEY`. Two existing tests build argv that way and rely on the metadata; without it, `hasExplicitOption` falls back to `hasOwnProperty` and treats yargs defaults as explicit, breaking config precedence. Switch both to `parseArguments`:
+
+In `tests/unit/cli/configMerge-snapshot.test.js`, replace the import and the argv construction:
+
+```js
+const { parseArguments } = require('../../../js/cli/args.cjs');
+// ...
+    const argv = parseArguments(input.argv);
+```
+
+(Drop the `.scriptName(...).exitProcess(false).parseSync()` chain — `parseArguments` handles parsing. If `scriptName` matters for `$0`, it does not affect the merge result, which strips `$0`.)
+
+In `tests/unit/cli/configMerge.test.js`, the test **"uses config values when real yargs output only contains parser defaults"** (~line 93) must use `parseArguments`:
+
+```js
+const { parseArguments } = require('../../../js/cli/args.cjs');
+// ...
+    const argv = parseArguments([
+      '--username',
+      'argv-user',
+      '--target',
+      'argv-target',
+      '--analysisIds',
+      'AN001',
+    ]);
+```
+
+Leave the plain-object-based tests as-is; they intentionally exercise the `hasOwnProperty` fallback for hand-built sources.
+
 - [ ] **Step 7: Run the full detection + existing arg/merge suites**
 
 Run: `npm test -- --testPathPatterns="cli/args|cli/configMerge"`
-Expected: PASS (new detection tests + all pre-existing arg/merge tests, which pass plain objects and use the `hasOwnProperty` fallback unchanged).
+Expected: PASS (new detection tests; the two migrated tests now get correct metadata via `parseArguments`; plain-object fallback tests unchanged).
 
 - [ ] **Step 8: Run the per-commit gate and commit**
 
 ```bash
 npm run lint && npx prettier --check . && npm run type-check && npm test && npm run architecture:check
-git add js/cli/args.cjs js/cli/configMerge.cjs varvis-download.cjs tests/unit/cli/args.test.js
+git add js/cli/args.cjs js/cli/configMerge.cjs varvis-download.cjs tests/unit/cli/args.test.js tests/unit/cli/configMerge.test.js tests/unit/cli/configMerge-snapshot.test.js
 git commit -m "fix(cli): detect explicit options via yargs parse metadata
 
 Replace the hand-rolled token scanner + alias table with yargs .parsed
@@ -385,15 +457,26 @@ Change the `finalConfig` object to use these:
 
 (Replace the existing inline `overwrite: mergeBoolean(argv, config, 'overwrite', false),` line.)
 
-- [ ] **Step 4: Add the type field**
+- [ ] **Step 4: Add the type field (non-optional — always returned)**
 
-In `js/types.d.ts`, add to the `FinalConfig` type (near `overwrite: boolean;`):
+In `js/types.d.ts`, add to the `FinalConfig` interface (near `overwrite: boolean;`). It is **required, not optional**, because `mergeConfig` always returns it and the snapshot test asserts an exact `toEqual` (Codex-flagged):
 
 ```ts
-  overwriteFromConfig?: boolean;
+  overwriteFromConfig: boolean;
 ```
 
-- [ ] **Step 5: Log the warning in `main()`**
+- [ ] **Step 5: Update the merge snapshot fixture**
+
+`mergeConfig` now always includes `overwriteFromConfig`, so the exact-match fixture must gain the field. In `tests/fixtures/cli-output/configMerge.json`, add after the `"overwrite": false,` line:
+
+```json
+  "overwriteFromConfig": false,
+```
+
+Run: `npm test -- --testPathPatterns=cli/configMerge-snapshot`
+Expected: PASS (the snapshot `toEqual` now matches).
+
+- [ ] **Step 6: Log the warning in `main()`**
 
 In `varvis-download.cjs`, immediately after `const finalConfig = mergeFromArgv(argv, process.env);` and after `activeLogger` exists, add:
 
@@ -405,12 +488,12 @@ In `varvis-download.cjs`, immediately after `const finalConfig = mergeFromArgv(a
   }
 ```
 
-- [ ] **Step 6: Run tests**
+- [ ] **Step 7: Run tests**
 
 Run: `npm test -- --testPathPatterns=cli/configMerge`
-Expected: PASS.
+Expected: PASS (source-tracking tests + snapshot with the new fixture field).
 
-- [ ] **Step 7: Add the CHANGELOG entry, gate, commit**
+- [ ] **Step 8: Add the CHANGELOG entry, gate, commit**
 
 Append to the `### Changed` block in `CHANGELOG.md`:
 
@@ -420,7 +503,7 @@ Append to the `### Changed` block in `CHANGELOG.md`:
 
 ```bash
 npm run lint && npx prettier --check . && npm run type-check && npm test && npm run architecture:check
-git add js/cli/configMerge.cjs js/types.d.ts varvis-download.cjs tests/unit/cli/configMerge.test.js CHANGELOG.md
+git add js/cli/configMerge.cjs js/types.d.ts varvis-download.cjs tests/unit/cli/configMerge.test.js tests/fixtures/cli-output/configMerge.json CHANGELOG.md
 git commit -m "feat(cli): warn when overwrite is enabled via config file
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
@@ -441,16 +524,21 @@ Replace the `normalizedDestination !== '.'` heuristic with explicit-flag detecti
 
 - [ ] **Step 1: Write the failing test**
 
-Add to `tests/unit/cli/configMerge.test.js`:
+Add to `tests/unit/cli/configMerge.test.js`. Use real `parseArguments` argv so the metadata is correct — a hand-built plain object with `destination: '.'` and no metadata is treated as *explicit* by the `hasOwnProperty` fallback, which would make the "non-explicit" case impossible to express (Codex-flagged). Import `parseArguments` at the top of the file if not already present.
 
 ```js
+const { parseArguments } = require('../../../js/cli/args.cjs');
+
 describe('explicit --destination "."', () => {
-  test('explicit "." wins over config destination', () => {
-    const argv = { username: 'u', target: 't', destination: '.' };
-    Object.defineProperty(argv, '__varvisExplicitOptions', {
-      enumerable: false,
-      value: ['destination'],
-    });
+  test('explicit -d . wins over config destination', () => {
+    const argv = parseArguments([
+      '--username',
+      'u',
+      '--target',
+      't',
+      '-d',
+      '.',
+    ]);
     const result = mergeConfig({
       argv,
       config: { destination: '/config/dir' },
@@ -459,9 +547,10 @@ describe('explicit --destination "."', () => {
     expect(result.destination).toBe('.');
   });
 
-  test('non-explicit "." falls through to config destination', () => {
+  test('default "." (no -d) falls through to config destination', () => {
+    const argv = parseArguments(['--username', 'u', '--target', 't']);
     const result = mergeConfig({
-      argv: { username: 'u', target: 't', destination: '.' },
+      argv,
       config: { destination: '/config/dir' },
       env: {},
     });
@@ -473,7 +562,7 @@ describe('explicit --destination "."', () => {
 - [ ] **Step 2: Run to verify it fails**
 
 Run: `npm test -- --testPathPatterns=cli/configMerge`
-Expected: FAIL — first test yields `/config/dir` (explicit `.` discarded).
+Expected: FAIL — first test yields `/config/dir` (explicit `.` discarded by the `!== '.'` heuristic).
 
 - [ ] **Step 3: Rewrite the destination merge**
 
@@ -533,19 +622,22 @@ Add the sanctioned non-interactive password channel, improve the non-TTY passwor
 
 - [ ] **Step 1: Declare the flag (test first)**
 
-Add to `tests/unit/cli/args.test.js`:
+Add to `tests/unit/cli/args.test.js`. Assert the **default** (`false` when omitted), not just that `--password-stdin` yields `true` — yargs already coerces an undeclared `--password-stdin` to `passwordStdin: true`, so a truthy-only test is a false green (Codex-flagged). The default assertion only holds once the option is declared with `default: false`.
 
 ```js
+test('defaults password-stdin to false', () => {
+  expect(parse([]).passwordStdin).toBe(false);
+});
+
 test('parses --password-stdin as a boolean flag', () => {
-  const argv = parse(['--password-stdin']);
-  expect(argv.passwordStdin).toBe(true);
+  expect(parse(['--password-stdin']).passwordStdin).toBe(true);
 });
 ```
 
 - [ ] **Step 2: Run to verify it fails**
 
 Run: `npm test -- --testPathPatterns=cli/args`
-Expected: FAIL — `passwordStdin` is `undefined`.
+Expected: FAIL — `parse([]).passwordStdin` is `undefined`, not `false`.
 
 - [ ] **Step 3: Add the option in `buildParser`**
 
@@ -646,41 +738,58 @@ Then in `js/cli/configMerge.cjs` add to `finalConfig`:
     passwordStdin: mergeBoolean(argv, config, 'passwordStdin', false),
 ```
 
-and add `passwordStdin?: boolean;` to `FinalConfig` in `js/types.d.ts`.
+and add `passwordStdin: boolean;` (non-optional — always returned) to `FinalConfig` in `js/types.d.ts`. Also add the field to the snapshot fixture `tests/fixtures/cli-output/configMerge.json` (after `"overwriteFromConfig": false,`):
 
-Run: `npm test -- --testPathPatterns=cli/configMerge` → Expected PASS.
+```json
+  "passwordStdin": false,
+```
+
+Run: `npm test -- --testPathPatterns=cli/configMerge` → Expected PASS (pass-through test + snapshot with the new fixture field).
 
 - [ ] **Step 10: Update `resolvePassword` precedence + error, add the non-TTY restore guard**
 
 In `varvis-download.cjs`, replace `resolvePassword` (lines ~40-52):
 
+Make `resolvePassword` accept **injectable deps** so it is unit-testable without the module-level `activeLogger` (which is `undefined` when the module is required in a test, and would throw on the warn path — Codex-flagged):
+
 ```js
 /**
  * Resolves the password from stdin, an already-merged value, or a TTY prompt.
  * @param   {import('./js/types').FinalConfig} finalConfig - Merged config.
- * @returns {Promise<string>}                              - Resolved password.
+ * @param   {{
+ *   logger?: import('winston').Logger,
+ *   stdin?: NodeJS.ReadStream,
+ *   readStdin?: typeof readPasswordFromStdin,
+ *   prompt?: typeof promptForPassword,
+ * }} [deps] - Injectable dependencies for tests.
+ * @returns {Promise<string>} - Resolved password.
  */
-async function resolvePassword(finalConfig) {
+async function resolvePassword(finalConfig, deps = {}) {
+  const logger = deps.logger || activeLogger;
+  const stdin = deps.stdin || process.stdin;
+  const readStdin = deps.readStdin || readPasswordFromStdin;
+  const prompt = deps.prompt || promptForPassword;
+
   if (finalConfig.passwordStdin) {
-    if (finalConfig.password) {
-      activeLogger.warn(
+    if (finalConfig.password && logger) {
+      logger.warn(
         '--password-stdin overrides the password supplied via --password/VARVIS_PASSWORD.',
       );
     }
-    return readPasswordFromStdin();
+    return readStdin({ stdin });
   }
 
   if (finalConfig.password) {
     return finalConfig.password;
   }
 
-  if (!process.stdin.isTTY) {
+  if (!stdin.isTTY) {
     throw new ConfigurationError(
       'No password provided. Use --password-stdin, set VARVIS_PASSWORD, or run in an interactive terminal.',
     );
   }
 
-  return promptForPassword();
+  return prompt();
 }
 ```
 
@@ -701,24 +810,76 @@ Add the non-TTY restore guard immediately after the destination-directory block 
     }
 ```
 
-- [ ] **Step 11: Add a resolvePassword unit test (fake stdin TTY states)**
+- [ ] **Step 11: Make `resolvePassword` importable and cover the precedence**
 
-Because `resolvePassword` now takes `finalConfig`, add a focused test. Create `tests/unit/passwordResolution.test.js` OR extend an existing `varvis-download` CLI test. Minimal approach — export `resolvePassword` for testability by adding it to `module.exports` in `varvis-download.cjs` (the file already runs `main()` at load; guard the auto-run with `if (require.main === module)` around the `main().catch(...)` block so the module can be required in tests without executing). Then:
+Export `resolvePassword` and guard the auto-run so the module can be required without executing `main()`. In `varvis-download.cjs`, wrap the bottom `main().catch(...)` block:
 
 ```js
-const cli = require('../../varvis-download.cjs');
+if (require.main === module) {
+  main().catch((error) => {
+    // ...existing error handler unchanged...
+  });
+}
+
+module.exports = { resolvePassword };
+```
+
+This is safe for the existing `tests/unit/cli.test.js`, which runs the CLI via `execSync('node varvis-download.cjs ...')` — in that subprocess `require.main === module` is true, so `main()` still runs; when unit tests `require()` the module, it does not.
+
+Create `tests/unit/passwordResolution.test.js`:
+
+```js
+const { Readable } = require('node:stream');
+const { resolvePassword } = require('../../varvis-download.cjs');
+const { ConfigurationError } = require('../../js/errors.cjs');
+
+const ttyStdin = { isTTY: true };
+const pipeStdin = { isTTY: false };
 
 describe('resolvePassword precedence', () => {
+  test('reads --password-stdin above everything else', async () => {
+    const readStdin = jest.fn().mockResolvedValue('from-stdin');
+    const logger = { warn: jest.fn() };
+    const result = await resolvePassword(
+      { passwordStdin: true, password: 'from-config' },
+      { readStdin, logger, stdin: pipeStdin },
+    );
+    expect(result).toBe('from-stdin');
+    expect(logger.warn).toHaveBeenCalled(); // warns that stdin overrode --password
+  });
+
   test('returns an already-merged password without prompting', async () => {
+    const prompt = jest.fn();
+    const result = await resolvePassword(
+      { passwordStdin: false, password: 'from-config' },
+      { prompt, stdin: ttyStdin },
+    );
+    expect(result).toBe('from-config');
+    expect(prompt).not.toHaveBeenCalled();
+  });
+
+  test('prompts on a TTY when no password is available', async () => {
+    const prompt = jest.fn().mockResolvedValue('typed');
+    const result = await resolvePassword(
+      { passwordStdin: false, password: undefined },
+      { prompt, stdin: ttyStdin },
+    );
+    expect(result).toBe('typed');
+  });
+
+  test('throws (does not hang) on a non-TTY with no password', async () => {
     await expect(
-      cli.resolvePassword({ password: 'from-config', passwordStdin: false }),
-    ).resolves.toBe('from-config');
+      resolvePassword(
+        { passwordStdin: false, password: undefined },
+        { stdin: pipeStdin },
+      ),
+    ).rejects.toBeInstanceOf(ConfigurationError);
   });
 });
 ```
 
 Run: `npm test -- --testPathPatterns=passwordResolution`
-Expected: PASS. (If wrapping `main()` in `require.main === module` causes existing CLI tests to change, confirm those still pass in Step 13.)
+Expected: PASS.
 
 - [ ] **Step 12: Add CHANGELOG + README docs**
 
@@ -736,11 +897,13 @@ Expected: PASS. (If wrapping `main()` in `require.main === module` causes existi
 
 In `README.md`, add a short "Non-interactive / CI usage" note documenting `--password-stdin`, `VARVIS_USER`/`VARVIS_PASSWORD`/`VARVIS_TARGET`, the `CLI > env > config` precedence, and the `--restoreArchived force|no` requirement for automation.
 
+Nice-to-have (not test-blocking): the `tests/fixtures/cli-output/help.txt` baseline is a captured snapshot, not asserted by any test (`cli.test.js` uses `--help` + `toContain`), so adding `--password-stdin` won't fail tests. Regenerate it for accuracy if you maintain it: `node varvis-download.cjs --help > tests/fixtures/cli-output/help.txt`.
+
 - [ ] **Step 13: Gate and commit**
 
 ```bash
 npm run lint && npx prettier --check . && npm run type-check && npm test && npm run architecture:check
-git add js/cli/args.cjs js/io/passwordPrompt.cjs js/cli/configMerge.cjs js/types.d.ts varvis-download.cjs tests/unit/io/passwordPrompt.test.js tests/unit/cli/args.test.js tests/unit/cli/configMerge.test.js tests/unit/passwordResolution.test.js CHANGELOG.md README.md
+git add js/cli/args.cjs js/io/passwordPrompt.cjs js/cli/configMerge.cjs js/types.d.ts varvis-download.cjs tests/unit/io/passwordPrompt.test.js tests/unit/cli/args.test.js tests/unit/cli/configMerge.test.js tests/unit/passwordResolution.test.js tests/fixtures/cli-output/configMerge.json CHANGELOG.md README.md
 git commit -m "feat(cli): add --password-stdin and fail fast without a TTY
 
 Add the sanctioned non-interactive password channel, clearer non-TTY error,
@@ -760,28 +923,46 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes: `checkToolAvailability(tool, cmd, minVersion, logger)` (unchanged).
 
-- [ ] **Step 1: Write the failing test (both probes awaited, order-independent)**
+- [ ] **Step 1: Write the failing test — prove true concurrency, not just "both called"**
 
-Add to `tests/unit/commands/download.test.js` (follow the file's existing mocking of `../../../js/toolChecks.cjs`):
+A test that only asserts `tabix` and `bgzip` were both called is a false green: the current sequential code also calls both (Codex-flagged). Prove concurrency by holding `tabix` pending and asserting `bgzip` has already been invoked before `tabix` resolves. Add to `tests/unit/commands/download.test.js` (follow the file's existing mocking of `../../../js/toolChecks.cjs`, `../../../js/fetchUtils.cjs`, and the handlers):
 
 ```js
-test('checks tabix and bgzip concurrently for ranged downloads', async () => {
-  const order = [];
+test('probes tabix and bgzip concurrently for ranged downloads', async () => {
+  const calls = [];
+  let releaseTabix;
+  const tabixGate = new Promise((resolve) => {
+    releaseTabix = resolve;
+  });
   checkToolAvailability.mockImplementation(async (tool) => {
-    order.push(tool);
+    calls.push(tool);
+    if (tool === 'tabix') {
+      await tabixGate; // stay pending
+    }
     return true;
   });
-  // ...invoke runDownloadCommand with finalConfig.range set and minimal deps/mocks...
-  expect(order).toEqual(expect.arrayContaining(['samtools', 'tabix', 'bgzip']));
+
+  // Invoke with a ranged config so the tabix/bgzip branch runs; getDownloadLinks
+  // mocked to return {} so no files are processed after the tool checks.
+  const promise = runDownloadCommand(
+    { finalConfig: rangedConfig, regions: ['chr1:1-2'], tempBedPath: '/tmp/x.bed' },
+    deps,
+  );
+  await Promise.resolve(); // let the concurrent probes start
+
+  // bgzip must already have been dispatched while tabix is still pending:
+  expect(calls).toContain('bgzip');
+  releaseTabix();
+  await promise;
 });
 ```
 
-(Wire the surrounding mocks the same way the existing `download.test.js` cases do; the assertion of interest is that both `tabix` and `bgzip` are invoked.)
+(`rangedConfig`/`deps` follow the file's existing fixtures; the load-bearing assertion is that `bgzip` is invoked before `tabix` resolves — impossible with sequential `await`.)
 
-- [ ] **Step 2: Run to verify it fails or is missing coverage**
+- [ ] **Step 2: Run to verify it fails**
 
 Run: `npm test -- --testPathPatterns=commands/download`
-Expected: FAIL/absent until the concurrent call is asserted.
+Expected: FAIL — with sequential awaits, `bgzip` is not called until `tabix` resolves, so `calls` does not yet contain `bgzip` at the assertion.
 
 - [ ] **Step 3: Replace sequential awaits with `Promise.all`**
 
@@ -878,6 +1059,35 @@ In `js/download/bamHandler.cjs`, introduce a local `let ok = true;`, set `ok = f
 
 Apply the same pattern in `js/download/vcfHandler.cjs`: `ok = false` in the full-download catch and in the per-region catch; the unmapped-skip early return is a success no-op → `return { ok: true };`; the missing-index early return → `return { ok: false };`; final `return { ok };`.
 
+Note on the primary path: the handler's missing-index branch now returns `{ ok: false }` instead of `void`. `runDownloadCommand` ignores the return value, so its behavior is unchanged (it already logged-and-continued on missing index). Resume never reaches that branch because it does its own missing-index preflight (Task 7b).
+
+- [ ] **Step 3b: Widen the deps types so token-only/null-rl delegation type-checks (Codex-flagged)**
+
+`CommandDeps` currently requires `authService.login` and a non-null `rl` (`js/types.d.ts:135`). Resume will delegate with `{ authService: { token }, rl: null }`, which is valid at runtime (the handlers only read `authService.token` and pass `rl` through to `ensureIndexFile`/`downloadFile`, which already accept `null` — resume passes `null` today). Widen the types so strict `checkJs` accepts both callers. Use the `writing-typed-jsdoc` skill.
+
+In `js/types.d.ts`, change `CommandDeps`:
+
+```ts
+export interface CommandDeps {
+  logger: Logger;
+  agent: HttpDispatcher;
+  authService: {
+    token: string;
+    login?: (creds: Credentials, target: string) => Promise<LoginResult>;
+  };
+  rl: import('node:readline').Interface | null;
+  metrics: Metrics;
+}
+```
+
+In `js/download/commonDownload.cjs`, change the `DownloadDeps` `rl` typedef to nullable:
+
+```js
+ * @property {import('node:readline').Interface|null} rl - Prompt interface.
+```
+
+Run `npm run type-check` after Step 3 to confirm the handlers and the existing primary call site (which passes a full `authService` + real `rl`) still satisfy the widened types.
+
 - [ ] **Step 4: Run handler tests**
 
 Run: `npm test -- --testPathPatterns="download/bamHandler|download/vcfHandler"`
@@ -892,7 +1102,7 @@ Expected: PASS unchanged (runDownloadCommand ignores the return value).
 
 ```bash
 npm run lint && npx prettier --check . && npm run type-check && npm test && npm run architecture:check
-git add js/download/bamHandler.cjs js/download/vcfHandler.cjs tests/unit/download/bamHandler.test.js tests/unit/download/vcfHandler.test.js
+git add js/download/bamHandler.cjs js/download/vcfHandler.cjs js/types.d.ts js/download/commonDownload.cjs tests/unit/download/bamHandler.test.js tests/unit/download/vcfHandler.test.js
 git commit -m "refactor(download): handlers return { ok } outcome
 
 Non-breaking for the primary path (return ignored); enables resume to reuse
@@ -963,7 +1173,7 @@ const { handleVcfFile } = require('../download/vcfHandler.cjs');
 
 2. Keep the existing preflight inside the per-entry `try` (still-archived / not-found via `!(entry.fileName in fileDict)` / `!downloadLink`), and keep the **index-requiring** preflight requeue: before delegating a ranged/unmapped BAM or ranged VCF, if the required `.bai`/`.tbi` is absent from `fileDict`, `updatedData.push(entry); continue;` (as today).
 
-3. Replace the BAM download block (the `if (entry.fileName.endsWith('.bam'))` body) with:
+3. Replace the BAM/VCF/other download blocks with delegation that tracks a single `downloadSucceeded` flag, so there is **one** requeue point and the existing "Successfully resumed" log fires only on success (Codex-flagged: the naive version pushes on `ok:false` but then falls through to the success log):
 
 ```js
       const deps = {
@@ -974,6 +1184,8 @@ const { handleVcfFile } = require('../download/vcfHandler.cjs');
         rl: null,
       };
 
+      let downloadSucceeded = true;
+
       if (entry.fileName.endsWith('.bam')) {
         let tempBedPath;
         if (regions.length > 0) {
@@ -981,10 +1193,7 @@ const { handleVcfFile } = require('../download/vcfHandler.cjs');
             os.tmpdir(),
             `restore-regions-${entry.analysisId}-${entry.fileName}.bed`,
           );
-          fs.writeFileSync(
-            tempBedPath,
-            regions.map(regionToBedLine).join('\n'),
-          );
+          fs.writeFileSync(tempBedPath, regions.map(regionToBedLine).join('\n'));
         }
         try {
           const result = await handleBamFile(
@@ -1002,9 +1211,7 @@ const { handleVcfFile } = require('../download/vcfHandler.cjs');
             },
             deps,
           );
-          if (!result.ok) {
-            updatedData.push(entry);
-          }
+          downloadSucceeded = result.ok;
         } finally {
           if (tempBedPath && fs.existsSync(tempBedPath)) {
             fs.unlinkSync(tempBedPath);
@@ -1025,18 +1232,27 @@ const { handleVcfFile } = require('../download/vcfHandler.cjs');
           },
           deps,
         );
-        if (!result.ok) {
-          updatedData.push(entry);
-        }
+        downloadSucceeded = result.ok;
       } else {
-        // Non-BAM/VCF: keep the existing plain downloadFile path.
+        // Non-BAM/VCF: keep the existing plain downloadFile path (throws on
+        // failure -> caught by the outer per-entry try/catch -> requeue).
         // (unchanged from current implementation)
+      }
+
+      if (downloadSucceeded) {
+        logger.info(
+          `Successfully resumed download for analysis ${entry.analysisId}, file ${entry.fileName}`,
+        );
+      } else {
+        updatedData.push(entry);
       }
 ```
 
+Replace the existing unconditional "Successfully resumed download..." `logger.info` (resume.cjs ~line 428) with the guarded block above — do not leave the old one, or a requeued entry would still be logged as a success.
+
 4. Delete the now-dead helpers/branches this replaces (the hand-rolled ranged/unmapped/full+index logic, and any imports left unused — e.g. `ensureIndexFile`, `rangedDownloadBAM`, `unmappedDownloadBAM`, `rangedDownloadVCF`, `indexBAM`, `indexVCF`, `fullDownloadWithOptionalIndex`, `getValidDownloadUrl` if resume no longer references them). Run lint to catch leftovers.
 
-5. Note: on `ok:false` resume requeues (pushes the entry); on a thrown error the outer per-entry `try/catch` (unchanged) requeues. Both converge on retry. The `else` non-BAM/VCF branch keeps its current behavior verbatim.
+5. Failure channels converge on requeue: `ok === false` → `downloadSucceeded=false` → requeued at the guarded block; a thrown error (e.g. `getValidDownloadUrl`/`ensureIndexFile` inside the handler, or the non-BAM/VCF `downloadFile`) → the outer per-entry `try/catch` (unchanged) requeues. Confirm `os`, `path`, `fs`, and `regionToBedLine` are already imported in `resume.cjs` (they are) so no new imports are needed beyond the two handlers.
 
 - [ ] **Step 4: Verify the file shrank and stays under budget**
 
@@ -1081,6 +1297,8 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 - D8 → Task 6 ✓ (`Promise.all`)
 - Docs deliverables → Tasks 2/3/5 (CHANGELOG), Task 5 (README) ✓
 
-**Placeholder scan:** Task 6 Step 1 and Task 7b Step 1 leave test wiring as "follow existing mocks" comments rather than full literals — this is deliberate because those suites have bespoke mock setups (`testing-varvis-modules`); the assertions of interest are given in full. All production code steps show complete code.
+**Placeholder scan:** Task 6 Step 1 and Task 7b Step 1 leave the surrounding mock fixtures (`rangedConfig`, `deps`, restoration-entry setup) as "follow existing mocks" references rather than full literals — deliberate, because those suites have bespoke setups documented in `testing-varvis-modules`; the load-bearing assertions and all production code are shown in full.
 
-**Type consistency:** `handleBamFile`/`handleVcfFile` return `{ ok: boolean }` in 7a and are consumed as `result.ok` in 7b ✓. `EXPLICIT_OPTIONS_KEY` exported in Task 1, imported in configMerge ✓. `overwriteFromConfig`/`passwordStdin` added to both `FinalConfig` (types.d.ts) and the `mergeConfig` return ✓. `resolvePassword(finalConfig)` signature updated at its only call site ✓.
+**Type consistency:** `handleBamFile`/`handleVcfFile` return `{ ok: boolean }` in 7a and are consumed as `result.ok`/`downloadSucceeded = result.ok` in 7b ✓. `EXPLICIT_OPTIONS_KEY` exported in Task 1, imported in configMerge ✓. `overwriteFromConfig`/`passwordStdin` are non-optional `boolean` on `FinalConfig`, always returned by `mergeConfig`, and present in the snapshot fixture ✓. `resolvePassword(finalConfig, deps?)` signature updated at its only call site, exported for tests, auto-run guarded by `require.main === module` ✓. `CommandDeps.rl`/`DownloadDeps.rl` widened to `Interface | null` and `authService.login` made optional so the resume delegation (`{ authService: { token }, rl: null }`) and the primary path both type-check ✓.
+
+**Codex plan-review incorporations (rev 2):** all 5 blockers + 5 should-fixes resolved — alias-default detection (Task 1), `defaulted` typedef (Task 1), removed-middleware test migration (Task 1 Step 6b), non-explicit destination test via `parseArguments` (Task 4), snapshot/fixture updates (Tasks 3/5), false-green `--password-stdin` test (Task 5 Step 1), injectable `resolvePassword` + full precedence tests (Task 5 Step 11), deferred-promise concurrency test (Task 6), deps-type widening (Task 7a Step 3b), success-log fall-through (Task 7b Step 3).
