@@ -17,6 +17,7 @@ const {
 } = require('../rangedUtils.cjs');
 const { downloadFile } = require('../fileUtils.cjs');
 const { getErrorMessage } = require('../errorUtils.cjs');
+const { regionToBedLine } = require('../io/regionParsing.cjs');
 
 /**
  * Resumes downloads for archived files as specified in the awaiting-restoration JSON file.
@@ -138,14 +139,12 @@ async function resumeArchivedDownloads(
       }
       const includeUnmapped = restoredOptions.unmapped === true;
 
-      // Generate output filename using restored context
+      // Generate output filename using restored context. The unmapped suffix
+      // is scoped to the BAM unmapped-only branch below; other file types keep
+      // their canonical name even when the global --unmapped flag was persisted.
       const outputFile = path.join(
         effectiveDestination,
-        generateOutputFileName(
-          entry.fileName,
-          includeUnmapped && regions.length === 0 ? ['unmapped'] : regions,
-          logger,
-        ),
+        generateOutputFileName(entry.fileName, regions, logger),
       );
 
       // Handle BAM files
@@ -185,13 +184,7 @@ async function resumeArchivedDownloads(
             os.tmpdir(),
             `restore-regions-${Date.now()}.bed`,
           );
-          const bedContent = regions
-            .map((region) => {
-              const [chr, pos] = region.split(':');
-              const [start, end] = pos.split('-');
-              return `${chr}\t${start}\t${end}`;
-            })
-            .join('\n');
+          const bedContent = regions.map(regionToBedLine).join('\n');
 
           fs.writeFileSync(tempBedPath, bedContent);
 
@@ -253,18 +246,23 @@ async function resumeArchivedDownloads(
             effectiveOverwrite,
           );
 
+          const unmappedOutputFile = path.join(
+            effectiveDestination,
+            generateOutputFileName(entry.fileName, ['unmapped'], logger),
+          );
+
           logger.info(
             `Extracting unmapped reads from restored BAM file: ${entry.fileName}`,
           );
           await unmappedDownloadBAM(
             downloadLink,
-            outputFile,
+            unmappedOutputFile,
             indexFilePath,
             logger,
             metrics,
             effectiveOverwrite,
           );
-          await indexBAM(outputFile, logger, effectiveOverwrite);
+          await indexBAM(unmappedOutputFile, logger, effectiveOverwrite);
         } else {
           // Full download
           logger.info(
@@ -326,12 +324,12 @@ async function resumeArchivedDownloads(
             updatedData.push(entry);
             continue;
           }
-          const indexFileName = generateOutputFileName(
+          // tabix locates the index by its canonical name next to the working
+          // directory, so keep the .tbi name unsuffixed (matches vcfHandler).
+          const indexFilePath = path.join(
+            effectiveDestination,
             `${entry.fileName}.tbi`,
-            regions,
-            logger,
           );
-          const indexFilePath = path.join(effectiveDestination, indexFileName);
 
           // Ensure index file is downloaded
           await ensureIndexFile(
@@ -345,21 +343,26 @@ async function resumeArchivedDownloads(
             effectiveOverwrite,
           );
 
-          // Perform ranged download for VCF - use the first region for simplicity
-          const range = regions[0]; // tabix uses region format directly
-          logger.info(
-            `Performing ranged download for restored VCF file: ${entry.fileName} with range: ${range}`,
-          );
-          await rangedDownloadVCF(
-            downloadLink,
-            range,
-            outputFile,
-            indexFilePath,
-            logger,
-            metrics,
-            effectiveOverwrite,
-          );
-          await indexVCF(outputFile, logger, effectiveOverwrite);
+          // Perform one ranged download per region (tabix is single-region).
+          for (const region of regions) {
+            const regionOutputFile = path.join(
+              effectiveDestination,
+              generateOutputFileName(entry.fileName, [region], logger),
+            );
+            logger.info(
+              `Performing ranged download for restored VCF file: ${entry.fileName} with range: ${region}`,
+            );
+            await rangedDownloadVCF(
+              downloadLink,
+              region,
+              regionOutputFile,
+              indexFilePath,
+              logger,
+              metrics,
+              effectiveOverwrite,
+            );
+            await indexVCF(regionOutputFile, logger, effectiveOverwrite);
+          }
         } else {
           // Full download
           logger.info(

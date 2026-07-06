@@ -18,6 +18,24 @@ const { getErrorMessage } = require('../errorUtils.cjs');
  */
 
 /**
+ * Converts a single genomic region string into a BED line.
+ * A chromosome-only region (no `:start-end`) spans the whole chromosome.
+ *
+ * @param   {string} region - Region string such as `chr1:10-20` or `chr1`.
+ * @returns {string}        - Tab-separated BED line (`chr\tstart\tend`).
+ */
+function regionToBedLine(region) {
+  const [chr, pos] = region.split(':');
+
+  if (!pos) {
+    return `${chr}\t1\t300000000`;
+  }
+
+  const [start, end] = pos.split('-');
+  return `${chr}\t${start}\t${end}`;
+}
+
+/**
  * Parses CLI range/BED options into regions and an optional temporary BED file.
  *
  * @param   {RegionOptions}            options - Region input options.
@@ -30,18 +48,7 @@ function parseRegions({ range, bed }, logger) {
     logger.info(`Using regions from command line: ${regions}`);
 
     const tempBedPath = path.join(os.tmpdir(), 'regions.bed');
-    const bedContent = regions
-      .map((region) => {
-        const [chr, pos] = region.split(':');
-
-        if (!pos) {
-          return `${chr}\t1\t300000000`;
-        }
-
-        const [start, end] = pos.split('-');
-        return `${chr}\t${start}\t${end}`;
-      })
-      .join('\n');
+    const bedContent = regions.map(regionToBedLine).join('\n');
 
     fs.writeFileSync(tempBedPath, bedContent);
     logger.info(`Generated temporary BED file: ${tempBedPath}`);
@@ -75,4 +82,4 @@ function parseRegions({ range, bed }, logger) {
   return { regions: [] };
 }
 
-module.exports = { parseRegions };
+module.exports = { parseRegions, regionToBedLine };

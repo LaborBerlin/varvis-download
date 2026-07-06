@@ -254,7 +254,7 @@ describe('archiveUtils.resumeArchivedDownloads ranged restores', () => {
     expect(ensureIndexFile).toHaveBeenCalledWith(
       'https://example.test/sample.vcf.gz',
       'https://example.test/sample.vcf.gz.tbi',
-      '/restored/out-sample.vcf.gz.tbi',
+      '/restored/sample.vcf.gz.tbi',
       mockAgent,
       null,
       mockLogger,
@@ -265,7 +265,7 @@ describe('archiveUtils.resumeArchivedDownloads ranged restores', () => {
       'https://example.test/sample.vcf.gz',
       'chr1:10-20',
       '/restored/out-sample.vcf.gz',
-      '/restored/out-sample.vcf.gz.tbi',
+      '/restored/sample.vcf.gz.tbi',
       mockLogger,
       metrics,
       true,
