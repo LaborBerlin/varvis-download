@@ -1,9 +1,24 @@
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
 const { OperationalError } = require('../errors.cjs');
 const { getErrorMessage } = require('../errorUtils.cjs');
+
+/**
+ * Builds a collision-free temporary BED path in the OS temp dir. The pid keeps
+ * concurrent invocations from overwriting each other's regions; the random
+ * suffix guards against same-process/same-clock collisions.
+ *
+ * @returns {string} - Unique temporary BED path for this invocation.
+ */
+function makeTempBedPath() {
+  return path.join(
+    os.tmpdir(),
+    `varvis-regions-${process.pid}-${crypto.randomBytes(6).toString('hex')}.bed`,
+  );
+}
 
 /**
  * @typedef {object} RegionOptions
@@ -47,7 +62,7 @@ function parseRegions({ range, bed }, logger) {
     const regions = range.split(' ');
     logger.info(`Using regions from command line: ${regions}`);
 
-    const tempBedPath = path.join(os.tmpdir(), 'regions.bed');
+    const tempBedPath = makeTempBedPath();
     const bedContent = regions.map(regionToBedLine).join('\n');
 
     fs.writeFileSync(tempBedPath, bedContent);
@@ -67,7 +82,7 @@ function parseRegions({ range, bed }, logger) {
         });
       logger.info(`Using regions from BED file: ${regions}`);
 
-      const tempBedPath = path.join(os.tmpdir(), 'regions.bed');
+      const tempBedPath = makeTempBedPath();
       fs.writeFileSync(tempBedPath, bedFileContent);
       logger.info(`Generated temporary BED file: ${tempBedPath}`);
       return { regions, tempBedPath };

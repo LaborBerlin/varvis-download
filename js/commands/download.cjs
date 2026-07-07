@@ -1,3 +1,4 @@
+const fs = require('node:fs');
 const {
   fetchAnalysisIds,
   generateReport,
@@ -6,6 +7,7 @@ const {
 const { handleBamFile } = require('../download/bamHandler.cjs');
 const { handleVcfFile } = require('../download/vcfHandler.cjs');
 const { OperationalError } = require('../errors.cjs');
+const { getErrorMessage } = require('../errorUtils.cjs');
 const { handleUrlListing } = require('../io/urlListing.cjs');
 const { checkToolAvailability } = require('../toolChecks.cjs');
 
@@ -39,112 +41,129 @@ async function runDownloadCommand({ finalConfig, regions, tempBedPath }, deps) {
     urlFile,
   } = finalConfig;
 
-  if (finalConfig.range || finalConfig.bed || finalConfig.unmapped) {
-    const samtoolsOK = await checkToolAvailability(
-      'samtools',
-      'samtools --version',
-      '1.17',
-      logger,
-    );
-    if (!samtoolsOK) {
-      throw new OperationalError(
-        'samtools is missing or outdated. Please install/update it and try again.',
+  try {
+    if (finalConfig.range || finalConfig.bed || finalConfig.unmapped) {
+      const samtoolsOK = await checkToolAvailability(
+        'samtools',
+        'samtools --version',
+        '1.17',
+        logger,
       );
-    }
-
-    if (finalConfig.range || finalConfig.bed) {
-      const [tabixOK, bgzipOK] = await Promise.all([
-        checkToolAvailability('tabix', 'tabix --version', '1.7', logger),
-        checkToolAvailability('bgzip', 'bgzip --version', '1.7', logger),
-      ]);
-      if (!tabixOK || !bgzipOK) {
+      if (!samtoolsOK) {
         throw new OperationalError(
-          'One or more required external tools (tabix, bgzip) are missing or outdated. Please install/update them and try again.',
+          'samtools is missing or outdated. Please install/update it and try again.',
         );
       }
-    }
-  }
 
-  logger.info('Processing files for download...');
-  const ids =
-    analysisIds.length > 0
-      ? analysisIds
-      : await fetchAnalysisIds(
-          target,
-          authService.token,
-          agent,
-          sampleIds,
-          limsIds,
-          filters,
-          logger,
-          finalConfig.latest,
-        );
-  logger.info(`Fetched analysis IDs: ${ids}`);
-
-  const optionsForRestoration = {
-    destination: finalConfig.destination,
-    overwrite: finalConfig.overwrite,
-    range: finalConfig.range,
-    bed: finalConfig.bed,
-    unmapped: finalConfig.unmapped,
-    restorationFile,
-    filetypes,
-  };
-
-  /** @type {string[]} */
-  const allUrls = [];
-
-  for (const analysisId of ids) {
-    logger.info(`Processing analysis ID: ${analysisId}`);
-    const fileDict = await getDownloadLinks(
-      analysisId,
-      filetypes,
-      target,
-      authService.token,
-      agent,
-      logger,
-      restoreArchived,
-      rl,
-      restorationFile,
-      optionsForRestoration,
-    );
-    logger.debug(`Fetched download links for analysis ID ${analysisId}`);
-
-    if (listUrls) {
-      for (const file of Object.values(fileDict)) {
-        if (file.downloadLink) {
-          allUrls.push(file.downloadLink);
+      if (finalConfig.range || finalConfig.bed) {
+        const [tabixOK, bgzipOK] = await Promise.all([
+          checkToolAvailability('tabix', 'tabix --version', '1.7', logger),
+          checkToolAvailability('bgzip', 'bgzip --version', '1.7', logger),
+        ]);
+        if (!tabixOK || !bgzipOK) {
+          throw new OperationalError(
+            'One or more required external tools (tabix, bgzip) are missing or outdated. Please install/update them and try again.',
+          );
         }
       }
-      continue;
     }
 
-    const primaryFiles = Object.entries(fileDict).filter(
-      ([fileName]) => fileName.endsWith('.bam') || fileName.endsWith('.vcf.gz'),
-    );
+    logger.info('Processing files for download...');
+    const ids =
+      analysisIds.length > 0
+        ? analysisIds
+        : await fetchAnalysisIds(
+            target,
+            authService.token,
+            agent,
+            sampleIds,
+            limsIds,
+            filters,
+            logger,
+            finalConfig.latest,
+          );
+    logger.info(`Fetched analysis IDs: ${ids}`);
 
-    for (const [fileName] of primaryFiles) {
-      if (fileName.endsWith('.bam')) {
-        await handleBamFile(
-          { fileDict, fileName, finalConfig, regions, target, tempBedPath },
-          deps,
-        );
-      } else if (fileName.endsWith('.vcf.gz')) {
-        await handleVcfFile(
-          { fileDict, fileName, finalConfig, regions, target },
-          deps,
+    const optionsForRestoration = {
+      destination: finalConfig.destination,
+      overwrite: finalConfig.overwrite,
+      range: finalConfig.range,
+      bed: finalConfig.bed,
+      unmapped: finalConfig.unmapped,
+      restorationFile,
+      filetypes,
+    };
+
+    /** @type {string[]} */
+    const allUrls = [];
+
+    for (const analysisId of ids) {
+      logger.info(`Processing analysis ID: ${analysisId}`);
+      const fileDict = await getDownloadLinks(
+        analysisId,
+        filetypes,
+        target,
+        authService.token,
+        agent,
+        logger,
+        restoreArchived,
+        rl,
+        restorationFile,
+        optionsForRestoration,
+      );
+      logger.debug(`Fetched download links for analysis ID ${analysisId}`);
+
+      if (listUrls) {
+        for (const file of Object.values(fileDict)) {
+          if (file.downloadLink) {
+            allUrls.push(file.downloadLink);
+          }
+        }
+        continue;
+      }
+
+      const primaryFiles = Object.entries(fileDict).filter(
+        ([fileName]) =>
+          fileName.endsWith('.bam') || fileName.endsWith('.vcf.gz'),
+      );
+
+      for (const [fileName] of primaryFiles) {
+        if (fileName.endsWith('.bam')) {
+          await handleBamFile(
+            { fileDict, fileName, finalConfig, regions, target, tempBedPath },
+            deps,
+          );
+        } else if (fileName.endsWith('.vcf.gz')) {
+          await handleVcfFile(
+            { fileDict, fileName, finalConfig, regions, target },
+            deps,
+          );
+        }
+      }
+    }
+
+    if (listUrls) {
+      handleUrlListing(allUrls, urlFile, logger);
+      return;
+    }
+
+    logger.info('Download complete.');
+    generateReport(reportfile, logger);
+  } finally {
+    // The temp BED is created before this command runs; clean it up on every
+    // exit path (success, early return, or throw) so a failed download does not
+    // leak it. This command owns the file's lifecycle (mirrors resume.cjs).
+    if (tempBedPath && fs.existsSync(tempBedPath)) {
+      try {
+        fs.unlinkSync(tempBedPath);
+        logger.info(`Deleted temporary BED file: ${tempBedPath}`);
+      } catch (error) {
+        logger.debug(
+          `Could not remove temp BED ${tempBedPath}: ${getErrorMessage(error)}`,
         );
       }
     }
   }
-
-  if (listUrls) {
-    handleUrlListing(allUrls, urlFile, logger);
-    return;
-  }
-
-  logger.info('Download complete.');
-  generateReport(reportfile, logger);
 }
 
 module.exports = { runDownloadCommand };
