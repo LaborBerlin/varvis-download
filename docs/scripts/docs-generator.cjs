@@ -68,34 +68,33 @@ function _getSourceFiles() {
  * @returns {Promise<object>} JSDoc data
  */
 async function _generateJSDocData(filePath) {
+  // For .cjs files, create a temporary .js file for JSDoc processing
+  let actualFilePath = filePath;
+  let tempFilePath = null;
+
+  if (filePath.endsWith('.cjs')) {
+    tempFilePath = filePath.replace('.cjs', '.temp.js');
+    const content = fs.readFileSync(filePath, 'utf8');
+    fs.writeFileSync(tempFilePath, content);
+    actualFilePath = tempFilePath;
+  }
+
   try {
-    // For .cjs files, create a temporary .js file for JSDoc processing
-    let actualFilePath = filePath;
-    let tempFilePath = null;
-
-    if (filePath.endsWith('.cjs')) {
-      tempFilePath = filePath.replace('.cjs', '.temp.js');
-      const content = fs.readFileSync(filePath, 'utf8');
-      fs.writeFileSync(tempFilePath, content);
-      actualFilePath = tempFilePath;
-    }
-
-    const templateData = await jsdoc2md.getTemplateData({
+    return await jsdoc2md.getTemplateData({
       files: actualFilePath,
       'no-cache': true,
     });
-
-    // Clean up temporary file
-    if (tempFilePath && fs.existsSync(tempFilePath)) {
-      fs.unlinkSync(tempFilePath);
-    }
-
-    return templateData;
   } catch (error) {
     console.warn(
       `Warning: Could not generate JSDoc for ${filePath}: ${error.message}`,
     );
     return [];
+  } finally {
+    // Always remove the temp file, even if JSDoc processing throws — otherwise
+    // a stray <module>.temp.js leaks into the working tree (and trips lint).
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      fs.unlinkSync(tempFilePath);
+    }
   }
 }
 
