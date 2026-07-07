@@ -6,6 +6,7 @@ const {
 const { TestDirectory } = require('../helpers/testUtils');
 const fs = require('node:fs');
 const path = require('node:path');
+const { Writable } = require('node:stream');
 
 jest.mock('../../js/apiClient.cjs');
 jest.mock('progress');
@@ -353,6 +354,58 @@ describe('fileUtils', () => {
       expect(mockLogger.debug).toHaveBeenCalledWith(
         'Starting download for: https://example.com/file.txt',
       );
+    });
+
+    test('awaits drain when the writable applies backpressure', async () => {
+      const dir = await testDir.create(`download-backpressure-${Date.now()}`);
+      const outputPath = path.join(dir, 'file.bin');
+
+      const order = [];
+      // highWaterMark:1 forces write() to return false, so the fix must await
+      // 'drain' between chunks instead of buffering them all up front.
+      const slowWriter = new Writable({
+        highWaterMark: 1,
+        write(chunk, _enc, cb) {
+          order.push(`write:${chunk.toString()}`);
+          setTimeout(cb, 0);
+        },
+      });
+      jest.spyOn(fs, 'createWriteStream').mockReturnValue(slowWriter);
+
+      const chunks = ['a', 'b', 'c'];
+      const mockBody = {
+        async *[Symbol.asyncIterator]() {
+          for (const c of chunks) {
+            order.push(`pull:${c}`);
+            yield Buffer.from(c);
+          }
+        },
+      };
+      fetchWithRetry.mockResolvedValue({
+        body: mockBody,
+        headers: { get: () => '3' },
+      });
+
+      await downloadFile(
+        'https://example.com/file.bin',
+        outputPath,
+        true,
+        mockAgent,
+        mockRl,
+        mockLogger,
+        mockMetrics,
+      );
+
+      // Backpressure honored => pulls and writes strictly interleave 1:1.
+      expect(order).toEqual([
+        'pull:a',
+        'write:a',
+        'pull:b',
+        'write:b',
+        'pull:c',
+        'write:c',
+      ]);
+      expect(mockMetrics.totalBytesDownloaded).toBe(3);
     });
   });
 });

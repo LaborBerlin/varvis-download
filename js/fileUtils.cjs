@@ -1,4 +1,5 @@
 const fs = require('node:fs');
+const { once } = require('node:events');
 const { finished } = require('node:stream/promises');
 const ProgressBar = require('progress');
 const { fetchWithRetry } = require('./apiClient.cjs');
@@ -83,7 +84,14 @@ async function downloadFile(
 
     for await (const chunk of response.body) {
       totalBytes += chunk.length;
-      writer.write(chunk);
+      // Honor writable backpressure: when the internal buffer is full,
+      // write() returns false — wait for 'drain' before pulling the next chunk
+      // so memory stays bounded on large downloads with a slow sink.
+      // events.once() rejects on 'error', so a mid-download writer failure still
+      // propagates into the catch below.
+      if (!writer.write(chunk)) {
+        await once(writer, 'drain');
+      }
       progressBar.tick(chunk.length);
     }
     writer.end();
