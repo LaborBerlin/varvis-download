@@ -102,11 +102,12 @@ Master the file download capabilities of Varvis Download CLI, including file typ
 # Overwrites existing files
 ```
 
-**Smart overwrite checking**:
+**Skip behavior**:
 
-- Compares file sizes
-- Checks modification dates
-- Validates file integrity
+By default a file that already exists at the destination is skipped (counted
+under "Files Skipped" in the summary). Skipping is based purely on the file's
+presence at the destination path — the tool does not compare sizes, timestamps,
+or checksums. Pass `--overwrite` to re-download and replace it.
 
 ## Download Modes
 
@@ -150,15 +151,10 @@ Download complete files:
 ./varvis-download.cjs -t mytarget -a 12345
 ```
 
-**Progress display**:
+**Progress display** — files download one at a time, each with its own progress bar:
 
 ```
-Analysis 12345: Processing...
-├─ LIMS-001-ready.bam        ████████████████████ 100% (1.2 GB)
-├─ LIMS-001-ready.bam.bai    ████████████████████ 100% (4.5 MB)
-└─ LIMS-001-ready.vcf.gz     ████████████████████ 100% (125 MB)
-
-Download complete: 3 files, 1.33 GB in 2m 15s
+  downloading [=========           ] 5033164/bps 45% 4.2s
 ```
 
 ### URL Listing Mode
@@ -258,70 +254,43 @@ VCF ranged downloads use a robust `tabix -h | bgzip` pipeline that automatically
 
 **Requirements for VCF Range Downloads**:
 
-- `tabix` v1.7+ (for remote URL support with -h flag)
-- `bgzip` v1.7+ (for compression pipeline)
+- `tabix` v1.20+ (for remote URL support with -h flag)
+- `bgzip` v1.20+ (for compression pipeline)
 - Both VCF file and index file must be available
 
-## Performance Optimization
+## Performance & Parallelism
 
-### Concurrent Downloads
+### Downloads are sequential
 
-**Automatic parallelization**:
-
-- Up to 5 concurrent downloads
-- Intelligent queue management
-- Bandwidth optimization
-
-**Monitor concurrent downloads**:
+Within a single run, files are downloaded one at a time — the tool does not
+parallelize downloads itself. To download in parallel, run several invocations
+against different analyses, or use `--list-urls` and pipe the URLs to a parallel
+downloader:
 
 ```bash
-# Watch active downloads
-./varvis-download.cjs -t mytarget -a "12345,67890,11111" --loglevel info
+# Fan URLs out to aria2c (parallel segments)
+./varvis-download.cjs -t mytarget -a 12345 --list-urls | aria2c -i -
 
-# Example output
-[INFO] Starting download: sample_001.bam (1/6)
-[INFO] Starting download: sample_002.bam (2/6)
-[INFO] Starting download: sample_003.bam (3/6)
-[INFO] Completed: sample_001.bam (1.2 GB in 45s)
-[INFO] Starting download: sample_001.bam.bai (4/6)
+# Or to GNU parallel + wget
+./varvis-download.cjs -t mytarget -a 12345 --list-urls | parallel -j4 wget
 ```
 
-### Resume Capability
+### Re-running an interrupted download
 
-**Automatic resume**:
+There is **no** byte-range resume of a partially downloaded file: if a download
+is interrupted, the incomplete file is removed. Re-running the same command
+downloads it again, skipping any files that already completed (unless
+`--overwrite` is set).
 
-- Interrupted downloads automatically resume
-- Partial file validation
-- Checksum verification
+Archived files awaiting restoration are a separate case — they can be resumed
+once their restoration window passes; see
+[Archive Management](/guide/archive-management) and `--resumeArchivedDownloads`.
 
-**Manual resume testing**:
+### Network behavior
 
-```bash
-# Start download
-./varvis-download.cjs -t mytarget -a 12345
-
-# Interrupt with Ctrl+C, then restart
-./varvis-download.cjs -t mytarget -a 12345
-# Resumes from where it left off
-```
-
-### Bandwidth Management
-
-**Network optimization**:
-
-- Adaptive chunk sizing
-- Connection pooling
-- Retry with exponential backoff
-
-**Monitor network usage**:
-
-```bash
-# Real-time network monitoring during download
-iftop -i eth0
-
-# Bandwidth usage summary
-./varvis-download.cjs -t mytarget -a 12345 --loglevel info | grep "MB/s"
-```
+- Persistent (keep-alive) connections via a pooled undici HTTP agent
+- Automatic retry with exponential backoff on transient failures (network
+  errors, HTTP 5xx, and 429); permanent 4xx responses fail fast
 
 ## Error Handling
 
@@ -341,13 +310,13 @@ Error: Insufficient disk space
 Required: 2.1 GB, Available: 1.8 GB
 ```
 
-**File corruption**:
+**Interrupted or failed download**:
 
 ```
-Error: Checksum mismatch for sample_001.bam
-Expected: abc123, Got: def456
-Retrying download...
+Error: Download response for … did not include a body
 ```
+
+The partial output file is removed and the error is reported; re-run the command to try again.
 
 ### Recovery Strategies
 
@@ -519,30 +488,25 @@ top -p $(pgrep -f varvis-download)
 iostat -x 1
 ```
 
-**Performance report**:
+**Summary report**:
+
+`--reportfile` writes the end-of-run summary (also printed to the log) as
+**plain text** — not JSON:
 
 ```bash
-# Generate performance report
-./varvis-download.cjs -t mytarget -a 12345 --reportfile performance.json
-
-# View metrics
-cat performance.json | jq '.metrics'
+./varvis-download.cjs -t mytarget -a 12345 --reportfile download-report.txt
+cat download-report.txt
 ```
 
-**Example metrics output**:
-
-```json
-{
-  "metrics": {
-    "totalFiles": 4,
-    "totalSize": "1.33 GB",
-    "downloadTime": "2m 15s",
-    "averageSpeed": "10.1 MB/s",
-    "concurrentDownloads": 3,
-    "retryCount": 1,
-    "successRate": 100
-  }
-}
+```
+    Download Summary Report:
+    ------------------------
+    Total Files Processed: 4
+    Files Downloaded: 3
+    Files Skipped (already exist): 1
+    Total Bytes Downloaded: 1428160512
+    Average Download Speed: 10592342.55 bytes/sec
+    Total Time Taken: 135.20 seconds
 ```
 
 ### Optimization Tips
@@ -550,11 +514,8 @@ cat performance.json | jq '.metrics'
 **Network optimization**:
 
 ```bash
-# Use local network when possible
+# Prefer a nearby/faster target instance when one is available
 ./varvis-download.cjs -t mytarget-local -a 12345
-
-# Optimize for slow connections
-export VARVIS_CHUNK_SIZE=32768  # 32KB chunks
 ```
 
 **Storage optimization**:
