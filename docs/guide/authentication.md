@@ -7,9 +7,10 @@ Learn how to securely authenticate with Varvis API instances using various metho
 Varvis Download CLI supports multiple authentication methods to suit different use cases:
 
 1. **Environment Variables** (Recommended)
-2. **Interactive Password Prompts**
-3. **Configuration Files**
-4. **Command Line Arguments** (Least secure)
+2. **`--password-stdin`** (recommended for automation)
+3. **Interactive Password Prompts**
+4. **Configuration Files**
+5. **Command Line Arguments** (Least secure)
 
 ## Environment Variables (Recommended)
 
@@ -28,19 +29,15 @@ Then run commands without credential arguments:
 ./varvis-download.cjs -t mytarget -a 12345
 ```
 
-### Alternative Variable Names
+The tool reads exactly three environment variables — `VARVIS_USER`, `VARVIS_PASSWORD`, and `VARVIS_TARGET`. No other names are recognized.
 
-The tool also recognizes these alternative environment variable names:
+### Credential Precedence
 
-```bash
-# Alternative naming convention
-export VARVIS_API_USER="your_username"
-export VARVIS_API_PASSWORD="your_password"
+For each credential, the first source that provides a value wins:
 
-# Legacy support
-export VARVIS_USERNAME="your_username"
-export VARVIS_API_KEY="your_password"
-```
+**CLI flag → environment variable → configuration file.**
+
+An explicit `--username` / `--password` / `--target` therefore overrides the environment, which in turn overrides the config file. (Before v0.32.0 the environment overrode explicit flags; the order above is the current behavior.)
 
 ### Session Management
 
@@ -83,13 +80,33 @@ When no password is provided, the tool prompts securely with hidden input:
 
 ### Automation Considerations
 
-Interactive prompts are not suitable for:
+Interactive prompts require a terminal, so they cannot run in:
 
 - CI/CD pipelines
 - Automated scripts
 - Background processes
 
-Use environment variables or configuration files for automation.
+On a non-interactive (non-TTY) run the password **must** come from either
+`VARVIS_PASSWORD` or `--password-stdin`; otherwise the tool exits with an
+error instead of hanging on a prompt.
+
+## `--password-stdin`
+
+`--password-stdin` reads the password from the first line of standard input —
+the recommended channel for automation, mirroring `docker login --password-stdin`.
+It keeps the secret out of the process list and shell history:
+
+```bash
+# From a secrets manager or file (note the trailing newline is stripped)
+printf '%s' "$VARVIS_SECRET" | ./varvis-download.cjs \
+  -t mytarget -u your_username --password-stdin -a 12345
+
+# From a protected file
+./varvis-download.cjs -t mytarget -u your_username --password-stdin -a 12345 < ~/.varvis-pass
+```
+
+If both `--password-stdin` and `--password`/`VARVIS_PASSWORD` are supplied,
+`--password-stdin` wins and a warning is logged.
 
 ## Configuration Files
 
@@ -220,20 +237,19 @@ Session tokens are:
 
 ### Different Targets
 
-Authenticate with multiple Varvis instances:
+To work with several Varvis instances, keep each instance's credentials in your
+own shell variables and pass them explicitly with `-u`/`-p`. (These are ordinary
+shell variables you choose — only `VARVIS_USER`/`VARVIS_PASSWORD`/`VARVIS_TARGET`
+are read automatically by the tool.)
 
 ```bash
-# Primary target
-export VARVIS_T1_USER="t1_username"
-export VARVIS_T1_PASSWORD="t1_password"
+# Your own variables, one set per instance
+export T1_USER="t1_username"; export T1_PASS="t1_password"
+export T2_USER="t2_username"; export T2_PASS="t2_password"
 
-# Secondary target
-export VARVIS_T2_USER="t2_username"
-export VARVIS_T2_PASSWORD="t2_password"
-
-# Use with different targets
-./varvis-download.cjs -t mytarget -u "$VARVIS_T1_USER" -p "$VARVIS_T1_PASSWORD" -a 12345
-./varvis-download.cjs -t othertarget -u "$VARVIS_T2_USER" -p "$VARVIS_T2_PASSWORD" -a 67890
+# Pass them explicitly per target
+./varvis-download.cjs -t mytarget -u "$T1_USER" -p "$T1_PASS" -a 12345
+./varvis-download.cjs -t othertarget -u "$T2_USER" -p "$T2_PASS" -a 67890
 ```
 
 ### Configuration per Target
