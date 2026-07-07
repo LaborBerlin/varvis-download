@@ -19,7 +19,7 @@ hero:
 features:
   - icon: 🚀
     title: Fast & Reliable
-    details: High-performance downloads with retry logic, resume capability, and comprehensive error handling for workflow automation.
+    details: Reliable downloads with automatic retries, resumable archive restoration, and comprehensive error handling for workflow automation.
 
   - icon: 🔒
     title: Secure Authentication
