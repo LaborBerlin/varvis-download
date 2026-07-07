@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-07-07
+
+### Fixed
+
+- **`fetchWithRetry` no longer retries permanent 4xx responses** (#125). Retries are now limited to transient failures (network errors, HTTP 5xx, and 429); a 400/401/403/404 fails fast instead of sleeping through three pointless attempts. The backoff is now genuinely exponential (`2 ** (n - 1) × 1 s`), matching its description.
+- **Ranged VCF downloads run `tabix` via an argument array instead of `sh -c`** (#124). The URL and genomic range are passed as distinct `spawn` arguments (matching the BAM path), so shell metacharacters can no longer break the command or be interpreted by a shell.
+- **`downloadFile` honors writable backpressure** (#123). Large full downloads await the write stream's `drain` event instead of buffering the entire response in memory, keeping memory bounded when the disk/network sink is slower than the source (e.g. multi-GB BAMs to NFS).
+- **Authenticated proxy support sends a valid `Proxy-Authorization` header** (#122). Credentials are base64-encoded and passed via undici's `token` option; previously the raw `user:pass` produced a malformed `Basic user:pass` header that authenticating proxies rejected.
+- **Concurrent ranged downloads no longer collide on a shared temp BED file** (#121). `parseRegions` writes to a unique per-invocation path (`varvis-regions-<pid>-<rand>.bed`) instead of a fixed `regions.bed` (which previously let one run silently overwrite another's regions), and the temporary file is now removed on every exit path — success, early return, or error.
+
 ## [0.32.1] - 2026-07-07
 
 ### Security
