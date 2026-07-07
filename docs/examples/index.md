@@ -41,32 +41,15 @@ Essential commands and common operations including:
 - Authentication methods
 - Error handling
 
-### Advanced Filtering (Coming Soon)
+### More in the Guide
 
-Complex search and filtering patterns:
+These topics are covered in depth in the guide:
 
-- Filter expressions
-- Sample ID filtering
-- LIMS ID filtering
-- Combined search methods
+- **[Filtering & Search](/guide/filtering)** — filter expressions, sample/LIMS IDs, combined methods, `--latest`
+- **[Range Downloads](/guide/range-downloads)** — coordinate ranges, multiple regions, BED files, `--unmapped`
+- **[Batch Operations](/guide/batch-operations)** — batch scripts, GNU `parallel`, CI/CD, monitoring
 
-### Genomic Ranges (Coming Soon)
-
-Targeted genomic region downloads:
-
-- Single coordinate ranges
-- Multiple region downloads
-- BED file integration
-- Tool chain integration
-
-### Automation Scripts (Coming Soon)
-
-Production-ready automation examples:
-
-- CI/CD integration
-- Batch processing scripts
-- Monitoring and reporting
-- error recovery workflows
+The real-world, CI/CD, and automation examples below complement those pages.
 
 ## Real-World Scenarios
 
@@ -170,34 +153,30 @@ jobs:
 ```python
 #!/usr/bin/env python3
 import subprocess
-import json
-import os
 
 def download_varvis_data(analysis_ids, target="mytarget"):
-    """Download data using Varvis CLI from Python"""
+    """Download data using the Varvis CLI from Python."""
 
     cmd = [
         "./varvis-download.cjs",
         "-t", target,
         "-a", ",".join(analysis_ids),
-        "--reportfile", "download_report.json"
+        "--reportfile", "download_report.txt",
     ]
 
     result = subprocess.run(cmd, capture_output=True, text=True)
 
-    if result.returncode == 0:
-        # Read download report
-        with open("download_report.json") as f:
-            report = json.load(f)
-        return report
-    else:
+    if result.returncode != 0:
         raise Exception(f"Download failed: {result.stderr}")
+
+    # The report is a plain-text summary (not JSON); return it verbatim.
+    with open("download_report.txt") as f:
+        return f.read()
 
 # Usage
 if __name__ == "__main__":
     analyses = ["12345", "67890", "11111"]
-    report = download_varvis_data(analyses)
-    print(f"Downloaded {len(report['files'])} files")
+    print(download_varvis_data(analyses))
 ```
 
 ## Testing Examples

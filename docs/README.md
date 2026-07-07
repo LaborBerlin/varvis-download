@@ -7,22 +7,22 @@ This directory contains the complete documentation for the Varvis Download CLI t
 ```
 docs/
 ├── .vitepress/           # VitePress configuration
-│   ├── config.mjs        # Site configuration
-│   └── theme/            # Custom theme files
+│   └── config.mjs        # Site configuration
+├── public/               # Static assets (hero image, nav logo)
 ├── api/                  # API reference documentation
 │   ├── index.md          # API overview
-│   ├── cli.md            # CLI commands reference
+│   ├── cli.md            # CLI reference (hand-maintained)
 │   ├── config.md         # Configuration schema
-│   └── *.md              # Auto-generated API docs
+│   ├── config-schema.md  # Configuration schema (generated baseline)
+│   └── *.md              # JSDoc-generated module docs
 ├── guide/                # User guides
 │   ├── getting-started.md
 │   ├── installation.md
 │   ├── authentication.md
 │   └── *.md
 ├── examples/             # Usage examples
-│   ├── basic.md
-│   ├── filtering.md
-│   └── *.md
+│   ├── index.md
+│   └── basic.md
 └── index.md              # Homepage
 ```
 

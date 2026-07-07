@@ -538,4 +538,4 @@ tabix original.vcf.gz "chr1:1000000-2000000" | head
 
 - **[Archive Management](/guide/archive-management)** - Handle archived files
 - **[Batch Operations](/guide/batch-operations)** - Large-scale processing
-- **[Examples](/examples/ranges)** - Real-world range download scenarios
+- **[Examples](/examples/)** - Real-world download scenarios

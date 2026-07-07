@@ -381,9 +381,9 @@ Extract specific regions from BAM files:
 
 ## Next Steps
 
-- **[Advanced Filtering](/examples/filtering)** - Complex search expressions
-- **[Genomic Ranges](/examples/ranges)** - Targeted downloads
-- **[Automation Scripts](/examples/automation)** - CI/CD integration
+- **[Filtering & Search](/guide/filtering)** - Complex search expressions
+- **[Range Downloads](/guide/range-downloads)** - Targeted genomic downloads
+- **[Batch Operations](/guide/batch-operations)** - Automation and CI/CD
 
 ## Common Patterns
 
