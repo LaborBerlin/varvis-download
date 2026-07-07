@@ -354,13 +354,9 @@ df -h .
 
 ## File Validation
 
-### Automatic Validation
-
-**Download verification**:
-
-- File size validation
-- Checksum verification (when available)
-- Format validation for genomic files
+The tool does not verify downloaded files (no size, checksum, or format
+validation is performed). Validate genomic files yourself with the standard
+tools after downloading.
 
 **Post-download validation**:
 
