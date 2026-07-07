@@ -40,6 +40,15 @@ Prompts for each archived file:
 # Prompts: "File sample_001.bam is archived. Restore? [y/N]"
 ```
 
+::: warning Non-interactive runs
+`ask` needs a terminal. On a non-TTY (CI, cron, a pipe), the default `ask` is
+automatically downgraded to `no` — archived files are skipped and a warning
+explains how to restore them (`--restoreArchived force`), while non-archived
+files still download. An **explicit** `--restoreArchived ask` or `all` on a
+non-TTY fails fast instead, since it asks for interactivity the environment
+cannot provide.
+:::
+
 ### All Mode
 
 Prompts once for all archived files, then applies decision to all:
@@ -340,27 +349,25 @@ python3 << 'EOF'
 import json
 import datetime
 
+# The tracking file is a top-level array of entries:
+#   {analysisId, fileName, restoreEstimation, options}
 with open('awaiting-restoration.json', 'r') as f:
-    data = json.load(f)
+    entries = json.load(f)
 
-# Filter out old completed/failed restorations
-cutoff = datetime.datetime.now() - datetime.timedelta(days=7)
-filtered_restorations = []
+now = datetime.datetime.now(datetime.timezone.utc)
+cutoff = now - datetime.timedelta(days=7)
+kept = []
 
-for restoration in data['restorations']:
-    request_time = datetime.datetime.fromisoformat(restoration['requestTime'].replace('Z', '+00:00'))
-
-    # Keep pending restorations and recent completed/failed ones
-    if restoration['status'] == 'pending' or request_time > cutoff:
-        filtered_restorations.append(restoration)
-
-data['restorations'] = filtered_restorations
-data['lastUpdated'] = datetime.datetime.now().isoformat() + 'Z'
+for e in entries:
+    est = datetime.datetime.fromisoformat(e['restoreEstimation'].replace('Z', '+00:00'))
+    # Keep entries still pending (not yet ready), or that became ready recently
+    if est > now or est > cutoff:
+        kept.append(e)
 
 with open('awaiting-restoration.json', 'w') as f:
-    json.dump(data, f, indent=2)
+    json.dump(kept, f, indent=2)
 
-print(f"Cleaned up restoration file. Kept {len(filtered_restorations)} restorations.")
+print(f"Cleaned up restoration file. Kept {len(kept)} entries.")
 EOF
 ```
 
@@ -378,23 +385,26 @@ RESTORATION_FILE="awaiting-restoration.json"
 if [[ -f "$RESTORATION_FILE" ]]; then
   python3 << EOF
 import json
+import datetime
 from collections import Counter
 
 with open('$RESTORATION_FILE', 'r') as f:
-    data = json.load(f)
+    entries = json.load(f)
 
-restorations = data['restorations']
-statuses = [r['status'] for r in restorations]
-targets = [r['target'] for r in restorations]
+now = datetime.datetime.now(datetime.timezone.utc)
 
-print(f"Total restorations: {len(restorations)}")
-print("\nBy Status:")
-for status, count in Counter(statuses).items():
-    print(f"  {status}: {count}")
+def state(e):
+    est = datetime.datetime.fromisoformat(e['restoreEstimation'].replace('Z', '+00:00'))
+    return 'ready' if est <= now else 'pending'
 
-print("\nBy Target:")
-for target, count in Counter(targets).items():
-    print(f"  {target}: {count}")
+print(f"Total entries: {len(entries)}")
+print("\nBy state (derived from restoreEstimation):")
+for s, count in Counter(state(e) for e in entries).items():
+    print(f"  {s}: {count}")
+
+print("\nBy analysis:")
+for analysis_id, count in Counter(e['analysisId'] for e in entries).items():
+    print(f"  {analysis_id}: {count}")
 EOF
 else
   echo "No restoration file found."
@@ -432,7 +442,7 @@ ping api.varvis.com
 
 # Or start fresh (backup first)
 cp awaiting-restoration.json backup.json
-echo '{"restorations": [], "lastUpdated": ""}' > awaiting-restoration.json
+echo '[]' > awaiting-restoration.json
 ```
 
 ### Debug Archive Issues
@@ -520,28 +530,30 @@ def update_restoration_db():
         CREATE TABLE IF NOT EXISTS restorations (
             analysis_id TEXT,
             file_name TEXT,
-            request_time TEXT,
-            status TEXT,
-            target TEXT,
+            restore_estimation TEXT,
+            state TEXT,
             PRIMARY KEY (analysis_id, file_name)
         )
     ''')
 
-    # Read restoration file
+    # The tracking file is a top-level array of entries
     with open('awaiting-restoration.json', 'r') as f:
-        data = json.load(f)
+        entries = json.load(f)
+
+    now = datetime.datetime.now(datetime.timezone.utc)
 
     # Update database
-    for restoration in data['restorations']:
+    for e in entries:
+        est = datetime.datetime.fromisoformat(e['restoreEstimation'].replace('Z', '+00:00'))
+        state = 'ready' if est <= now else 'pending'
         cursor.execute('''
             INSERT OR REPLACE INTO restorations
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?)
         ''', (
-            restoration['analysisId'],
-            restoration['fileName'],
-            restoration['requestTime'],
-            restoration['status'],
-            restoration['target']
+            e['analysisId'],
+            e['fileName'],
+            e['restoreEstimation'],
+            state
         ))
 
     conn.commit()
@@ -557,9 +569,11 @@ if __name__ == "__main__":
 #!/bin/bash
 # monitoring-integration.sh
 
-# Send metrics to monitoring system
-PENDING_COUNT=$(jq '.restorations | map(select(.status == "pending")) | length' awaiting-restoration.json)
-AVAILABLE_COUNT=$(jq '.restorations | map(select(.status == "available")) | length' awaiting-restoration.json)
+# Send metrics to monitoring system. The file is a top-level array; an entry is
+# "ready" once its restoreEstimation (ISO-8601 UTC) is in the past.
+NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+PENDING_COUNT=$(jq --arg now "$NOW" '[.[] | select(.restoreEstimation > $now)] | length' awaiting-restoration.json)
+AVAILABLE_COUNT=$(jq --arg now "$NOW" '[.[] | select(.restoreEstimation <= $now)] | length' awaiting-restoration.json)
 
 # Example: Send to Prometheus pushgateway
 curl -X POST http://pushgateway:9091/metrics/job/varvis-archives \
