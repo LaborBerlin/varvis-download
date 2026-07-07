@@ -8,7 +8,7 @@ Logging and reporting features include:
 
 - Multiple log levels for different verbosity
 - File-based and console logging
-- Structured JSON reports
+- A plain-text end-of-run summary report
 - Download statistics and metrics
 - Error tracking and debugging
 - Audit trail generation
@@ -30,11 +30,7 @@ Logging and reporting features include:
 # Command line
 ./varvis-download.cjs -t mytarget -a 12345 --loglevel debug
 
-# Environment variable
-export VARVIS_LOG_LEVEL="debug"
-./varvis-download.cjs -t mytarget -a 12345
-
-# Configuration file
+# Configuration file (.config.json)
 {
   "loglevel": "debug",
   "target": "mytarget"
@@ -93,7 +89,7 @@ Log files contain structured information:
 [2024-06-23 10:30:15] INFO: [AUTH] Authentication successful for user: api_user
 [2024-06-23 10:30:15] INFO: [API] Fetching analysis data for ID: 12345
 [2024-06-23 10:30:16] INFO: [DOWNLOAD] Starting download: sample_001.bam (1.2 GB)
-[2024-06-23 10:30:16] DEBUG: [HTTP] Request headers: {User-Agent: varvis-download/0.17.1}
+[2024-06-23 10:30:16] DEBUG: [HTTP] Request headers: {User-Agent: varvis-download/0.33.0}
 [2024-06-23 10:30:16] DEBUG: [HTTP] Response headers: {Content-Length: 1234567890}
 [2024-06-23 10:30:45] INFO: [DOWNLOAD] Completed: sample_001.bam (29 seconds)
 [2024-06-23 10:30:45] INFO: [SUMMARY] Downloaded 4 files, 2.1 GB total
@@ -147,111 +143,37 @@ rotate_logs "$LOG_DIR/varvis-download.log"
 
 ## Download Reports
 
-### JSON Reports
-
-Generate structured JSON reports:
-
-```bash
-./varvis-download.cjs -t mytarget -a 12345 \
-  --reportfile "report_12345.json"
-```
-
-### Report Structure
-
-```json
-{
-  "timestamp": "2024-06-23T10:30:15.000Z",
-  "version": "0.17.1",
-  "target": "mytarget",
-  "analysisIds": ["12345"],
-  "configuration": {
-    "destination": "./downloads",
-    "filetypes": ["bam", "bam.bai"],
-    "overwrite": false
-  },
-  "summary": {
-    "totalFiles": 4,
-    "successfulDownloads": 4,
-    "failedDownloads": 0,
-    "totalSize": 2147483648,
-    "duration": 45.2,
-    "averageSpeed": "47.5 MB/s"
-  },
-  "files": [
-    {
-      "analysisId": "12345",
-      "fileName": "sample_001.bam",
-      "fileType": "bam",
-      "size": 1234567890,
-      "status": "completed",
-      "downloadTime": 29.1,
-      "downloadSpeed": "42.4 MB/s",
-      "checksum": "sha256:abc123...",
-      "url": "https://api.varvis.com/files/...",
-      "localPath": "./downloads/sample_001.bam"
-    }
-  ],
-  "errors": [],
-  "archives": {
-    "requested": 0,
-    "restored": 0,
-    "pending": 0
-  }
-}
-```
-
-### Report Analysis
+`--reportfile` writes the end-of-run summary as **plain text** (the same text is
+printed to the log at the end of the run). It is not JSON and has no per-file
+breakdown or checksums:
 
 ```bash
-#!/bin/bash
-# analyze-report.sh - Analyze download reports
+./varvis-download.cjs -t mytarget -a 12345 --reportfile "report_12345.txt"
+```
 
-analyze_report() {
-  local report_file="$1"
+### Report contents
 
-  if [[ ! -f "$report_file" ]]; then
-    echo "Report file not found: $report_file"
-    return 1
-  fi
+```
+    Download Summary Report:
+    ------------------------
+    Total Files Processed: 4
+    Files Downloaded: 3
+    Files Skipped (already exist): 1
+    Total Bytes Downloaded: 1428160512
+    Average Download Speed: 10592342.55 bytes/sec
+    Total Time Taken: 135.20 seconds
+```
 
-  echo "Download Report Analysis"
-  echo "======================="
+### Reading the report
 
-  # Basic statistics
-  python3 << EOF
-import json
+Because the report is plain text, `grep`/`awk` extract any field:
 
-with open('$report_file') as f:
-    report = json.load(f)
+```bash
+# Pull out the counts and the byte total
+grep -E 'Files Downloaded|Files Skipped|Total Bytes Downloaded' report_12345.txt
 
-summary = report['summary']
-print(f"Total files: {summary['totalFiles']}")
-print(f"Successful: {summary['successfulDownloads']}")
-print(f"Failed: {summary['failedDownloads']}")
-print(f"Total size: {summary['totalSize'] / (1024**3):.2f} GB")
-print(f"Duration: {summary['duration']:.1f} seconds")
-print(f"Average speed: {summary['averageSpeed']}")
-
-# File type breakdown
-file_types = {}
-for file_info in report['files']:
-    file_type = file_info['fileType']
-    file_types[file_type] = file_types.get(file_type, 0) + 1
-
-print("\nFile Types:")
-for file_type, count in file_types.items():
-    print(f"  {file_type}: {count}")
-
-# Errors
-if report['errors']:
-    print(f"\nErrors ({len(report['errors'])}):")
-    for error in report['errors']:
-        print(f"  - {error['message']}")
-EOF
-}
-
-# Usage
-analyze_report "$1"
+# Total bytes as a bare number
+awk -F': ' '/Total Bytes Downloaded/ {print $2}' report_12345.txt
 ```
 
 ## Advanced Logging
@@ -284,52 +206,12 @@ format_logs() {
 format_logs "raw_download.log"
 ```
 
-### Structured Logging
+### Log format
 
-```bash
-#!/bin/bash
-# structured-logging.sh - Enhanced structured logging
-
-# Environment setup for structured logging
-export VARVIS_LOG_FORMAT="json"
-export VARVIS_LOG_LEVEL="info"
-
-# Create logging configuration
-cat > logging.json << EOF
-{
-  "version": 1,
-  "formatters": {
-    "detailed": {
-      "format": "{timestamp} [{level}] {component}: {message}",
-      "datefmt": "%Y-%m-%d %H:%M:%S"
-    }
-  },
-  "handlers": {
-    "file": {
-      "class": "FileHandler",
-      "filename": "structured.log",
-      "formatter": "detailed"
-    },
-    "console": {
-      "class": "StreamHandler",
-      "formatter": "detailed"
-    }
-  },
-  "loggers": {
-    "varvis": {
-      "level": "INFO",
-      "handlers": ["file", "console"]
-    }
-  }
-}
-EOF
-
-# Run with structured logging
-./varvis-download.cjs \
-  -t mytarget \
-  -a 12345 \
-  --logfile "structured.log"
-```
+Logs use a fixed, timestamped text format (`[timestamp] LEVEL: message`) via
+Winston — there is no JSON log mode and no external logging-config file. Control
+verbosity with `--loglevel` and the destination with `--logfile`, then
+post-process the text with standard tools if you need another format.
 
 ## Monitoring and Alerting
 
@@ -532,51 +414,29 @@ collect_metrics() {
   local report_file="$1"
   local metrics_file="metrics.csv"
 
-  # Extract metrics from report
-  python3 << EOF
-import json
-import csv
-from datetime import datetime
+  # The report is plain text; parse it with awk
+  [ -f "$metrics_file" ] ||
+    echo "downloaded,skipped,total_bytes,avg_bytes_per_sec,seconds" > "$metrics_file"
 
-with open('$report_file') as f:
-    report = json.load(f)
+  awk -F': ' '
+    /Files Downloaded/       {d=$2}
+    /Files Skipped/          {s=$2}
+    /Total Bytes Downloaded/ {b=$2}
+    /Average Download Speed/ {split($2, a, " "); spd=a[1]}
+    /Total Time Taken/       {split($2, t, " "); sec=t[1]}
+    END {print d "," s "," b "," spd "," sec}
+  ' "$report_file" >> "$metrics_file"
 
-# Prepare metrics
-metrics = {
-    'timestamp': report['timestamp'],
-    'total_files': report['summary']['totalFiles'],
-    'total_size_gb': report['summary']['totalSize'] / (1024**3),
-    'duration_seconds': report['summary']['duration'],
-    'average_speed_mbps': report['summary']['averageSpeed'].replace(' MB/s', ''),
-    'success_rate': report['summary']['successfulDownloads'] / report['summary']['totalFiles'],
-    'target': report['target']
-}
-
-# Write to CSV
-file_exists = False
-try:
-    with open('$metrics_file', 'r'):
-        file_exists = True
-except FileNotFoundError:
-    pass
-
-with open('$metrics_file', 'a', newline='') as f:
-    writer = csv.DictWriter(f, fieldnames=metrics.keys())
-    if not file_exists:
-        writer.writeheader()
-    writer.writerow(metrics)
-
-print(f"Metrics appended to $metrics_file")
-EOF
+  echo "Metrics appended to $metrics_file"
 }
 
 # Run download and collect metrics
 ./varvis-download.cjs \
   -t mytarget \
   -a 12345 \
-  --reportfile "performance_report.json"
+  --reportfile "performance_report.txt"
 
-collect_metrics "performance_report.json"
+collect_metrics "performance_report.txt"
 ```
 
 ### System Resource Monitoring
