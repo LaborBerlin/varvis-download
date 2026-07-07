@@ -25,6 +25,7 @@ jest.mock('../../../js/io/urlListing.cjs', () => ({
   handleUrlListing: jest.fn(),
 }));
 
+const fs = require('node:fs');
 const { runDownloadCommand } = require('../../../js/commands/download.cjs');
 const {
   fetchAnalysisIds,
@@ -223,5 +224,31 @@ describe('commands/download dispatch wiring', () => {
       mockLogger,
       true,
     );
+  });
+});
+
+describe('commands/download temp BED cleanup', () => {
+  test('removes the temp BED file even when the download throws', async () => {
+    checkToolAvailability.mockResolvedValue(true);
+    getDownloadLinks.mockRejectedValueOnce(new Error('boom'));
+    const existsSpy = jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+    const unlinkSpy = jest.spyOn(fs, 'unlinkSync').mockImplementation(() => {});
+    const tempBedPath = '/tmp/varvis-regions-test.bed';
+
+    await expect(
+      runDownloadCommand(
+        {
+          finalConfig: makeConfig({ range: 'chr1:1-2' }),
+          regions: ['chr1:1-2'],
+          tempBedPath,
+        },
+        deps,
+      ),
+    ).rejects.toThrow('boom');
+
+    expect(unlinkSpy).toHaveBeenCalledWith(tempBedPath);
+
+    existsSpy.mockRestore();
+    unlinkSpy.mockRestore();
   });
 });

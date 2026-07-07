@@ -206,12 +206,9 @@ async function main() {
         { bed: finalConfig.bed, range: finalConfig.range },
         activeLogger,
       );
+      // runDownloadCommand owns the temp BED lifecycle and removes it in its
+      // own finally (on success, early return, or throw) — no cleanup here.
       await runDownloadCommand({ finalConfig, regions, tempBedPath }, deps);
-
-      if (tempBedPath) {
-        fs.unlinkSync(tempBedPath);
-        activeLogger.info(`Deleted temporary BED file: ${tempBedPath}`);
-      }
     } finally {
       rl.close();
     }

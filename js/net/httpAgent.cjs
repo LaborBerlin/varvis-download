@@ -25,7 +25,13 @@ function createHttpAgent({ proxy, proxyUsername, proxyPassword }) {
   /** @type {import('undici').ProxyAgent.Options} */
   const agentOptions = { uri: proxy };
   if (proxyUsername && proxyPassword) {
-    agentOptions.auth = `${proxyUsername}:${proxyPassword}`;
+    // undici writes opts.token verbatim into the Proxy-Authorization header, so
+    // it must be a complete, base64-encoded Basic credential. (opts.auth is
+    // deprecated and expects an already-encoded value; token is the modern API.)
+    const encoded = Buffer.from(`${proxyUsername}:${proxyPassword}`).toString(
+      'base64',
+    );
+    agentOptions.token = `Basic ${encoded}`;
   }
 
   return new ProxyAgent(agentOptions).compose(cookie({ jar }));
