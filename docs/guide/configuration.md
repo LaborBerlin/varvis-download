@@ -11,6 +11,12 @@ The tool supports multiple configuration methods with the following priority ord
 3. **Configuration file**
 4. **Default values** (lowest priority)
 
+Since v0.32.0 the config file is fully honored: values for `overwrite`,
+`filetypes`, `filter`, `latest`, and `unmapped` take effect unless overridden
+by an explicit CLI flag (previously these were masked by CLI defaults). When
+`overwrite: true` comes from the config file, a warning is logged because it can
+replace existing files.
+
 ## Configuration File
 
 ### Basic Configuration
@@ -57,48 +63,27 @@ Use a custom configuration file location:
 
 ## Environment Variables
 
-### Authentication Variables
+The tool reads exactly three environment variables. Everything else
+(destination, logging, proxy, filetypes, …) is set via CLI flags or the
+configuration file.
 
 ```bash
-# Primary credentials (recommended)
-export VARVIS_USER="your_username"
-export VARVIS_PASSWORD="your_password"
-
-# Alternative naming
-export VARVIS_API_USER="your_username"
-export VARVIS_API_PASSWORD="your_password"
-```
-
-### Operational Variables
-
-```bash
-# Default target
-export VARVIS_TARGET="mytarget"
-
-# Default destination
-export VARVIS_DESTINATION="./downloads"
-
-# Logging configuration
-export VARVIS_LOG_LEVEL="info"
-export VARVIS_LOG_FILE="./logs/varvis.log"
-
-# Proxy configuration
-export VARVIS_PROXY="http://proxy.company.com:8080"
-export VARVIS_PROXY_USER="proxy_username"
-export VARVIS_PROXY_PASS="proxy_password"
+export VARVIS_USER="your_username"      # credential: username
+export VARVIS_PASSWORD="your_password"  # credential: password
+export VARVIS_TARGET="mytarget"         # default target instance
 ```
 
 ### Environment File (.env)
 
-Create a `.env` file for local development:
+A `.env` file in the working directory is loaded automatically (via `dotenv`),
+which is handy for local development. Only the three variables above are read
+from it:
 
 ```bash
 # .env file
 VARVIS_USER=your_username
 VARVIS_PASSWORD=your_password
 VARVIS_TARGET=mytarget
-VARVIS_DESTINATION=./downloads
-VARVIS_LOG_LEVEL=debug
 ```
 
 ::: warning Security Note
@@ -109,30 +94,35 @@ Never commit `.env` files containing credentials to version control. Add `.env` 
 
 ### Complete Parameter Reference
 
-| Parameter                 | Type    | Default                     | Description               |
-| ------------------------- | ------- | --------------------------- | ------------------------- |
-| `username`                | string  | -                           | Varvis API username       |
-| `password`                | string  | -                           | Varvis API password       |
-| `target`                  | string  | -                           | API target instance       |
-| `analysisIds`             | array   | []                          | Analysis IDs to download  |
-| `sampleIds`               | array   | []                          | Sample IDs for filtering  |
-| `limsIds`                 | array   | []                          | LIMS IDs for filtering    |
-| `destination`             | string  | "."                         | Download directory        |
-| `filetypes`               | array   | ["bam","bam.bai"]           | File types to download    |
-| `overwrite`               | boolean | false                       | Overwrite existing files  |
-| `list`                    | boolean | false                       | List files only           |
-| `filters`                 | array   | []                          | Filter expressions        |
-| `range`                   | string  | -                           | Genomic range             |
-| `bed`                     | string  | -                           | BED file path             |
-| `restoreArchived`         | string  | "ask"                       | Archive restoration mode  |
-| `restorationFile`         | string  | "awaiting-restoration.json" | Restoration tracking      |
-| `resumeArchivedDownloads` | boolean | false                       | Resume archived downloads |
-| `loglevel`                | string  | "info"                      | Logging verbosity         |
-| `logfile`                 | string  | -                           | Log file path             |
-| `reportfile`              | string  | -                           | Report file path          |
-| `proxy`                   | string  | -                           | Proxy URL                 |
-| `proxyUsername`           | string  | -                           | Proxy username            |
-| `proxyPassword`           | string  | -                           | Proxy password            |
+| Parameter                 | Type    | Default                     | Description                |
+| ------------------------- | ------- | --------------------------- | -------------------------- |
+| `username`                | string  | -                           | Varvis API username        |
+| `password`                | string  | -                           | Varvis API password        |
+| `target`                  | string  | -                           | API target instance        |
+| `analysisIds`             | array   | []                          | Analysis IDs to download   |
+| `sampleIds`               | array   | []                          | Sample IDs for filtering   |
+| `limsIds`                 | array   | []                          | LIMS IDs for filtering     |
+| `destination`             | string  | "."                         | Download directory         |
+| `filetypes`               | array   | ["bam","bam.bai"]           | File types to download     |
+| `overwrite`               | boolean | false                       | Overwrite existing files   |
+| `list`                    | boolean | false                       | List files only            |
+| `listUrls`                | boolean | false                       | Print download URLs only   |
+| `urlFile`                 | string  | -                           | File to save URLs          |
+| `filters`                 | array   | []                          | Filter expressions         |
+| `latest`                  | boolean | false                       | Newest analysis per sample |
+| `range`                   | string  | -                           | Genomic range              |
+| `bed`                     | string  | -                           | BED file path              |
+| `unmapped`                | boolean | false                       | Extract unmapped reads     |
+| `passwordStdin`           | boolean | false                       | Read password from stdin   |
+| `restoreArchived`         | string  | "ask"                       | Archive restoration mode   |
+| `restorationFile`         | string  | "awaiting-restoration.json" | Restoration tracking       |
+| `resumeArchivedDownloads` | boolean | false                       | Resume archived downloads  |
+| `loglevel`                | string  | "info"                      | Logging verbosity          |
+| `logfile`                 | string  | -                           | Log file path              |
+| `reportfile`              | string  | -                           | Report file path           |
+| `proxy`                   | string  | -                           | Proxy URL                  |
+| `proxyUsername`           | string  | -                           | Proxy username             |
+| `proxyPassword`           | string  | -                           | Proxy password             |
 
 ### Data Types
 
@@ -248,8 +238,9 @@ For custom Varvis instances, contact your administrator for:
 # Create log directory
 mkdir -p ./logs
 
-# Use date-based log files
-export VARVIS_LOG_FILE="./logs/varvis-$(date +%Y%m%d).log"
+# Use a date-based log file via --logfile
+./varvis-download.cjs -t mytarget -a 12345 \
+  --logfile "./logs/varvis-$(date +%Y%m%d).log"
 ```
 
 ### Structured Logging
@@ -289,14 +280,6 @@ Example log entry:
 }
 ```
 
-### Environment-based Proxy
-
-```bash
-export VARVIS_PROXY="http://proxy.company.com:8080"
-export VARVIS_PROXY_USER="proxy_username"
-export VARVIS_PROXY_PASS="proxy_password"
-```
-
 ### HTTPS Proxy
 
 ```json
@@ -322,28 +305,6 @@ export VARVIS_PROXY_PASS="proxy_password"
 {
   "restoreArchived": "force",
   "restorationFile": "./archive-tracking/restoration-${DATE}.json"
-}
-```
-
-## Performance Configuration
-
-### Network Optimization
-
-```json
-{
-  "requestTimeout": 120000, // 2 minutes
-  "retryAttempts": 3,
-  "retryDelay": 1000, // 1 second
-  "maxConcurrentDownloads": 5
-}
-```
-
-### Memory Management
-
-```json
-{
-  "streamBufferSize": 65536, // 64KB
-  "progressUpdateInterval": 1000 // 1 second
 }
 ```
 
@@ -441,8 +402,7 @@ export VARVIS_PROXY_PASS="proxy_password"
 ### Performance
 
 - Set appropriate log levels for environment
-- Configure reasonable timeout values
-- Use specific file type filters
+- Use specific file type filters to avoid unnecessary transfers
 - Monitor disk space in destination directories
 
 ### Maintenance
