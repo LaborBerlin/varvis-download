@@ -369,7 +369,7 @@ Extract specific regions from BAM files:
 
 **For VCF files**:
 
-- Requires `tabix` v1.7+ and `bgzip` v1.7+
+- Requires `tabix` v1.20+ and `bgzip` v1.20+
 - Automatically downloads `.tbi` index files
 - Uses `tabix -h | bgzip` pipeline for proper VCF format
 

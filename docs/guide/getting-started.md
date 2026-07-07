@@ -63,6 +63,11 @@ export VARVIS_USER="your_username"
 export VARVIS_PASSWORD="your_password"
 ```
 
+For automation and other non-interactive runs (no terminal), supply the password
+via `VARVIS_PASSWORD` or `--password-stdin` — the tool cannot show a prompt there
+and will exit with an error otherwise. See
+[Authentication](/guide/authentication) for details.
+
 ### Your First Download
 
 Download BAM files for a specific analysis:
