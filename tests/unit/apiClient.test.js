@@ -191,6 +191,42 @@ describe('apiClient', () => {
 
         expect(undici.fetch).not.toHaveBeenCalled();
       });
+
+      test('fails fast on 404 without retrying', async () => {
+        undici.fetch.mockResolvedValue({ ok: false, status: 404 });
+
+        const client = new ApiClient(mockAgent, mockLogger);
+
+        await expect(
+          client.fetchWithRetry('https://api.example.com', {}, 3),
+        ).rejects.toThrow('Fetch failed with status: 404');
+
+        expect(undici.fetch).toHaveBeenCalledTimes(1);
+        expect(mockLogger.warn).not.toHaveBeenCalled();
+        expect(mockLogger.error).toHaveBeenCalledWith(
+          'Fetch failed after 1 attempt: Fetch failed with status: 404',
+        );
+      });
+
+      test('retries on 429 (rate limited) then succeeds', async () => {
+        jest.useFakeTimers();
+        const successResponse = { ok: true, status: 200 };
+        undici.fetch
+          .mockResolvedValueOnce({ ok: false, status: 429 })
+          .mockResolvedValueOnce(successResponse);
+
+        const client = new ApiClient(mockAgent, mockLogger);
+        const promise = client.fetchWithRetry('https://api.example.com', {}, 3);
+        await jest.advanceTimersByTimeAsync(1000);
+        const response = await promise;
+
+        expect(response).toBe(successResponse);
+        expect(undici.fetch).toHaveBeenCalledTimes(2);
+        expect(mockLogger.warn).toHaveBeenCalledWith(
+          'Fetch attempt 1 failed. Retrying...',
+        );
+        jest.useRealTimers();
+      });
     });
   });
 

@@ -12,6 +12,30 @@ const DEFAULT_HEADERS = {
 };
 
 /**
+ * Base delay (ms) for exponential backoff between fetch retries.
+ * @type {number}
+ */
+const BASE_DELAY_MS = 1000;
+
+/**
+ * Error for a non-2xx HTTP response, tagging the status code and whether the
+ * failure is transient (network/5xx/429) and therefore worth retrying.
+ */
+class HttpResponseError extends Error {
+  /**
+   * @param {number} status - HTTP status code of the failed response.
+   */
+  constructor(status) {
+    super(`Fetch failed with status: ${status}`);
+    this.name = 'HttpResponseError';
+    /** @type {number} */
+    this.status = status;
+    /** @type {boolean} */
+    this.retryable = status >= 500 || status === 429;
+  }
+}
+
+/**
  * API Client class for handling HTTP requests with retry logic and agent management.
  */
 class ApiClient {
@@ -40,16 +64,22 @@ class ApiClient {
           headers: { ...DEFAULT_HEADERS, ...options.headers },
           dispatcher: this.agent,
         });
-        if (!response.ok)
-          throw new Error(`Fetch failed with status: ${response.status}`);
+        if (!response.ok) throw new HttpResponseError(response.status);
         return response;
       } catch (error) {
-        if (attempt < retries) {
+        // Network errors (plain Error) are transient; only HttpResponseError
+        // for a permanent 4xx (retryable === false) short-circuits the retries.
+        const isRetryable =
+          !(error instanceof HttpResponseError) || error.retryable;
+        if (isRetryable && attempt < retries) {
           this.logger.warn(`Fetch attempt ${attempt} failed. Retrying...`);
-          await new Promise((res) => setTimeout(res, attempt * 1000)); // Exponential backoff
+          // True exponential backoff: 1s, 2s, 4s, ...
+          await new Promise((res) =>
+            setTimeout(res, 2 ** (attempt - 1) * BASE_DELAY_MS),
+          );
         } else {
           this.logger.error(
-            `Fetch failed after ${retries} attempts: ${getErrorMessage(error)}`,
+            `Fetch failed after ${attempt} attempt${attempt === 1 ? '' : 's'}: ${getErrorMessage(error)}`,
           );
           throw error;
         }
@@ -90,6 +120,7 @@ async function fetchWithRetry(url, options, retries = 3, logger) {
 
 module.exports = {
   ApiClient,
+  HttpResponseError,
   createApiClient,
   fetchWithRetry,
 };
