@@ -23,6 +23,7 @@ const BASE_DELAY_MS = 1000;
  */
 class HttpResponseError extends Error {
   /**
+   * Creates an HttpResponseError for a failed HTTP response.
    * @param {number} status - HTTP status code of the failed response.
    */
   constructor(status) {
