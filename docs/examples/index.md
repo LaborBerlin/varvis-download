@@ -8,13 +8,13 @@ Practical examples and usage patterns for the Varvis Download CLI tool.
 
 ```bash
 # Download BAM files for a single analysis
-./varvis-download.js -t mytarget -a 12345
+./varvis-download.cjs -t mytarget -a 12345
 
 # Download multiple analyses
-./varvis-download.js -t mytarget -a "12345,67890,11111"
+./varvis-download.cjs -t mytarget -a "12345,67890,11111"
 
 # Download specific file types
-./varvis-download.js -t mytarget -a 12345 -f "vcf.gz,vcf.gz.tbi"
+./varvis-download.cjs -t mytarget -a 12345 -f "vcf.gz,vcf.gz.tbi"
 ```
 
 ### Authentication Examples
@@ -23,10 +23,10 @@ Practical examples and usage patterns for the Varvis Download CLI tool.
 # Using environment variables (recommended)
 export VARVIS_USER="your_username"
 export VARVIS_PASSWORD="your_password"
-./varvis-download.js -t mytarget -a 12345
+./varvis-download.cjs -t mytarget -a 12345
 
 # Interactive password prompt
-./varvis-download.js -t mytarget -u your_username -a 12345
+./varvis-download.cjs -t mytarget -u your_username -a 12345
 ```
 
 ## Example Categories
@@ -41,32 +41,15 @@ Essential commands and common operations including:
 - Authentication methods
 - Error handling
 
-### Advanced Filtering (Coming Soon)
+### More in the Guide
 
-Complex search and filtering patterns:
+These topics are covered in depth in the guide:
 
-- Filter expressions
-- Sample ID filtering
-- LIMS ID filtering
-- Combined search methods
+- **[Filtering & Search](/guide/filtering)** — filter expressions, sample/LIMS IDs, combined methods, `--latest`
+- **[Range Downloads](/guide/range-downloads)** — coordinate ranges, multiple regions, BED files, `--unmapped`
+- **[Batch Operations](/guide/batch-operations)** — batch scripts, GNU `parallel`, CI/CD, monitoring
 
-### Genomic Ranges (Coming Soon)
-
-Targeted genomic region downloads:
-
-- Single coordinate ranges
-- Multiple region downloads
-- BED file integration
-- Tool chain integration
-
-### Automation Scripts (Coming Soon)
-
-Production-ready automation examples:
-
-- CI/CD integration
-- Batch processing scripts
-- Monitoring and reporting
-- error recovery workflows
+The real-world, CI/CD, and automation examples below complement those pages.
 
 ## Real-World Scenarios
 
@@ -85,7 +68,7 @@ DEST_DIR="./data/$DATE"
 mkdir -p "$DEST_DIR"
 
 # Download all analyses for specific samples
-./varvis-download.js \
+./varvis-download.cjs \
   -t mytarget \
   -s "$(cat today_samples.txt | tr '\n' ',')" \
   -d "$DEST_DIR" \
@@ -98,7 +81,7 @@ mkdir -p "$DEST_DIR"
 #!/bin/bash
 # qc-download.sh - Download only high-quality analyses
 
-./varvis-download.js \
+./varvis-download.cjs \
   -t mytarget \
   -s "LIMS-001,LIMS-002" \
   -F "quality>=95" \
@@ -112,7 +95,7 @@ mkdir -p "$DEST_DIR"
 #!/bin/bash
 # recover-archived.sh - Restore and download archived files
 
-./varvis-download.js \
+./varvis-download.cjs \
   -t mytarget \
   -a "12345,67890" \
   --restoreArchived force \
@@ -124,7 +107,7 @@ mkdir -p "$DEST_DIR"
 ### Docker Container
 
 ```dockerfile
-FROM node:20-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 COPY . .
@@ -133,7 +116,7 @@ RUN npm install
 # Set up bioinformatics tools
 RUN apk add --no-cache samtools tabix
 
-ENTRYPOINT ["./varvis-download.js"]
+ENTRYPOINT ["./varvis-download.cjs"]
 ```
 
 ### GitHub Actions
@@ -152,7 +135,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install dependencies
         run: npm install
@@ -162,7 +145,7 @@ jobs:
           VARVIS_USER: ${{ secrets.VARVIS_USER }}
           VARVIS_PASSWORD: ${{ secrets.VARVIS_PASSWORD }}
         run: |
-          ./varvis-download.js -t mytarget -a "${{ env.ANALYSIS_IDS }}"
+          ./varvis-download.cjs -t mytarget -a "${{ env.ANALYSIS_IDS }}"
 ```
 
 ### Python Integration
@@ -170,34 +153,30 @@ jobs:
 ```python
 #!/usr/bin/env python3
 import subprocess
-import json
-import os
 
 def download_varvis_data(analysis_ids, target="mytarget"):
-    """Download data using Varvis CLI from Python"""
+    """Download data using the Varvis CLI from Python."""
 
     cmd = [
-        "./varvis-download.js",
+        "./varvis-download.cjs",
         "-t", target,
         "-a", ",".join(analysis_ids),
-        "--reportfile", "download_report.json"
+        "--reportfile", "download_report.txt",
     ]
 
     result = subprocess.run(cmd, capture_output=True, text=True)
 
-    if result.returncode == 0:
-        # Read download report
-        with open("download_report.json") as f:
-            report = json.load(f)
-        return report
-    else:
+    if result.returncode != 0:
         raise Exception(f"Download failed: {result.stderr}")
+
+    # The report is a plain-text summary (not JSON); return it verbatim.
+    with open("download_report.txt") as f:
+        return f.read()
 
 # Usage
 if __name__ == "__main__":
     analyses = ["12345", "67890", "11111"]
-    report = download_varvis_data(analyses)
-    print(f"Downloaded {len(report['files'])} files")
+    print(download_varvis_data(analyses))
 ```
 
 ## Testing Examples
@@ -210,7 +189,7 @@ const { spawn } = require('child_process');
 
 function runVarvisDownload(args) {
   return new Promise((resolve, reject) => {
-    const process = spawn('./varvis-download.js', args);
+    const process = spawn('./varvis-download.cjs', args);
     let stdout = '';
     let stderr = '';
 
@@ -235,11 +214,11 @@ module.exports = { runVarvisDownload };
 set -e
 
 echo "Testing basic download..."
-./varvis-download.js -t mytarget -a 12345 --list
+./varvis-download.cjs -t mytarget -a 12345 --list
 
 echo "Testing authentication..."
 export VARVIS_USER="test_user"
-./varvis-download.js -t mytarget -a 12345 --list
+./varvis-download.cjs -t mytarget -a 12345 --list
 
 echo "All tests passed!"
 ```
@@ -256,7 +235,7 @@ echo "All tests passed!"
 mkdir -p ./data/{bam,vcf,reports}
 
 # Download BAM files first (usually larger)
-./varvis-download.js \
+./varvis-download.cjs \
   -t mytarget \
   -a "$(cat large_analysis_list.txt | tr '\n' ',')" \
   -f "bam,bam.bai" \
@@ -264,7 +243,7 @@ mkdir -p ./data/{bam,vcf,reports}
   --logfile "./data/reports/bam_download.log"
 
 # Then download VCF files
-./varvis-download.js \
+./varvis-download.cjs \
   -t mytarget \
   -a "$(cat large_analysis_list.txt | tr '\n' ',')" \
   -f "vcf.gz,vcf.gz.tbi" \
@@ -281,7 +260,7 @@ mkdir -p ./data/{bam,vcf,reports}
 DOWNLOAD_PID=""
 
 # Start download in background
-./varvis-download.js -t mytarget -a "$ANALYSIS_IDS" &
+./varvis-download.cjs -t mytarget -a "$ANALYSIS_IDS" &
 DOWNLOAD_PID=$!
 
 # Monitor disk space and progress
@@ -303,7 +282,7 @@ echo "Download completed"
 # debug-network.sh
 
 # Enable maximum logging
-./varvis-download.js \
+./varvis-download.cjs \
   -t mytarget \
   -a 12345 \
   --loglevel debug \
@@ -321,12 +300,12 @@ grep -i "error\|timeout\|connection" debug_network.log
 # retry-failed.sh
 
 # First attempt
-if ! ./varvis-download.js -t mytarget -a "$ANALYSIS_IDS"; then
+if ! ./varvis-download.cjs -t mytarget -a "$ANALYSIS_IDS"; then
   echo "First attempt failed, retrying in 5 minutes..."
   sleep 300
 
   # Retry with different settings
-  ./varvis-download.js \
+  ./varvis-download.cjs \
     -t mytarget \
     -a "$ANALYSIS_IDS" \
     --loglevel debug \

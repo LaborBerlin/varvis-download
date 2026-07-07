@@ -62,13 +62,13 @@ Use standard genomic coordinate format: `chromosome:start-end`
 
 ```bash
 # Single genomic region
-./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000"
+./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1000000-2000000"
 
 # Multiple regions (space-separated)
-./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000 chr2:500000-1500000"
+./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1000000-2000000 chr2:500000-1500000"
 
 # Another region
-./varvis-download.js -t mytarget -a 12345 -g "chr7:5500000-5600000"
+./varvis-download.cjs -t mytarget -a 12345 -g "chr7:5500000-5600000"
 ```
 
 ### BED File Regions
@@ -87,7 +87,7 @@ chrX    1000000      1100000      region_x
 **Use BED file:**
 
 ```bash
-./varvis-download.js -t mytarget -a 12345 -b regions.bed
+./varvis-download.cjs -t mytarget -a 12345 -b regions.bed
 ```
 
 ## File Type Behavior
@@ -103,7 +103,7 @@ chrX    1000000      1100000      region_x
 
 ```bash
 # BAM range download
-./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000" -f "bam,bam.bai"
+./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1000000-2000000" -f "bam,bam.bai"
 ```
 
 **Output files:**
@@ -124,7 +124,7 @@ sample_001.chr1_1000000_2000000.bam.bai  # New index
 
 ```bash
 # VCF range download
-./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000" -f "vcf.gz,vcf.gz.tbi"
+./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1000000-2000000" -f "vcf.gz,vcf.gz.tbi"
 ```
 
 **Output files:**
@@ -142,13 +142,13 @@ sample_001.chr1_1000000_2000000.vcf.gz.tbi # New index
 
 ```bash
 # Region A
-./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000"
+./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1000000-2000000"
 
 # Region B
-./varvis-download.js -t mytarget -a 12345 -g "chr2:500000-1500000"
+./varvis-download.cjs -t mytarget -a 12345 -g "chr2:500000-1500000"
 
 # Both regions
-./varvis-download.js -t mytarget -a 12345 \
+./varvis-download.cjs -t mytarget -a 12345 \
   -g "chr1:1000000-2000000 chr2:500000-1500000"
 ```
 
@@ -165,7 +165,7 @@ chr20   1000000     1100000     region_e
 EOF
 
 # Download research regions
-./varvis-download.js -t mytarget -a 12345 -b research_regions.bed
+./varvis-download.cjs -t mytarget -a 12345 -b research_regions.bed
 ```
 
 ## Unmapped Read Extraction
@@ -176,7 +176,7 @@ The `--unmapped` flag extracts reads with no reference assignment from BAM files
 
 ```bash
 # Extract only unmapped reads (creates sample.unmapped.bam)
-./varvis-download.js -t mytarget -a 12345 --unmapped
+./varvis-download.cjs -t mytarget -a 12345 --unmapped
 ```
 
 Only samtools is required (no tabix/bgzip). VCF files are automatically skipped.
@@ -187,7 +187,7 @@ When used with `--range`, both ranged and unmapped reads are included in a **sin
 
 ```bash
 # Single BAM with a genomic region + unmapped reads
-./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000" --unmapped
+./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1000000-2000000" --unmapped
 ```
 
 This uses command-line regions instead of a BED file to allow the `*` wildcard alongside genomic coordinates.
@@ -198,7 +198,7 @@ This uses command-line regions instead of a BED file to allow the `*` wildcard a
 
 ```bash
 # Download exome target regions
-./varvis-download.js -t mytarget -a 12345 -b exome_targets.bed -f "bam,bam.bai"
+./varvis-download.cjs -t mytarget -a 12345 -b exome_targets.bed -f "bam,bam.bai"
 ```
 
 **Custom region panel:**
@@ -213,7 +213,7 @@ chr7    5500000     5600000     region_d
 chr11   1000000     1100000     region_e
 EOF
 
-./varvis-download.js -t mytarget -a 12345 -b custom_regions.bed
+./varvis-download.cjs -t mytarget -a 12345 -b custom_regions.bed
 ```
 
 ### Whole Chromosome Downloads
@@ -222,17 +222,17 @@ EOF
 
 ```bash
 # Chromosome 21 (smallest autosome)
-./varvis-download.js -t mytarget -a 12345 -g "chr21:1-48129895"
+./varvis-download.cjs -t mytarget -a 12345 -g "chr21:1-48129895"
 
 # X chromosome
-./varvis-download.js -t mytarget -a 12345 -g "chrX:1-156040895"
+./varvis-download.cjs -t mytarget -a 12345 -g "chrX:1-156040895"
 ```
 
 **Multiple chromosomes:**
 
 ```bash
 # Chromosomes 21 and 22
-./varvis-download.js -t mytarget -a 12345 \
+./varvis-download.cjs -t mytarget -a 12345 \
   -g "chr21:1-48129895 chr22:1-50818468"
 ```
 
@@ -256,14 +256,14 @@ mkdir -p "$OUTPUT_DIR"
 
 # Download BAM region
 echo "Downloading BAM region: $REGION"
-./varvis-download.js -t mytarget -a "$ANALYSIS_ID" \
+./varvis-download.cjs -t mytarget -a "$ANALYSIS_ID" \
   -g "$REGION" \
   -f "bam,bam.bai" \
   -d "$OUTPUT_DIR"
 
 # Download VCF region
 echo "Downloading VCF region: $REGION"
-./varvis-download.js -t mytarget -a "$ANALYSIS_ID" \
+./varvis-download.cjs -t mytarget -a "$ANALYSIS_ID" \
   -g "$REGION" \
   -f "vcf.gz,vcf.gz.tbi" \
   -d "$OUTPUT_DIR"
@@ -326,7 +326,7 @@ zcat "$REGION_VCF" | grep -v "^#" | cut -f7 | sort | uniq -c | sort -nr
 
 ```bash
 # Check original file sizes
-./varvis-download.js -t mytarget -a 12345 --list | grep -E "bam|vcf"
+./varvis-download.cjs -t mytarget -a 12345 --list | grep -E "bam|vcf"
 
 # Estimate region size (rough calculation)
 # Region size / Genome size * Original file size
@@ -346,9 +346,9 @@ zcat "$REGION_VCF" | grep -v "^#" | cut -f7 | sort | uniq -c | sort -nr
 
 ```bash
 # Download regions in parallel (separate processes)
-./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000" &
-./varvis-download.js -t mytarget -a 12345 -g "chr2:500000-1500000" &
-./varvis-download.js -t mytarget -a 12345 -g "chr7:5500000-5600000" &
+./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1000000-2000000" &
+./varvis-download.cjs -t mytarget -a 12345 -g "chr2:500000-1500000" &
+./varvis-download.cjs -t mytarget -a 12345 -g "chr7:5500000-5600000" &
 wait  # Wait for all downloads to complete
 ```
 
@@ -361,9 +361,9 @@ wait  # Wait for all downloads to complete
 mkdir -p ./regions/{region_a,region_b,region_c}
 
 # Download to specific directories
-./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000" -d "./regions/region_a/"
-./varvis-download.js -t mytarget -a 12345 -g "chr2:500000-1500000" -d "./regions/region_b/"
-./varvis-download.js -t mytarget -a 12345 -g "chr7:5500000-5600000" -d "./regions/region_c/"
+./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1000000-2000000" -d "./regions/region_a/"
+./varvis-download.cjs -t mytarget -a 12345 -g "chr2:500000-1500000" -d "./regions/region_b/"
+./varvis-download.cjs -t mytarget -a 12345 -g "chr7:5500000-5600000" -d "./regions/region_c/"
 ```
 
 ## Integration with Downstream Research Tools
@@ -374,7 +374,7 @@ mkdir -p ./regions/{region_a,region_b,region_c}
 
 ```bash
 # Download region
-./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000" -f "bam,bam.bai"
+./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1000000-2000000" -f "bam,bam.bai"
 
 # Run a downstream research workflow on the region
 REGION_BAM="sample_001.chr1_1000000_2000000.bam"
@@ -395,7 +395,7 @@ gatk HaplotypeCaller \
 
 ```bash
 # Download BAM region
-./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000" -f "bam,bam.bai"
+./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1000000-2000000" -f "bam,bam.bai"
 
 # Calculate coverage for region
 REGION_BAM="sample_001.chr1_1000000_2000000.bam"
@@ -416,7 +416,7 @@ samtools depth "$REGION_BAM" | cut -f3 | sort -n | uniq -c | sort -nr > coverage
 
 ```bash
 # Download VCF region
-./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000" -f "vcf.gz,vcf.gz.tbi"
+./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1000000-2000000" -f "vcf.gz,vcf.gz.tbi"
 
 # Annotate variants in region
 REGION_VCF="sample_001.chr1_1000000_2000000.vcf.gz"
@@ -487,17 +487,17 @@ Error: Invalid region format: chr1:1000000_2000000
 **Enable debug logging:**
 
 ```bash
-./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000" --loglevel debug
+./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1000000-2000000" --loglevel debug
 ```
 
 **Test region validity:**
 
 ```bash
 # Test with a small region first
-./varvis-download.js -t mytarget -a 12345 -g "chr1:1000-2000" --list
+./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1000-2000" --list
 
 # Verify chromosome naming
-./varvis-download.js -t mytarget -a 12345 --list | grep -i bam
+./varvis-download.cjs -t mytarget -a 12345 --list | grep -i bam
 samtools view -H original.bam | grep "@SQ"  # Check chromosome names
 ```
 
@@ -538,4 +538,4 @@ tabix original.vcf.gz "chr1:1000000-2000000" | head
 
 - **[Archive Management](/guide/archive-management)** - Handle archived files
 - **[Batch Operations](/guide/batch-operations)** - Large-scale processing
-- **[Examples](/examples/ranges)** - Real-world range download scenarios
+- **[Examples](/examples/)** - Real-world download scenarios

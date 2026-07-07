@@ -7,22 +7,22 @@ This directory contains the complete documentation for the Varvis Download CLI t
 ```
 docs/
 ├── .vitepress/           # VitePress configuration
-│   ├── config.mjs        # Site configuration
-│   └── theme/            # Custom theme files
+│   └── config.mjs        # Site configuration
+├── public/               # Static assets (hero image, nav logo)
 ├── api/                  # API reference documentation
 │   ├── index.md          # API overview
-│   ├── cli.md            # CLI commands reference
+│   ├── cli.md            # CLI reference (hand-maintained)
 │   ├── config.md         # Configuration schema
-│   └── *.md              # Auto-generated API docs
+│   ├── config-schema.md  # Configuration schema (generated baseline)
+│   └── *.md              # JSDoc-generated module docs
 ├── guide/                # User guides
 │   ├── getting-started.md
 │   ├── installation.md
 │   ├── authentication.md
 │   └── *.md
 ├── examples/             # Usage examples
-│   ├── basic.md
-│   ├── filtering.md
-│   └── *.md
+│   ├── index.md
+│   └── basic.md
 └── index.md              # Homepage
 ```
 
@@ -82,7 +82,7 @@ Triggered by changes to:
 
 - `docs/**` - Documentation files
 - `js/**` - Source code (for API docs)
-- `varvis-download.js` - Main CLI file
+- `varvis-download.cjs` - Main CLI file
 - `package.json` - Dependencies
 
 ### Adding Documentation
@@ -149,7 +149,7 @@ Always test code samples before publishing:
 
 ```bash
 # Good - tested example
-./varvis-download.js -t mytarget -a 12345
+./varvis-download.cjs -t mytarget -a 12345
 
 # Include expected output when helpful
 # Output: ✓ Downloaded sample_001.bam (1.2 GB)
@@ -190,7 +190,7 @@ npm run docs:build
 
 **Build Failures:**
 
-- Check Node.js version (requires v20+)
+- Check Node.js version (requires >= 22.22.2)
 - Verify all dependencies installed: `npm ci`
 - Clear cache: `rm -rf node_modules docs/.vitepress/cache`
 

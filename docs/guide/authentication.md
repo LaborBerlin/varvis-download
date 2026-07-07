@@ -7,9 +7,10 @@ Learn how to securely authenticate with Varvis API instances using various metho
 Varvis Download CLI supports multiple authentication methods to suit different use cases:
 
 1. **Environment Variables** (Recommended)
-2. **Interactive Password Prompts**
-3. **Configuration Files**
-4. **Command Line Arguments** (Least secure)
+2. **`--password-stdin`** (recommended for automation)
+3. **Interactive Password Prompts**
+4. **Configuration Files**
+5. **Command Line Arguments** (Least secure)
 
 ## Environment Variables (Recommended)
 
@@ -25,22 +26,18 @@ export VARVIS_PASSWORD="your_password"
 Then run commands without credential arguments:
 
 ```bash
-./varvis-download.js -t mytarget -a 12345
+./varvis-download.cjs -t mytarget -a 12345
 ```
 
-### Alternative Variable Names
+The tool reads exactly three environment variables — `VARVIS_USER`, `VARVIS_PASSWORD`, and `VARVIS_TARGET`. No other names are recognized.
 
-The tool also recognizes these alternative environment variable names:
+### Credential Precedence
 
-```bash
-# Alternative naming convention
-export VARVIS_API_USER="your_username"
-export VARVIS_API_PASSWORD="your_password"
+For each credential, the first source that provides a value wins:
 
-# Legacy support
-export VARVIS_USERNAME="your_username"
-export VARVIS_API_KEY="your_password"
-```
+**CLI flag → environment variable → configuration file.**
+
+An explicit `--username` / `--password` / `--target` therefore overrides the environment, which in turn overrides the config file. (Before v0.32.0 the environment overrode explicit flags; the order above is the current behavior.)
 
 ### Session Management
 
@@ -61,7 +58,7 @@ Source the script:
 
 ```bash
 source setup_session.sh
-./varvis-download.js -a 12345,67890
+./varvis-download.cjs -a 12345,67890
 ```
 
 ## Interactive Password Prompts
@@ -71,7 +68,7 @@ source setup_session.sh
 When no password is provided, the tool prompts securely with hidden input:
 
 ```bash
-./varvis-download.js -t mytarget -u your_username -a 12345
+./varvis-download.cjs -t mytarget -u your_username -a 12345
 # Output: Please enter your Varvis password: [hidden input]
 ```
 
@@ -83,13 +80,33 @@ When no password is provided, the tool prompts securely with hidden input:
 
 ### Automation Considerations
 
-Interactive prompts are not suitable for:
+Interactive prompts require a terminal, so they cannot run in:
 
 - CI/CD pipelines
 - Automated scripts
 - Background processes
 
-Use environment variables or configuration files for automation.
+On a non-interactive (non-TTY) run the password **must** come from either
+`VARVIS_PASSWORD` or `--password-stdin`; otherwise the tool exits with an
+error instead of hanging on a prompt.
+
+## `--password-stdin`
+
+`--password-stdin` reads the password from the first line of standard input —
+the recommended channel for automation, mirroring `docker login --password-stdin`.
+It keeps the secret out of the process list and shell history:
+
+```bash
+# From a secrets manager or file (note the trailing newline is stripped)
+printf '%s' "$VARVIS_SECRET" | ./varvis-download.cjs \
+  -t mytarget -u your_username --password-stdin -a 12345
+
+# From a protected file
+./varvis-download.cjs -t mytarget -u your_username --password-stdin -a 12345 < ~/.varvis-pass
+```
+
+If both `--password-stdin` and `--password`/`VARVIS_PASSWORD` are supplied,
+`--password-stdin` wins and a warning is logged.
 
 ## Configuration Files
 
@@ -119,7 +136,7 @@ Create `.config.json` with credentials:
 
 ```bash
 export VARVIS_PASSWORD="your_password"
-./varvis-download.js --config .config.json -a 12345
+./varvis-download.cjs --config .config.json -a 12345
 ```
 
 ### Multiple Environments
@@ -153,11 +170,11 @@ Usage:
 ```bash
 # Development
 export VARVIS_PASSWORD="dev_password"
-./varvis-download.js --config development.config.json -a 12345
+./varvis-download.cjs --config development.config.json -a 12345
 
 # Production
 export VARVIS_PASSWORD="prod_password"
-./varvis-download.js --config production.config.json -a 12345
+./varvis-download.cjs --config production.config.json -a 12345
 ```
 
 ## Command Line Arguments
@@ -167,7 +184,7 @@ export VARVIS_PASSWORD="prod_password"
 Provide credentials directly via command line:
 
 ```bash
-./varvis-download.js -t mytarget -u "your_username" -p "your_password" -a 12345
+./varvis-download.cjs -t mytarget -u "your_username" -p "your_password" -a 12345
 ```
 
 ::: warning Security Risk
@@ -179,7 +196,7 @@ Command line arguments are visible in process lists and shell history. Use only 
 Use environment variables even with CLI:
 
 ```bash
-./varvis-download.js -t mytarget -u "$VARVIS_USER" -p "$VARVIS_PASSWORD" -a 12345
+./varvis-download.cjs -t mytarget -u "$VARVIS_USER" -p "$VARVIS_PASSWORD" -a 12345
 ```
 
 ## Authentication Flow
@@ -220,20 +237,19 @@ Session tokens are:
 
 ### Different Targets
 
-Authenticate with multiple Varvis instances:
+To work with several Varvis instances, keep each instance's credentials in your
+own shell variables and pass them explicitly with `-u`/`-p`. (These are ordinary
+shell variables you choose — only `VARVIS_USER`/`VARVIS_PASSWORD`/`VARVIS_TARGET`
+are read automatically by the tool.)
 
 ```bash
-# Primary target
-export VARVIS_T1_USER="t1_username"
-export VARVIS_T1_PASSWORD="t1_password"
+# Your own variables, one set per instance
+export T1_USER="t1_username"; export T1_PASS="t1_password"
+export T2_USER="t2_username"; export T2_PASS="t2_password"
 
-# Secondary target
-export VARVIS_T2_USER="t2_username"
-export VARVIS_T2_PASSWORD="t2_password"
-
-# Use with different targets
-./varvis-download.js -t mytarget -u "$VARVIS_T1_USER" -p "$VARVIS_T1_PASSWORD" -a 12345
-./varvis-download.js -t othertarget -u "$VARVIS_T2_USER" -p "$VARVIS_T2_PASSWORD" -a 67890
+# Pass them explicitly per target
+./varvis-download.cjs -t mytarget -u "$T1_USER" -p "$T1_PASS" -a 12345
+./varvis-download.cjs -t othertarget -u "$T2_USER" -p "$T2_PASS" -a 67890
 ```
 
 ### Configuration per Target
@@ -271,7 +287,7 @@ Create target-specific configurations:
    export VARVIS_PASSWORD="secret"
 
    # Avoid
-   ./varvis-download.js -p "secret"  # Visible in process list
+   ./varvis-download.cjs -p "secret"  # Visible in process list
    ```
 
 2. **File Permissions**
@@ -308,7 +324,7 @@ echo
 export VARVIS_PASSWORD="$NEW_PASSWORD"
 
 # Test authentication
-./varvis-download.js -t mytarget --list -a 12345
+./varvis-download.cjs -t mytarget --list -a 12345
 
 if [ $? -eq 0 ]; then
     echo "✓ Credential rotation successful"
@@ -335,7 +351,7 @@ fi
 
    ```bash
    # Enable authentication logging
-   ./varvis-download.js -t mytarget -a 12345 --loglevel info --logfile auth.log
+   ./varvis-download.cjs -t mytarget -a 12345 --loglevel info --logfile auth.log
 
    # Review authentication events
    grep "Login\|Auth" auth.log
@@ -388,7 +404,7 @@ Error: Session token expired
 Enable detailed authentication logging:
 
 ```bash
-./varvis-download.js -t mytarget -a 12345 --loglevel debug 2>&1 | grep -i auth
+./varvis-download.cjs -t mytarget -a 12345 --loglevel debug 2>&1 | grep -i auth
 ```
 
 Example debug output:
@@ -407,7 +423,7 @@ Verify credentials without downloading:
 
 ```bash
 # Quick authentication test
-./varvis-download.js -t mytarget -a 12345 --list | head -5
+./varvis-download.cjs -t mytarget -a 12345 --list | head -5
 ```
 
 Expected output:
@@ -443,7 +459,7 @@ For enterprise authentication:
    export VARVIS_USER VARVIS_PASSWORD
 
    # Execute download
-   ./varvis-download.js "$@"
+   ./varvis-download.cjs "$@"
    ```
 
 ### CI/CD Integration
@@ -456,7 +472,7 @@ For enterprise authentication:
     VARVIS_USER: ${{ secrets.VARVIS_USER }}
     VARVIS_PASSWORD: ${{ secrets.VARVIS_PASSWORD }}
   run: |
-    ./varvis-download.js -t mytarget -a ${{ matrix.analysis_id }}
+    ./varvis-download.cjs -t mytarget -a ${{ matrix.analysis_id }}
 ```
 
 **Jenkins:**
@@ -467,7 +483,7 @@ withCredentials([usernamePassword(
     usernameVariable: 'VARVIS_USER',
     passwordVariable: 'VARVIS_PASSWORD')]) {
 
-    sh './varvis-download.js -t mytarget -a ${ANALYSIS_ID}'
+    sh './varvis-download.cjs -t mytarget -a ${ANALYSIS_ID}'
 }
 ```
 

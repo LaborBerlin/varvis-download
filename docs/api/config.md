@@ -21,8 +21,7 @@ Configuration files use JSON format with the following schema:
     },
     "target": {
       "type": "string",
-      "description": "API target instance",
-      "enum": ["mytarget"]
+      "description": "Varvis instance short name (e.g. \"laborberlin\"), expanded to the instance host"
     },
     "analysisIds": {
       "type": "array",
@@ -62,6 +61,30 @@ Configuration files use JSON format with the following schema:
       "type": "boolean",
       "default": false,
       "description": "List files without downloading"
+    },
+    "listUrls": {
+      "type": "boolean",
+      "default": false,
+      "description": "Print direct download URLs instead of downloading"
+    },
+    "urlFile": {
+      "type": "string",
+      "description": "File to write download URLs to when listUrls is set"
+    },
+    "latest": {
+      "type": "boolean",
+      "default": false,
+      "description": "Keep only the newest analysis per sample"
+    },
+    "unmapped": {
+      "type": "boolean",
+      "default": false,
+      "description": "Extract unmapped reads from BAM files (cannot be combined with bed)"
+    },
+    "passwordStdin": {
+      "type": "boolean",
+      "default": false,
+      "description": "Read the password from the first line of stdin"
     },
     "filters": {
       "type": "array",
@@ -124,45 +147,18 @@ Configuration files use JSON format with the following schema:
 
 ## Environment Variables
 
-All configuration options can be overridden using environment variables:
+The tool reads exactly **three** environment variables — only these. Every other
+setting comes from a CLI flag or the configuration file; there are no
+`VARVIS_PROXY*`, `VARVIS_DESTINATION`, `VARVIS_LOG_*`, or similar variables.
 
-### Authentication
+| Variable          | Configuration Key | Description             |
+| ----------------- | ----------------- | ----------------------- |
+| `VARVIS_USER`     | `username`        | API username            |
+| `VARVIS_PASSWORD` | `password`        | API password            |
+| `VARVIS_TARGET`   | `target`          | Default target instance |
 
-| Variable          | Configuration Key | Description  |
-| ----------------- | ----------------- | ------------ |
-| `VARVIS_USER`     | `username`        | API username |
-| `VARVIS_PASSWORD` | `password`        | API password |
-
-### Connection
-
-| Variable            | Configuration Key | Description         |
-| ------------------- | ----------------- | ------------------- |
-| `VARVIS_TARGET`     | `target`          | API target instance |
-| `VARVIS_PROXY`      | `proxy`           | Proxy URL           |
-| `VARVIS_PROXY_USER` | `proxyUsername`   | Proxy username      |
-| `VARVIS_PROXY_PASS` | `proxyPassword`   | Proxy password      |
-
-### File Operations
-
-| Variable             | Configuration Key | Description                  |
-| -------------------- | ----------------- | ---------------------------- |
-| `VARVIS_DESTINATION` | `destination`     | Download directory           |
-| `VARVIS_FILETYPES`   | `filetypes`       | File types (comma-separated) |
-| `VARVIS_OVERWRITE`   | `overwrite`       | Overwrite existing files     |
-
-### Logging
-
-| Variable           | Configuration Key | Description   |
-| ------------------ | ----------------- | ------------- |
-| `VARVIS_LOG_LEVEL` | `loglevel`        | Logging level |
-| `VARVIS_LOG_FILE`  | `logfile`         | Log file path |
-
-### Archive Management
-
-| Variable                  | Configuration Key | Description               |
-| ------------------------- | ----------------- | ------------------------- |
-| `VARVIS_RESTORE_ARCHIVED` | `restoreArchived` | Archive restoration mode  |
-| `VARVIS_RESTORATION_FILE` | `restorationFile` | Restoration tracking file |
+A `.env` file in the working directory is loaded automatically (via `dotenv`);
+only the three variables above are read from it.
 
 ## Configuration Examples
 

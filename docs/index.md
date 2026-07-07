@@ -19,7 +19,7 @@ hero:
 features:
   - icon: 🚀
     title: Fast & Reliable
-    details: High-performance downloads with retry logic, resume capability, and comprehensive error handling for workflow automation.
+    details: Reliable downloads with automatic retries, resumable archive restoration, and comprehensive error handling for workflow automation.
 
   - icon: 🔒
     title: Secure Authentication
@@ -50,13 +50,13 @@ export VARVIS_USER="your_username"
 export VARVIS_PASSWORD="your_password"
 
 # Download BAM files for specific analyses
-./varvis-download.js -t mytarget -a "12345,67890" -f "bam,bam.bai"
+./varvis-download.cjs -t mytarget -a "12345,67890" -f "bam,bam.bai"
 
 # Download with genomic range filtering
-./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000"
+./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1000000-2000000"
 
 # List available files without downloading
-./varvis-download.js -t mytarget -a 12345 --list
+./varvis-download.cjs -t mytarget -a 12345 --list
 ```
 
 ## Installation
@@ -65,7 +65,7 @@ export VARVIS_PASSWORD="your_password"
 git clone https://github.com/LaborBerlin/varvis-download.git
 cd varvis-download
 npm install
-chmod +x varvis-download.js
+chmod +x varvis-download.cjs
 npm link  # Optional: global installation
 ```
 

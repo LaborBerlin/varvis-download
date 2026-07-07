@@ -5,18 +5,9 @@ export default defineConfig({
   description:
     'Independently developed free software for downloading authorized BAM, BAI, and VCF files from the varvis® API',
   base: '/varvis-download/',
-  ignoreDeadLinks: [
-    // Temporarily ignore missing pages while documentation is being built
-    '/api/functions',
-    '/api/filters',
-    '/api/archive',
-    '/examples/filtering',
-    '/examples/ranges',
-    '/examples/automation',
-  ],
 
   themeConfig: {
-    logo: '/logo.png',
+    logo: '/logo.svg',
 
     nav: [
       { text: 'Home', link: '/' },
@@ -68,7 +59,6 @@ export default defineConfig({
             { text: 'Overview', link: '/api/' },
             { text: 'CLI Commands', link: '/api/cli' },
             { text: 'Configuration Schema', link: '/api/config' },
-            { text: 'Core Functions', link: '/api/functions' },
           ],
         },
       ],
@@ -76,10 +66,8 @@ export default defineConfig({
         {
           text: 'Examples',
           items: [
+            { text: 'Overview', link: '/examples/' },
             { text: 'Basic Usage', link: '/examples/basic' },
-            { text: 'Advanced Filtering', link: '/examples/filtering' },
-            { text: 'Genomic Ranges', link: '/examples/ranges' },
-            { text: 'Automation Scripts', link: '/examples/automation' },
           ],
         },
       ],
@@ -94,7 +82,7 @@ export default defineConfig({
 
     footer: {
       message: 'Released under the GPL-3.0 License.',
-      copyright: 'Copyright © 2024 LaborBerlin',
+      copyright: 'Copyright © 2024–2026 LaborBerlin',
     },
 
     search: {

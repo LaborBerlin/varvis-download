@@ -20,13 +20,13 @@ Direct download using specific analysis identifiers:
 
 ```bash
 # Single analysis
-./varvis-download.js -t mytarget -a 12345
+./varvis-download.cjs -t mytarget -a 12345
 
 # Multiple analyses
-./varvis-download.js -t mytarget -a "12345,67890,11111"
+./varvis-download.cjs -t mytarget -a "12345,67890,11111"
 
 # Range of analyses (if sequential)
-./varvis-download.js -t mytarget -a "12345,12346,12347,12348"
+./varvis-download.cjs -t mytarget -a "12345,12346,12347,12348"
 ```
 
 ### By Sample IDs
@@ -35,13 +35,13 @@ Find all analyses for specific samples:
 
 ```bash
 # Single sample
-./varvis-download.js -t mytarget -s "LIMS-001"
+./varvis-download.cjs -t mytarget -s "LIMS-001"
 
 # Multiple samples
-./varvis-download.js -t mytarget -s "LIMS-001,LIMS-002,LIMS-003"
+./varvis-download.cjs -t mytarget -s "LIMS-001,LIMS-002,LIMS-003"
 
 # Pattern-based samples
-./varvis-download.js -t mytarget -s "LIMS-001,LIMS-002" -F "analysisType=SNV"
+./varvis-download.cjs -t mytarget -s "LIMS-001,LIMS-002" -F "analysisType=SNV"
 ```
 
 ### By LIMS IDs
@@ -50,13 +50,13 @@ Search using Laboratory Information Management System identifiers:
 
 ```bash
 # Single LIMS ID
-./varvis-download.js -t mytarget -l "LIMS_12345"
+./varvis-download.cjs -t mytarget -l "LIMS_12345"
 
 # Multiple LIMS IDs
-./varvis-download.js -t mytarget -l "LIMS_12345,LIMS_67890"
+./varvis-download.cjs -t mytarget -l "LIMS_12345,LIMS_67890"
 
 # Combined with other filters
-./varvis-download.js -t mytarget -l "LIMS_12345" -F "quality>95"
+./varvis-download.cjs -t mytarget -l "LIMS_12345" -F "quality>95"
 ```
 
 ## Filter Expressions
@@ -100,33 +100,33 @@ Filter expressions use the format: `field operator value`
 
 ```bash
 # SNV analyses only
-./varvis-download.js -t mytarget -s "LIMS-001" -F "analysisType=SNV"
+./varvis-download.cjs -t mytarget -s "LIMS-001" -F "analysisType=SNV"
 
 # Exclude CNV analyses
-./varvis-download.js -t mytarget -s "LIMS-001" -F "analysisType!=CNV"
+./varvis-download.cjs -t mytarget -s "LIMS-001" -F "analysisType!=CNV"
 ```
 
 **Enrichment kit filtering:**
 
 ```bash
 # Only TwistExome analyses (matches TwistExomev0.2, TwistExomev2, etc.)
-./varvis-download.js -t mytarget -l "LIMS-001" -F "enrichmentKitName^=TwistExome"
+./varvis-download.cjs -t mytarget -l "LIMS-001" -F "enrichmentKitName^=TwistExome"
 
 # Any Twist kit (Exome, Cancer, Genome)
-./varvis-download.js -t mytarget -l "LIMS-001" -F "enrichmentKitName~=Twist"
+./varvis-download.cjs -t mytarget -l "LIMS-001" -F "enrichmentKitName~=Twist"
 
 # Exclude Nimagen
-./varvis-download.js -t mytarget -l "LIMS-001" -F "enrichmentKitName!=NimagenHEST_hg38_v2"
+./varvis-download.cjs -t mytarget -l "LIMS-001" -F "enrichmentKitName!=NimagenHEST_hg38_v2"
 ```
 
 **Deduplication (newest analysis per sample):**
 
 ```bash
 # Keep only latest analysis when samples have repeat sequencing (wdh)
-./varvis-download.js -t mytarget -l "LIMS-001" -F "enrichmentKitName^=TwistExome" --latest
+./varvis-download.cjs -t mytarget -l "LIMS-001" -F "enrichmentKitName^=TwistExome" --latest
 
 # Combine with range download and unmapped reads
-./varvis-download.js -t mytarget -l "LIMS-001" \
+./varvis-download.cjs -t mytarget -l "LIMS-001" \
   -F "enrichmentKitName^=TwistExome" --latest \
   -g "chr1:155184000-155194000" --unmapped
 ```
@@ -135,23 +135,23 @@ Filter expressions use the format: `field operator value`
 
 ```bash
 # High quality only
-./varvis-download.js -t mytarget -s "LIMS-001" -F "quality>=95"
+./varvis-download.cjs -t mytarget -s "LIMS-001" -F "quality>=95"
 
 # Quality range
-./varvis-download.js -t mytarget -s "LIMS-001" -F "quality>=90" -F "quality<=98"
+./varvis-download.cjs -t mytarget -s "LIMS-001" -F "quality>=90" -F "quality<=98"
 
 # Minimum coverage
-./varvis-download.js -t mytarget -s "LIMS-001" -F "coverage>30"
+./varvis-download.cjs -t mytarget -s "LIMS-001" -F "coverage>30"
 ```
 
 **Sample ID patterns:**
 
 ```bash
 # Samples after a certain ID
-./varvis-download.js -t mytarget -l "LIMS_123" -F "sampleId>LIMS-100"
+./varvis-download.cjs -t mytarget -l "LIMS_123" -F "sampleId>LIMS-100"
 
 # Specific sample range
-./varvis-download.js -t mytarget -F "sampleId>=LIMS-001" -F "sampleId<=LIMS-100"
+./varvis-download.cjs -t mytarget -F "sampleId>=LIMS-001" -F "sampleId<=LIMS-100"
 ```
 
 ## Advanced Filtering
@@ -161,7 +161,7 @@ Filter expressions use the format: `field operator value`
 **AND logic** (all conditions must be true):
 
 ```bash
-./varvis-download.js -t mytarget -s "LIMS-001" \
+./varvis-download.cjs -t mytarget -s "LIMS-001" \
   -F "analysisType=SNV" \
   -F "quality>=95" \
   -F "coverage>30"
@@ -171,7 +171,7 @@ Filter expressions use the format: `field operator value`
 
 ```bash
 # High-quality SNV analyses from recent samples
-./varvis-download.js -t mytarget \
+./varvis-download.cjs -t mytarget \
   -F "analysisType=SNV" \
   -F "quality>=95" \
   -F "sampleId>=LIMS-2000" \
@@ -184,13 +184,13 @@ Filter expressions use the format: `field operator value`
 
 ```bash
 # Today's analyses
-./varvis-download.js -t mytarget -F "runDate>=$(date +%Y-%m-%d)"
+./varvis-download.cjs -t mytarget -F "runDate>=$(date +%Y-%m-%d)"
 
 # Last week's analyses
-./varvis-download.js -t mytarget -F "runDate>=$(date -d '7 days ago' +%Y-%m-%d)"
+./varvis-download.cjs -t mytarget -F "runDate>=$(date -d '7 days ago' +%Y-%m-%d)"
 
 # Specific date range
-./varvis-download.js -t mytarget \
+./varvis-download.cjs -t mytarget \
   -F "runDate>=2024-06-01" \
   -F "runDate<=2024-06-30"
 ```
@@ -201,13 +201,13 @@ Filter expressions use the format: `field operator value`
 
 ```bash
 # Illumina data only
-./varvis-download.js -t mytarget -s "LIMS-001" -F "platform=Illumina"
+./varvis-download.cjs -t mytarget -s "LIMS-001" -F "platform=Illumina"
 
 # Exclude PacBio data
-./varvis-download.js -t mytarget -s "LIMS-001" -F "platform!=PacBio"
+./varvis-download.cjs -t mytarget -s "LIMS-001" -F "platform!=PacBio"
 
 # High-coverage Illumina SNV
-./varvis-download.js -t mytarget -s "LIMS-001" \
+./varvis-download.cjs -t mytarget -s "LIMS-001" \
   -F "platform=Illumina" \
   -F "analysisType=SNV" \
   -F "coverage>=100"
@@ -221,7 +221,7 @@ Use multiple identification methods together:
 
 ```bash
 # Specific analyses + sample search + filters
-./varvis-download.js -t mytarget \
+./varvis-download.cjs -t mytarget \
   -a "12345,67890" \
   -s "LIMS-001,LIMS-002" \
   -l "LIMS_123" \
@@ -234,18 +234,18 @@ Build complex queries step by step:
 
 ```bash
 # Step 1: Find samples by pattern
-./varvis-download.js -t mytarget -s "LIMS-0[0-9][0-9]" --list
+./varvis-download.cjs -t mytarget -s "LIMS-0[0-9][0-9]" --list
 
 # Step 2: Add quality filter
-./varvis-download.js -t mytarget -s "LIMS-0[0-9][0-9]" -F "quality>=95" --list
+./varvis-download.cjs -t mytarget -s "LIMS-0[0-9][0-9]" -F "quality>=95" --list
 
 # Step 3: Add analysis type filter
-./varvis-download.js -t mytarget -s "LIMS-0[0-9][0-9]" \
+./varvis-download.cjs -t mytarget -s "LIMS-0[0-9][0-9]" \
   -F "quality>=95" \
   -F "analysisType=SNV" --list
 
 # Step 4: Execute download
-./varvis-download.js -t mytarget -s "LIMS-0[0-9][0-9]" \
+./varvis-download.cjs -t mytarget -s "LIMS-0[0-9][0-9]" \
   -F "quality>=95" \
   -F "analysisType=SNV"
 ```
@@ -265,7 +265,7 @@ DEST="./data/quality_$TODAY"
 
 mkdir -p "$DEST"
 
-./varvis-download.js -t mytarget \
+./varvis-download.cjs -t mytarget \
   -F "runDate>=$TODAY" \
   -F "quality>=95" \
   -F "status=complete" \
@@ -285,14 +285,14 @@ DEST="./data/weekly_$(date +%Y%m%d)"
 mkdir -p "$DEST"
 
 # SNV analyses from the last week
-./varvis-download.js -t mytarget \
+./varvis-download.cjs -t mytarget \
   -F "runDate>=$WEEK_AGO" \
   -F "analysisType=SNV" \
   -F "quality>=90" \
   -d "$DEST/snv/"
 
 # Panel analyses from the last week
-./varvis-download.js -t mytarget \
+./varvis-download.cjs -t mytarget \
   -F "runDate>=$WEEK_AGO" \
   -F "analysisType=Panel" \
   -F "quality>=95" \
@@ -305,7 +305,7 @@ mkdir -p "$DEST"
 
 ```bash
 # Download all panel analyses for specific samples
-./varvis-download.js -t mytarget \
+./varvis-download.cjs -t mytarget \
   -s "$(cat panel_samples.txt | tr '\n' ',')" \
   -F "analysisType=Panel" \
   -F "coverage>=100" \
@@ -316,7 +316,7 @@ mkdir -p "$DEST"
 
 ```bash
 # High-coverage SNV files
-./varvis-download.js -t mytarget \
+./varvis-download.cjs -t mytarget \
   -l "$(cat research_lims.txt | tr '\n' ',')" \
   -F "analysisType=SNV" \
   -F "coverage>=30" \
@@ -330,7 +330,7 @@ mkdir -p "$DEST"
 
 ```bash
 # Find analyses with quality issues
-./varvis-download.js -t mytarget \
+./varvis-download.cjs -t mytarget \
   -F "quality<80" \
   -F "status=complete" \
   --list > failed_analyses.txt
@@ -343,13 +343,13 @@ cat failed_analyses.txt
 
 ```bash
 # Find low-coverage analyses
-./varvis-download.js -t mytarget \
+./varvis-download.cjs -t mytarget \
   -F "coverage<20" \
   -F "analysisType=SNV" \
   --list > low_coverage.txt
 
 # Download for manual review
-./varvis-download.js -t mytarget \
+./varvis-download.cjs -t mytarget \
   -F "coverage<20" \
   -F "analysisType=SNV" \
   -d "./qc_review/"
@@ -363,20 +363,20 @@ cat failed_analyses.txt
 
 ```bash
 # Check result count before download
-./varvis-download.js -t mytarget -F "analysisType=SNV" --list | wc -l
+./varvis-download.cjs -t mytarget -F "analysisType=SNV" --list | wc -l
 
 # If reasonable, proceed with download
-./varvis-download.js -t mytarget -F "analysisType=SNV"
+./varvis-download.cjs -t mytarget -F "analysisType=SNV"
 ```
 
 **Specific field filtering:**
 
 ```bash
 # More efficient: filter by indexed fields first
-./varvis-download.js -t mytarget -s "LIMS-001" -F "analysisType=SNV"
+./varvis-download.cjs -t mytarget -s "LIMS-001" -F "analysisType=SNV"
 
 # Less efficient: complex pattern matching
-./varvis-download.js -t mytarget -F "sampleId>=LIMS-001" -F "sampleId<=LIMS-9999"
+./varvis-download.cjs -t mytarget -F "sampleId>=LIMS-001" -F "sampleId<=LIMS-9999"
 ```
 
 ### Batch Filtering
@@ -393,7 +393,7 @@ QUALITY_THRESHOLD=95
 for TYPE in "${ANALYSIS_TYPES[@]}"; do
     echo "Processing $TYPE analyses..."
 
-    ./varvis-download.js -t mytarget \
+    ./varvis-download.cjs -t mytarget \
       -F "analysisType=$TYPE" \
       -F "quality>=$QUALITY_THRESHOLD" \
       -d "./data/$TYPE/" \
@@ -409,16 +409,16 @@ done
 
 ```bash
 # Test each filter component
-./varvis-download.js -t mytarget -F "analysisType=SNV" --list
-./varvis-download.js -t mytarget -F "quality>=95" --list
-./varvis-download.js -t mytarget -F "analysisType=SNV" -F "quality>=95" --list
+./varvis-download.cjs -t mytarget -F "analysisType=SNV" --list
+./varvis-download.cjs -t mytarget -F "quality>=95" --list
+./varvis-download.cjs -t mytarget -F "analysisType=SNV" -F "quality>=95" --list
 ```
 
 **Debug filter syntax:**
 
 ```bash
 # Enable debug logging for filter parsing
-./varvis-download.js -t mytarget -F "analysisType=SNV" --loglevel debug --list
+./varvis-download.cjs -t mytarget -F "analysisType=SNV" --loglevel debug --list
 ```
 
 ### Common Filter Issues
@@ -427,27 +427,27 @@ done
 
 ```bash
 # Incorrect: missing quotes for multi-word values
-./varvis-download.js -t mytarget -F "analysisType=Targeted Panel"
+./varvis-download.cjs -t mytarget -F analysisType=Targeted Panel
 
 # Correct: quoted values
-./varvis-download.js -t mytarget -F "analysisType=Targeted Panel"
+./varvis-download.cjs -t mytarget -F "analysisType=Targeted Panel"
 ```
 
 **Type mismatches:**
 
 ```bash
 # Incorrect: string comparison for numbers
-./varvis-download.js -t mytarget -F "quality>=95.5"
+./varvis-download.cjs -t mytarget -F "quality>=95.5"
 
 # Correct: numeric comparison
-./varvis-download.js -t mytarget -F "quality>=95"
+./varvis-download.cjs -t mytarget -F "quality>=95"
 ```
 
 **Field name errors:**
 
 ```bash
 # Check available fields
-./varvis-download.js -t mytarget -a 12345 --list --loglevel debug
+./varvis-download.cjs -t mytarget -a 12345 --list --loglevel debug
 
 # Look for field names in debug output
 ```
@@ -530,7 +530,7 @@ rule filter_download:
 
 ```bash
 # crontab entry for daily high-quality downloads
-0 6 * * * cd /data/genomics && ./varvis-download.js -t mytarget -F "runDate>=$(date +%Y-%m-%d)" -F "quality>=95"
+0 6 * * * cd /data/genomics && ./varvis-download.cjs -t mytarget -F "runDate>=$(date +%Y-%m-%d)" -F "quality>=95"
 ```
 
 ## Next Steps

@@ -18,7 +18,7 @@ Archived files are older data files that have been moved to long-term storage to
 When listing files, archived files are marked:
 
 ```bash
-./varvis-download.js -t mytarget -a 12345 --list
+./varvis-download.cjs -t mytarget -a 12345 --list
 
 # Output example:
 Analysis ID: 12345
@@ -36,16 +36,25 @@ Available files:
 Prompts for each archived file:
 
 ```bash
-./varvis-download.js -t mytarget -a 12345
+./varvis-download.cjs -t mytarget -a 12345
 # Prompts: "File sample_001.bam is archived. Restore? [y/N]"
 ```
+
+::: warning Non-interactive runs
+`ask` needs a terminal. On a non-TTY (CI, cron, a pipe), the default `ask` is
+automatically downgraded to `no` — archived files are skipped and a warning
+explains how to restore them (`--restoreArchived force`), while non-archived
+files still download. An **explicit** `--restoreArchived ask` or `all` on a
+non-TTY fails fast instead, since it asks for interactivity the environment
+cannot provide.
+:::
 
 ### All Mode
 
 Prompts once for all archived files, then applies decision to all:
 
 ```bash
-./varvis-download.js -t mytarget -a 12345 --restoreArchived all
+./varvis-download.cjs -t mytarget -a 12345 --restoreArchived all
 # Prompts: "Restore all archived files? (y/n): y"
 # Logs: "User decision for all archived files: restore"
 # Logs: "Restoring archived file sample_001.bam due to --restoreArchived=all decision"
@@ -56,7 +65,7 @@ Prompts once for all archived files, then applies decision to all:
 Restores archived files without confirmation:
 
 ```bash
-./varvis-download.js -t mytarget -a 12345 --restoreArchived force
+./varvis-download.cjs -t mytarget -a 12345 --restoreArchived force
 # Logs: "Force restoring archived file sample_001.bam due to --restoreArchived=force"
 ```
 
@@ -65,7 +74,7 @@ Restores archived files without confirmation:
 Skips all archived files:
 
 ```bash
-./varvis-download.js -t mytarget -a 12345 --restoreArchived no
+./varvis-download.cjs -t mytarget -a 12345 --restoreArchived no
 # Logs: "Skipping archived file sample_001.bam due to --restoreArchived=no"
 ```
 
@@ -86,7 +95,7 @@ The tool maintains a JSON file to track restoration requests:
 
 ```bash
 # Default tracking file
-./varvis-download.js -t mytarget -a 12345 --restorationFile "my-restorations.json"
+./varvis-download.cjs -t mytarget -a 12345 --restorationFile "my-restorations.json"
 ```
 
 ### Tracking File Format
@@ -130,13 +139,13 @@ The resume function automatically detects when restored files become available a
 Resume previously requested archived downloads using default tracking file:
 
 ```bash
-./varvis-download.js --resumeArchivedDownloads -t mytarget -u username -p password
+./varvis-download.cjs --resumeArchivedDownloads -t mytarget -u username -p password
 ```
 
 ### Resume with Custom Tracking File
 
 ```bash
-./varvis-download.js --resumeArchivedDownloads --restorationFile "project-a-restorations.json" -t mytarget -u username -p password
+./varvis-download.cjs --resumeArchivedDownloads --restorationFile "project-a-restorations.json" -t mytarget -u username -p password
 ```
 
 ### Context Restoration Examples
@@ -144,7 +153,7 @@ Resume previously requested archived downloads using default tracking file:
 **Original ranged download request:**
 
 ```bash
-./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000" -d "/project/ranged" --restoreArchived force
+./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1000000-2000000" -d "/project/ranged" --restoreArchived force
 ```
 
 **Resume will automatically:**
@@ -156,7 +165,7 @@ Resume previously requested archived downloads using default tracking file:
 **Original VCF download with custom filetypes:**
 
 ```bash
-./varvis-download.js -t mytarget -a 12345 -f "vcf.gz,vcf.gz.tbi" -d "/vcf/data" --restoreArchived all
+./varvis-download.cjs -t mytarget -a 12345 -f "vcf.gz,vcf.gz.tbi" -d "/vcf/data" --restoreArchived all
 ```
 
 **Resume will automatically:**
@@ -173,7 +182,7 @@ This example demonstrates the full archive workflow with state preservation:
 
 ```bash
 # Request ranged BAM download with custom destination
-./varvis-download.js \
+./varvis-download.cjs \
   -t mytarget \
   -a 12345 \
   -g "chr1:1000000-2000000 chr2:5000000-6000000" \
@@ -218,7 +227,7 @@ cat genomics-project.json
 
 ```bash
 # Resume downloads (run after restoration time)
-./varvis-download.js \
+./varvis-download.cjs \
   --resumeArchivedDownloads \
   --restorationFile "genomics-project.json" \
   -t mytarget \
@@ -255,7 +264,7 @@ RESTORATION_FILE="daily-restorations.json"
 LOG_FILE="archive-$(date +%Y%m%d).log"
 
 echo "Checking for available restored files..."
-./varvis-download.js \
+./varvis-download.cjs \
   --resumeArchivedDownloads \
   --restorationFile "$RESTORATION_FILE" \
   --logfile "$LOG_FILE"
@@ -274,7 +283,7 @@ ANALYSIS_LIST="archive_analyses.txt"
 while IFS= read -r ANALYSIS_ID; do
   echo "Requesting restoration for analysis: $ANALYSIS_ID"
 
-  ./varvis-download.js \
+  ./varvis-download.cjs \
     -t mytarget \
     -a "$ANALYSIS_ID" \
     --restoreArchived force \
@@ -303,7 +312,7 @@ LOG_DIR="/var/log/varvis-download"
 mkdir -p "$DOWNLOAD_DIR" "$LOG_DIR"
 
 # Check for available restored files every 6 hours
-./varvis-download.js \
+./varvis-download.cjs \
   --resumeArchivedDownloads \
   --restorationFile "$RESTORATION_FILE" \
   -d "$DOWNLOAD_DIR" \
@@ -317,7 +326,7 @@ mkdir -p "$DOWNLOAD_DIR" "$LOG_DIR"
 Check restoration status without downloading:
 
 ```bash
-./varvis-download.js \
+./varvis-download.cjs \
   --resumeArchivedDownloads \
   --restorationFile "restorations.json" \
   --list
@@ -340,27 +349,25 @@ python3 << 'EOF'
 import json
 import datetime
 
+# The tracking file is a top-level array of entries:
+#   {analysisId, fileName, restoreEstimation, options}
 with open('awaiting-restoration.json', 'r') as f:
-    data = json.load(f)
+    entries = json.load(f)
 
-# Filter out old completed/failed restorations
-cutoff = datetime.datetime.now() - datetime.timedelta(days=7)
-filtered_restorations = []
+now = datetime.datetime.now(datetime.timezone.utc)
+cutoff = now - datetime.timedelta(days=7)
+kept = []
 
-for restoration in data['restorations']:
-    request_time = datetime.datetime.fromisoformat(restoration['requestTime'].replace('Z', '+00:00'))
-
-    # Keep pending restorations and recent completed/failed ones
-    if restoration['status'] == 'pending' or request_time > cutoff:
-        filtered_restorations.append(restoration)
-
-data['restorations'] = filtered_restorations
-data['lastUpdated'] = datetime.datetime.now().isoformat() + 'Z'
+for e in entries:
+    est = datetime.datetime.fromisoformat(e['restoreEstimation'].replace('Z', '+00:00'))
+    # Keep entries still pending (not yet ready), or that became ready recently
+    if est > now or est > cutoff:
+        kept.append(e)
 
 with open('awaiting-restoration.json', 'w') as f:
-    json.dump(data, f, indent=2)
+    json.dump(kept, f, indent=2)
 
-print(f"Cleaned up restoration file. Kept {len(filtered_restorations)} restorations.")
+print(f"Cleaned up restoration file. Kept {len(kept)} entries.")
 EOF
 ```
 
@@ -378,23 +385,26 @@ RESTORATION_FILE="awaiting-restoration.json"
 if [[ -f "$RESTORATION_FILE" ]]; then
   python3 << EOF
 import json
+import datetime
 from collections import Counter
 
 with open('$RESTORATION_FILE', 'r') as f:
-    data = json.load(f)
+    entries = json.load(f)
 
-restorations = data['restorations']
-statuses = [r['status'] for r in restorations]
-targets = [r['target'] for r in restorations]
+now = datetime.datetime.now(datetime.timezone.utc)
 
-print(f"Total restorations: {len(restorations)}")
-print("\nBy Status:")
-for status, count in Counter(statuses).items():
-    print(f"  {status}: {count}")
+def state(e):
+    est = datetime.datetime.fromisoformat(e['restoreEstimation'].replace('Z', '+00:00'))
+    return 'ready' if est <= now else 'pending'
 
-print("\nBy Target:")
-for target, count in Counter(targets).items():
-    print(f"  {target}: {count}")
+print(f"Total entries: {len(entries)}")
+print("\nBy state (derived from restoreEstimation):")
+for s, count in Counter(state(e) for e in entries).items():
+    print(f"  {s}: {count}")
+
+print("\nBy analysis:")
+for analysis_id, count in Counter(e['analysisId'] for e in entries).items():
+    print(f"  {analysis_id}: {count}")
 EOF
 else
   echo "No restoration file found."
@@ -412,14 +422,14 @@ fi
 ping api.varvis.com
 
 # Use debug logging
-./varvis-download.js -a 12345 --restoreArchived force --loglevel debug
+./varvis-download.cjs -a 12345 --restoreArchived force --loglevel debug
 ```
 
 **Files not becoming available:**
 
 ```bash
 # Check restoration status
-./varvis-download.js --resumeArchivedDownloads --list
+./varvis-download.cjs --resumeArchivedDownloads --list
 
 # Contact support if files are stuck in pending status for >24 hours
 ```
@@ -432,7 +442,7 @@ ping api.varvis.com
 
 # Or start fresh (backup first)
 cp awaiting-restoration.json backup.json
-echo '{"restorations": [], "lastUpdated": ""}' > awaiting-restoration.json
+echo '[]' > awaiting-restoration.json
 ```
 
 ### Debug Archive Issues
@@ -451,7 +461,7 @@ echo "Debugging archive issues for analysis: $ANALYSIS_ID"
 
 # Check file status
 echo "1. Checking file availability..."
-./varvis-download.js -t mytarget -a "$ANALYSIS_ID" --list
+./varvis-download.cjs -t mytarget -a "$ANALYSIS_ID" --list
 
 # Check restoration tracking
 echo "2. Checking restoration history..."
@@ -463,7 +473,7 @@ fi
 
 # Try restoration with debug logging
 echo "3. Testing restoration request..."
-./varvis-download.js \
+./varvis-download.cjs \
   -t mytarget \
   -a "$ANALYSIS_ID" \
   --restoreArchived force \
@@ -520,28 +530,30 @@ def update_restoration_db():
         CREATE TABLE IF NOT EXISTS restorations (
             analysis_id TEXT,
             file_name TEXT,
-            request_time TEXT,
-            status TEXT,
-            target TEXT,
+            restore_estimation TEXT,
+            state TEXT,
             PRIMARY KEY (analysis_id, file_name)
         )
     ''')
 
-    # Read restoration file
+    # The tracking file is a top-level array of entries
     with open('awaiting-restoration.json', 'r') as f:
-        data = json.load(f)
+        entries = json.load(f)
+
+    now = datetime.datetime.now(datetime.timezone.utc)
 
     # Update database
-    for restoration in data['restorations']:
+    for e in entries:
+        est = datetime.datetime.fromisoformat(e['restoreEstimation'].replace('Z', '+00:00'))
+        state = 'ready' if est <= now else 'pending'
         cursor.execute('''
             INSERT OR REPLACE INTO restorations
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?)
         ''', (
-            restoration['analysisId'],
-            restoration['fileName'],
-            restoration['requestTime'],
-            restoration['status'],
-            restoration['target']
+            e['analysisId'],
+            e['fileName'],
+            e['restoreEstimation'],
+            state
         ))
 
     conn.commit()
@@ -557,9 +569,11 @@ if __name__ == "__main__":
 #!/bin/bash
 # monitoring-integration.sh
 
-# Send metrics to monitoring system
-PENDING_COUNT=$(jq '.restorations | map(select(.status == "pending")) | length' awaiting-restoration.json)
-AVAILABLE_COUNT=$(jq '.restorations | map(select(.status == "available")) | length' awaiting-restoration.json)
+# Send metrics to monitoring system. The file is a top-level array; an entry is
+# "ready" once its restoreEstimation (ISO-8601 UTC) is in the past.
+NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+PENDING_COUNT=$(jq --arg now "$NOW" '[.[] | select(.restoreEstimation > $now)] | length' awaiting-restoration.json)
+AVAILABLE_COUNT=$(jq --arg now "$NOW" '[.[] | select(.restoreEstimation <= $now)] | length' awaiting-restoration.json)
 
 # Example: Send to Prometheus pushgateway
 curl -X POST http://pushgateway:9091/metrics/job/varvis-archives \
