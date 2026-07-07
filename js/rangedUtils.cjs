@@ -137,11 +137,11 @@ async function rangedDownloadVCF(
     // Get the directory where the index file is located
     const indexDir = path.dirname(indexFile);
 
-    // Command 1: tabix to extract the region with header
-    // CRITICAL: The URL must be quoted to handle special characters in query parameters
-    const tabixCmd = `tabix -h "${url}" ${range}`;
-    logger.info(`Executing in ${indexDir}: ${tabixCmd}`);
-    const tabixProcess = spawn('sh', ['-c', tabixCmd], {
+    // Command 1: tabix to extract the region with header.
+    // Spawn tabix directly with an argv array (no shell) so the URL and range
+    // are inert to shell metacharacters — matching the safe BAM path.
+    logger.info(`Executing in ${indexDir}: tabix -h ${url} ${range}`);
+    const tabixProcess = spawn('tabix', ['-h', url, range], {
       cwd: indexDir, // Execute in the directory where the index file is located
     });
 
