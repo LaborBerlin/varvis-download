@@ -18,7 +18,7 @@ Master the file download capabilities of Varvis Download CLI, including file typ
 **Default behavior** (BAM workflow):
 
 ```bash
-./varvis-download.js -t mytarget -a 12345
+./varvis-download.cjs -t mytarget -a 12345
 # Downloads: .bam and .bam.bai files
 ```
 
@@ -26,13 +26,13 @@ Master the file download capabilities of Varvis Download CLI, including file typ
 
 ```bash
 # VCF workflow only
-./varvis-download.js -t mytarget -a 12345 -f "vcf.gz,vcf.gz.tbi"
+./varvis-download.cjs -t mytarget -a 12345 -f "vcf.gz,vcf.gz.tbi"
 
 # All genomic data
-./varvis-download.js -t mytarget -a 12345 -f "bam,bam.bai,vcf.gz,vcf.gz.tbi"
+./varvis-download.cjs -t mytarget -a 12345 -f "bam,bam.bai,vcf.gz,vcf.gz.tbi"
 
 # Data files only (no indexes)
-./varvis-download.js -t mytarget -a 12345 -f "bam,vcf.gz"
+./varvis-download.cjs -t mytarget -a 12345 -f "bam,vcf.gz"
 ```
 
 ## Output Management
@@ -43,13 +43,13 @@ Master the file download capabilities of Varvis Download CLI, including file typ
 
 ```bash
 # Download to current directory
-./varvis-download.js -t mytarget -a 12345
+./varvis-download.cjs -t mytarget -a 12345
 
 # Download to specific directory
-./varvis-download.js -t mytarget -a 12345 -d "./genomics-data"
+./varvis-download.cjs -t mytarget -a 12345 -d "./genomics-data"
 
 # Organized by analysis
-./varvis-download.js -t mytarget -a 12345 -d "./data/analysis_12345"
+./varvis-download.cjs -t mytarget -a 12345 -d "./data/analysis_12345"
 ```
 
 **Resulting structure**:
@@ -74,15 +74,15 @@ Master the file download capabilities of Varvis Download CLI, including file typ
 
 ```bash
 # Single range
-./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000"
+./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1000000-2000000"
 # Output: sample_001.chr1_1000000_2000000.bam
 
 # Multiple ranges
-./varvis-download.js -t mytarget -a 12345 -g "chr1:1-1000 chr2:1-1000"
+./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1-1000 chr2:1-1000"
 # Output: sample_001.multiple-regions.bam
 
 # BED file ranges
-./varvis-download.js -t mytarget -a 12345 -b regions.bed
+./varvis-download.cjs -t mytarget -a 12345 -b regions.bed
 # Output: sample_001.multiple-regions.bam
 ```
 
@@ -91,14 +91,14 @@ Master the file download capabilities of Varvis Download CLI, including file typ
 **Default behavior** (skip existing):
 
 ```bash
-./varvis-download.js -t mytarget -a 12345
+./varvis-download.cjs -t mytarget -a 12345
 # Skips files that already exist
 ```
 
 **Force overwrite**:
 
 ```bash
-./varvis-download.js -t mytarget -a 12345 --overwrite
+./varvis-download.cjs -t mytarget -a 12345 --overwrite
 # Overwrites existing files
 ```
 
@@ -115,7 +115,7 @@ Master the file download capabilities of Varvis Download CLI, including file typ
 List available files without downloading:
 
 ```bash
-./varvis-download.js -t mytarget -a 12345 --list
+./varvis-download.cjs -t mytarget -a 12345 --list
 ```
 
 **Example output**:
@@ -141,13 +141,13 @@ Download complete files:
 
 ```bash
 # Single analysis
-./varvis-download.js -t mytarget -a 12345
+./varvis-download.cjs -t mytarget -a 12345
 
 # Multiple analyses
-./varvis-download.js -t mytarget -a "12345,67890,11111"
+./varvis-download.cjs -t mytarget -a "12345,67890,11111"
 
 # Progress output
-./varvis-download.js -t mytarget -a 12345
+./varvis-download.cjs -t mytarget -a 12345
 ```
 
 **Progress display**:
@@ -167,14 +167,14 @@ Generate download URLs without downloading files:
 
 ```bash
 # List URLs to console
-./varvis-download.js -t mytarget -a 12345 --list-urls
+./varvis-download.cjs -t mytarget -a 12345 --list-urls
 
 # Save URLs to a file
-./varvis-download.js -t mytarget -a 12345 --list-urls --url-file download_urls.txt
+./varvis-download.cjs -t mytarget -a 12345 --list-urls --url-file download_urls.txt
 
 # Pipe URLs to external download tools
-./varvis-download.js -t mytarget -a 12345 --list-urls | wget -i -
-./varvis-download.js -t mytarget -a 12345 --list-urls | aria2c -i -
+./varvis-download.cjs -t mytarget -a 12345 --list-urls | wget -i -
+./varvis-download.cjs -t mytarget -a 12345 --list-urls | aria2c -i -
 ```
 
 **Use cases for URL listing**:
@@ -198,13 +198,13 @@ https://mytarget.varvis.com/download/analysis/12345/LIMS-001-ready.vcf.gz.tbi?to
 
 ```bash
 # Parallel download with wget
-./varvis-download.js -t mytarget -a 12345 --list-urls | wget -i - -P ./downloads/ --progress=bar
+./varvis-download.cjs -t mytarget -a 12345 --list-urls | wget -i - -P ./downloads/ --progress=bar
 
 # Accelerated download with aria2c
-./varvis-download.js -t mytarget -a 12345 --list-urls | aria2c -i - -d ./downloads/ -j 8 -x 8
+./varvis-download.cjs -t mytarget -a 12345 --list-urls | aria2c -i - -d ./downloads/ -j 8 -x 8
 
 # Custom processing with curl
-./varvis-download.js -t mytarget -a 12345 --list-urls | while read url; do
+./varvis-download.cjs -t mytarget -a 12345 --list-urls | while read url; do
   filename=$(basename "$url" | cut -d'?' -f1)
   curl -L "$url" -o "./downloads/$filename"
 done
@@ -216,13 +216,13 @@ Download specific genomic regions:
 
 ```bash
 # Single genomic range
-./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000"
+./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1000000-2000000"
 
 # Multiple ranges
-./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000 chr2:500000-1500000"
+./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1000000-2000000 chr2:500000-1500000"
 
 # BED file regions
-./varvis-download.js -t mytarget -a 12345 -b target_regions.bed
+./varvis-download.cjs -t mytarget -a 12345 -b target_regions.bed
 ```
 
 **BED file format**:
@@ -240,10 +240,10 @@ VCF ranged downloads use a robust `tabix -h | bgzip` pipeline that automatically
 
 ```bash
 # Single region creates: sample.chr1_1000000_2000000.vcf.gz
-./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000" -f "vcf.gz,vcf.gz.tbi"
+./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1000000-2000000" -f "vcf.gz,vcf.gz.tbi"
 
 # Multiple regions create separate files for each region
-./varvis-download.js -t mytarget -a 12345 -g "chr1:1000000-2000000 chr2:500000-1500000" -f "vcf.gz,vcf.gz.tbi"
+./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1000000-2000000 chr2:500000-1500000" -f "vcf.gz,vcf.gz.tbi"
 # Output: sample.chr1_1000000_2000000.vcf.gz, sample.chr2_500000_1500000.vcf.gz
 ```
 
@@ -276,7 +276,7 @@ VCF ranged downloads use a robust `tabix -h | bgzip` pipeline that automatically
 
 ```bash
 # Watch active downloads
-./varvis-download.js -t mytarget -a "12345,67890,11111" --loglevel info
+./varvis-download.cjs -t mytarget -a "12345,67890,11111" --loglevel info
 
 # Example output
 [INFO] Starting download: sample_001.bam (1/6)
@@ -298,10 +298,10 @@ VCF ranged downloads use a robust `tabix -h | bgzip` pipeline that automatically
 
 ```bash
 # Start download
-./varvis-download.js -t mytarget -a 12345
+./varvis-download.cjs -t mytarget -a 12345
 
 # Interrupt with Ctrl+C, then restart
-./varvis-download.js -t mytarget -a 12345
+./varvis-download.cjs -t mytarget -a 12345
 # Resumes from where it left off
 ```
 
@@ -320,7 +320,7 @@ VCF ranged downloads use a robust `tabix -h | bgzip` pipeline that automatically
 iftop -i eth0
 
 # Bandwidth usage summary
-./varvis-download.js -t mytarget -a 12345 --loglevel info | grep "MB/s"
+./varvis-download.cjs -t mytarget -a 12345 --loglevel info | grep "MB/s"
 ```
 
 ## Error Handling
@@ -362,7 +362,7 @@ Retrying download...
 ```bash
 # Force re-download specific file
 rm sample_001.bam
-./varvis-download.js -t mytarget -a 12345 -f "bam"
+./varvis-download.cjs -t mytarget -a 12345 -f "bam"
 
 # Verify file integrity
 samtools view sample_001.bam | head
@@ -377,10 +377,10 @@ samtools view sample_001.bam | head
 df -h .
 
 # Estimate download size
-./varvis-download.js -t mytarget -a 12345 --list | grep "Total size"
+./varvis-download.cjs -t mytarget -a 12345 --list | grep "Total size"
 
 # Test network connectivity
-./varvis-download.js -t mytarget -a 12345 --list | head -1
+./varvis-download.cjs -t mytarget -a 12345 --list | head -1
 ```
 
 ## File Validation
@@ -432,13 +432,13 @@ samtools view sample_001.bam chr1:1-1000 | wc -l
 
 ```bash
 # Filter by analysis type
-./varvis-download.js -t mytarget -s "LIMS-001,LIMS-002" -F "analysisType=SNV"
+./varvis-download.cjs -t mytarget -s "LIMS-001,LIMS-002" -F "analysisType=SNV"
 
 # Filter by sample properties
-./varvis-download.js -t mytarget -l "LIMS_123" -F "sampleId>LIMS-100"
+./varvis-download.cjs -t mytarget -l "LIMS_123" -F "sampleId>LIMS-100"
 
 # Multiple filters
-./varvis-download.js -t mytarget -a 12345 -F "analysisType=SNV" "quality>90"
+./varvis-download.cjs -t mytarget -a 12345 -F "analysisType=SNV" "quality>90"
 ```
 
 ### Conditional Downloads
@@ -447,14 +447,14 @@ samtools view sample_001.bam chr1:1-1000 | wc -l
 
 ```bash
 # Download only if file size is reasonable
-./varvis-download.js -t mytarget -a 12345 --list | grep -E "MB|GB" | grep -v "TB"
+./varvis-download.cjs -t mytarget -a 12345 --list | grep -E "MB|GB" | grep -v "TB"
 ```
 
 **Date-based filtering**:
 
 ```bash
 # Download recent analyses only
-./varvis-download.js -t mytarget -s "LIMS-$(date +%m%d)"
+./varvis-download.cjs -t mytarget -s "LIMS-$(date +%m%d)"
 ```
 
 ### Batch Download Patterns
@@ -472,7 +472,7 @@ LOG="./logs/download_$DATE.log"
 mkdir -p "$DEST" "./logs"
 
 # Download today's samples
-./varvis-download.js \
+./varvis-download.cjs \
   -t mytarget \
   -s "$(cat daily_samples.txt | tr '\n' ',')" \
   -d "$DEST" \
@@ -496,7 +496,7 @@ for TARGET in "${TARGETS[@]}"; do
     echo "Downloading from $TARGET..."
     mkdir -p "./data/$TARGET"
 
-    ./varvis-download.js \
+    ./varvis-download.cjs \
       -t "$TARGET" \
       -a "$ANALYSIS_ID" \
       -d "./data/$TARGET" \
@@ -512,7 +512,7 @@ done
 
 ```bash
 # Enable detailed metrics
-./varvis-download.js -t mytarget -a 12345 --loglevel info
+./varvis-download.cjs -t mytarget -a 12345 --loglevel info
 
 # Monitor system resources
 top -p $(pgrep -f varvis-download)
@@ -523,7 +523,7 @@ iostat -x 1
 
 ```bash
 # Generate performance report
-./varvis-download.js -t mytarget -a 12345 --reportfile performance.json
+./varvis-download.cjs -t mytarget -a 12345 --reportfile performance.json
 
 # View metrics
 cat performance.json | jq '.metrics'
@@ -551,7 +551,7 @@ cat performance.json | jq '.metrics'
 
 ```bash
 # Use local network when possible
-./varvis-download.js -t mytarget-local -a 12345
+./varvis-download.cjs -t mytarget-local -a 12345
 
 # Optimize for slow connections
 export VARVIS_CHUNK_SIZE=32768  # 32KB chunks
@@ -561,10 +561,10 @@ export VARVIS_CHUNK_SIZE=32768  # 32KB chunks
 
 ```bash
 # Download to fastest storage
-./varvis-download.js -t mytarget -a 12345 -d "/fast-ssd/genomics"
+./varvis-download.cjs -t mytarget -a 12345 -d "/fast-ssd/genomics"
 
 # Parallel storage for large datasets
-./varvis-download.js -t mytarget -a "12345,67890" -d "/parallel-fs/data"
+./varvis-download.cjs -t mytarget -a "12345,67890" -d "/parallel-fs/data"
 ```
 
 ## Integration Examples
@@ -612,7 +612,7 @@ ANALYSIS_ID="$1"
 DATA_DIR="./data"
 
 # Download files
-./varvis-download.js -t mytarget -a "$ANALYSIS_ID" -d "$DATA_DIR"
+./varvis-download.cjs -t mytarget -a "$ANALYSIS_ID" -d "$DATA_DIR"
 
 # Run QC
 for BAM in "$DATA_DIR"/*.bam; do

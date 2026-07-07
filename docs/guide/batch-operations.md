@@ -20,10 +20,10 @@ Download files for several analyses at once:
 
 ```bash
 # Comma-separated analysis IDs
-./varvis-download.js -t mytarget -a "12345,67890,11111,22222"
+./varvis-download.cjs -t mytarget -a "12345,67890,11111,22222"
 
 # From a file (one ID per line)
-./varvis-download.js -t mytarget -a "$(cat analysis_ids.txt | tr '\n' ',')"
+./varvis-download.cjs -t mytarget -a "$(cat analysis_ids.txt | tr '\n' ',')"
 ```
 
 ### Multiple Samples
@@ -32,10 +32,10 @@ Process all analyses for specific samples:
 
 ```bash
 # Multiple sample IDs
-./varvis-download.js -t mytarget -s "LIMS-001,LIMS-002,LIMS-003"
+./varvis-download.cjs -t mytarget -s "LIMS-001,LIMS-002,LIMS-003"
 
 # From sample list file
-./varvis-download.js -t mytarget -s "$(cat samples.txt | tr '\n' ',')"
+./varvis-download.cjs -t mytarget -s "$(cat samples.txt | tr '\n' ',')"
 ```
 
 ### Multiple LIMS IDs
@@ -44,7 +44,7 @@ Download using laboratory management system IDs:
 
 ```bash
 # LIMS ID batch processing
-./varvis-download.js -t mytarget -l "LIMS_001,LIMS_002,LIMS_003"
+./varvis-download.cjs -t mytarget -l "LIMS_001,LIMS_002,LIMS_003"
 ```
 
 ## Batch Processing Scripts
@@ -80,7 +80,7 @@ echo "Starting batch download at $(date)" | tee "$LOG_FILE"
 echo "Processing $(wc -l < $ANALYSIS_FILE) analyses" | tee -a "$LOG_FILE"
 
 # Download all analyses
-./varvis-download.js \
+./varvis-download.cjs \
   -t "$TARGET" \
   -a "$(cat $ANALYSIS_FILE | tr '\n' ',')" \
   -d "$DATA_DIR" \
@@ -129,7 +129,7 @@ download_analysis() {
   while [[ $attempt -le $RETRY_COUNT ]]; do
     log "Downloading analysis $analysis_id (attempt $attempt/$RETRY_COUNT)"
 
-    if ./varvis-download.js \
+    if ./varvis-download.cjs \
       -t "$TARGET" \
       -a "$analysis_id" \
       -d "$DATA_DIR/$analysis_id" \
@@ -267,7 +267,7 @@ download_single() {
 
   mkdir -p "data/$analysis_id" "logs"
 
-  ./varvis-download.js \
+  ./varvis-download.cjs \
     -t mytarget \
     -a "$analysis_id" \
     -d "data/$analysis_id" \
@@ -320,7 +320,7 @@ wait_for_slot() {
 download_background() {
   local analysis_id="$1"
 
-  ./varvis-download.js \
+  ./varvis-download.cjs \
     -t mytarget \
     -a "$analysis_id" \
     -d "data/$analysis_id" \
@@ -366,7 +366,7 @@ create_organized_structure() {
   local structure="data/$date/$analysis_type/$sample_id/$analysis_id"
   mkdir -p "$structure"
 
-  ./varvis-download.js \
+  ./varvis-download.cjs \
     -t mytarget \
     -a "$analysis_id" \
     -d "$structure" \
@@ -406,7 +406,7 @@ done < structured_analysis_list.csv
 LAST_WEEK=$(date -d '7 days ago' '+%Y-%m-%d')
 
 # Download recent high-quality analyses
-./varvis-download.js \
+./varvis-download.cjs \
   -t mytarget \
   -F "date>=$LAST_WEEK" \
   -F "quality>=95" \
@@ -422,7 +422,7 @@ if [[ -s recent_analyses.txt ]]; then
     cut -d: -f2 | \
     tr -d ' ' | \
     tr '\n' ',' | \
-    xargs -I {} ./varvis-download.js -t mytarget -a "{}"
+    xargs -I {} ./varvis-download.cjs -t mytarget -a "{}"
 else
   echo "No recent high-quality analyses found"
 fi
@@ -441,7 +441,7 @@ process_sample_batch() {
   mkdir -p "$output_dir"
 
   # List available analyses for sample
-  ./varvis-download.js \
+  ./varvis-download.cjs \
     -t mytarget \
     -s "$sample_id" \
     --list > "$output_dir/available.txt"
@@ -450,7 +450,7 @@ process_sample_batch() {
   if grep -q "WGS" "$output_dir/available.txt"; then
     echo "WGS analysis found for $sample_id, downloading..."
 
-    ./varvis-download.js \
+    ./varvis-download.cjs \
       -t mytarget \
       -s "$sample_id" \
       -F "analysisType=WGS" \
@@ -676,7 +676,7 @@ COPY package*.json ./
 RUN npm ci --only=production
 
 COPY . .
-RUN chmod +x varvis-download.js batch-download.sh
+RUN chmod +x varvis-download.cjs batch-download.sh
 
 # Create volume for data
 VOLUME ["/data"]

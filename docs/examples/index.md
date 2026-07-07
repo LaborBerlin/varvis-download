@@ -8,13 +8,13 @@ Practical examples and usage patterns for the Varvis Download CLI tool.
 
 ```bash
 # Download BAM files for a single analysis
-./varvis-download.js -t mytarget -a 12345
+./varvis-download.cjs -t mytarget -a 12345
 
 # Download multiple analyses
-./varvis-download.js -t mytarget -a "12345,67890,11111"
+./varvis-download.cjs -t mytarget -a "12345,67890,11111"
 
 # Download specific file types
-./varvis-download.js -t mytarget -a 12345 -f "vcf.gz,vcf.gz.tbi"
+./varvis-download.cjs -t mytarget -a 12345 -f "vcf.gz,vcf.gz.tbi"
 ```
 
 ### Authentication Examples
@@ -23,10 +23,10 @@ Practical examples and usage patterns for the Varvis Download CLI tool.
 # Using environment variables (recommended)
 export VARVIS_USER="your_username"
 export VARVIS_PASSWORD="your_password"
-./varvis-download.js -t mytarget -a 12345
+./varvis-download.cjs -t mytarget -a 12345
 
 # Interactive password prompt
-./varvis-download.js -t mytarget -u your_username -a 12345
+./varvis-download.cjs -t mytarget -u your_username -a 12345
 ```
 
 ## Example Categories
@@ -85,7 +85,7 @@ DEST_DIR="./data/$DATE"
 mkdir -p "$DEST_DIR"
 
 # Download all analyses for specific samples
-./varvis-download.js \
+./varvis-download.cjs \
   -t mytarget \
   -s "$(cat today_samples.txt | tr '\n' ',')" \
   -d "$DEST_DIR" \
@@ -98,7 +98,7 @@ mkdir -p "$DEST_DIR"
 #!/bin/bash
 # qc-download.sh - Download only high-quality analyses
 
-./varvis-download.js \
+./varvis-download.cjs \
   -t mytarget \
   -s "LIMS-001,LIMS-002" \
   -F "quality>=95" \
@@ -112,7 +112,7 @@ mkdir -p "$DEST_DIR"
 #!/bin/bash
 # recover-archived.sh - Restore and download archived files
 
-./varvis-download.js \
+./varvis-download.cjs \
   -t mytarget \
   -a "12345,67890" \
   --restoreArchived force \
@@ -133,7 +133,7 @@ RUN npm install
 # Set up bioinformatics tools
 RUN apk add --no-cache samtools tabix
 
-ENTRYPOINT ["./varvis-download.js"]
+ENTRYPOINT ["./varvis-download.cjs"]
 ```
 
 ### GitHub Actions
@@ -162,7 +162,7 @@ jobs:
           VARVIS_USER: ${{ secrets.VARVIS_USER }}
           VARVIS_PASSWORD: ${{ secrets.VARVIS_PASSWORD }}
         run: |
-          ./varvis-download.js -t mytarget -a "${{ env.ANALYSIS_IDS }}"
+          ./varvis-download.cjs -t mytarget -a "${{ env.ANALYSIS_IDS }}"
 ```
 
 ### Python Integration
@@ -177,7 +177,7 @@ def download_varvis_data(analysis_ids, target="mytarget"):
     """Download data using Varvis CLI from Python"""
 
     cmd = [
-        "./varvis-download.js",
+        "./varvis-download.cjs",
         "-t", target,
         "-a", ",".join(analysis_ids),
         "--reportfile", "download_report.json"
@@ -210,7 +210,7 @@ const { spawn } = require('child_process');
 
 function runVarvisDownload(args) {
   return new Promise((resolve, reject) => {
-    const process = spawn('./varvis-download.js', args);
+    const process = spawn('./varvis-download.cjs', args);
     let stdout = '';
     let stderr = '';
 
@@ -235,11 +235,11 @@ module.exports = { runVarvisDownload };
 set -e
 
 echo "Testing basic download..."
-./varvis-download.js -t mytarget -a 12345 --list
+./varvis-download.cjs -t mytarget -a 12345 --list
 
 echo "Testing authentication..."
 export VARVIS_USER="test_user"
-./varvis-download.js -t mytarget -a 12345 --list
+./varvis-download.cjs -t mytarget -a 12345 --list
 
 echo "All tests passed!"
 ```
@@ -256,7 +256,7 @@ echo "All tests passed!"
 mkdir -p ./data/{bam,vcf,reports}
 
 # Download BAM files first (usually larger)
-./varvis-download.js \
+./varvis-download.cjs \
   -t mytarget \
   -a "$(cat large_analysis_list.txt | tr '\n' ',')" \
   -f "bam,bam.bai" \
@@ -264,7 +264,7 @@ mkdir -p ./data/{bam,vcf,reports}
   --logfile "./data/reports/bam_download.log"
 
 # Then download VCF files
-./varvis-download.js \
+./varvis-download.cjs \
   -t mytarget \
   -a "$(cat large_analysis_list.txt | tr '\n' ',')" \
   -f "vcf.gz,vcf.gz.tbi" \
@@ -281,7 +281,7 @@ mkdir -p ./data/{bam,vcf,reports}
 DOWNLOAD_PID=""
 
 # Start download in background
-./varvis-download.js -t mytarget -a "$ANALYSIS_IDS" &
+./varvis-download.cjs -t mytarget -a "$ANALYSIS_IDS" &
 DOWNLOAD_PID=$!
 
 # Monitor disk space and progress
@@ -303,7 +303,7 @@ echo "Download completed"
 # debug-network.sh
 
 # Enable maximum logging
-./varvis-download.js \
+./varvis-download.cjs \
   -t mytarget \
   -a 12345 \
   --loglevel debug \
@@ -321,12 +321,12 @@ grep -i "error\|timeout\|connection" debug_network.log
 # retry-failed.sh
 
 # First attempt
-if ! ./varvis-download.js -t mytarget -a "$ANALYSIS_IDS"; then
+if ! ./varvis-download.cjs -t mytarget -a "$ANALYSIS_IDS"; then
   echo "First attempt failed, retrying in 5 minutes..."
   sleep 300
 
   # Retry with different settings
-  ./varvis-download.js \
+  ./varvis-download.cjs \
     -t mytarget \
     -a "$ANALYSIS_IDS" \
     --loglevel debug \

@@ -28,11 +28,11 @@ Logging and reporting features include:
 
 ```bash
 # Command line
-./varvis-download.js -t mytarget -a 12345 --loglevel debug
+./varvis-download.cjs -t mytarget -a 12345 --loglevel debug
 
 # Environment variable
 export VARVIS_LOG_LEVEL="debug"
-./varvis-download.js -t mytarget -a 12345
+./varvis-download.cjs -t mytarget -a 12345
 
 # Configuration file
 {
@@ -47,7 +47,7 @@ export VARVIS_LOG_LEVEL="debug"
 
 ```bash
 # Standard info level output
-./varvis-download.js -t mytarget -a 12345
+./varvis-download.cjs -t mytarget -a 12345
 
 # Example output:
 [2024-06-23 10:30:15] INFO: Starting download for analysis 12345
@@ -60,7 +60,7 @@ export VARVIS_LOG_LEVEL="debug"
 ### Debug Output
 
 ```bash
-./varvis-download.js -t mytarget -a 12345 --loglevel debug
+./varvis-download.cjs -t mytarget -a 12345 --loglevel debug
 
 # Example debug output:
 [2024-06-23 10:30:15] DEBUG: Authenticating with Varvis API
@@ -78,10 +78,10 @@ export VARVIS_LOG_LEVEL="debug"
 
 ```bash
 # Log to file
-./varvis-download.js -t mytarget -a 12345 --logfile "download.log"
+./varvis-download.cjs -t mytarget -a 12345 --logfile "download.log"
 
 # Log with timestamp in filename
-./varvis-download.js -t mytarget -a 12345 \
+./varvis-download.cjs -t mytarget -a 12345 \
   --logfile "download_$(date +%Y%m%d_%H%M%S).log"
 ```
 
@@ -139,7 +139,7 @@ rotate_logs() {
 rotate_logs "$LOG_DIR/varvis-download.log"
 
 # Run with logging
-./varvis-download.js \
+./varvis-download.cjs \
   -t mytarget \
   -a "$1" \
   --logfile "$LOG_DIR/varvis-download.log"
@@ -152,7 +152,7 @@ rotate_logs "$LOG_DIR/varvis-download.log"
 Generate structured JSON reports:
 
 ```bash
-./varvis-download.js -t mytarget -a 12345 \
+./varvis-download.cjs -t mytarget -a 12345 \
   --reportfile "report_12345.json"
 ```
 
@@ -274,7 +274,7 @@ format_logs() {
 }
 
 # Run with logging
-./varvis-download.js \
+./varvis-download.cjs \
   -t mytarget \
   -a 12345 \
   --logfile "raw_download.log" \
@@ -325,7 +325,7 @@ cat > logging.json << EOF
 EOF
 
 # Run with structured logging
-./varvis-download.js \
+./varvis-download.cjs \
   -t mytarget \
   -a 12345 \
   --logfile "structured.log"
@@ -370,7 +370,7 @@ monitor_download() {
 }
 
 # Start download in background
-./varvis-download.js -t mytarget -a 12345 --logfile "monitor.log" &
+./varvis-download.cjs -t mytarget -a 12345 --logfile "monitor.log" &
 DOWNLOAD_PID=$!
 echo "$DOWNLOAD_PID" > download.pid
 
@@ -477,7 +477,7 @@ EOF
 }
 
 # Run download with centralized logging
-./varvis-download.js \
+./varvis-download.cjs \
   -t mytarget \
   -a 12345 \
   --logfile "download.log"
@@ -571,7 +571,7 @@ EOF
 }
 
 # Run download and collect metrics
-./varvis-download.js \
+./varvis-download.cjs \
   -t mytarget \
   -a 12345 \
   --reportfile "performance_report.json"
@@ -610,7 +610,7 @@ monitor_resources() {
 }
 
 # Start download in background
-./varvis-download.js -t mytarget -a 12345 &
+./varvis-download.cjs -t mytarget -a 12345 &
 DOWNLOAD_PID=$!
 
 # Monitor resources

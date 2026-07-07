@@ -41,7 +41,7 @@ npm install
 ### 3. Make Executable
 
 ```bash
-chmod +x varvis-download.js
+chmod +x varvis-download.cjs
 ```
 
 ### 4. Optional: Global Installation
@@ -68,7 +68,7 @@ export VARVIS_PASSWORD="your_password"
 Download BAM files for a specific analysis:
 
 ```bash
-./varvis-download.js -t mytarget -a 12345
+./varvis-download.cjs -t mytarget -a 12345
 ```
 
 This command will:
@@ -82,7 +82,7 @@ This command will:
 Before downloading, you can preview what files are available:
 
 ```bash
-./varvis-download.js -t mytarget -a 12345 --list
+./varvis-download.cjs -t mytarget -a 12345 --list
 ```
 
 ## Common Use Cases
@@ -90,25 +90,25 @@ Before downloading, you can preview what files are available:
 ### Download Multiple Analyses
 
 ```bash
-./varvis-download.js -t mytarget -a "12345,67890,11111"
+./varvis-download.cjs -t mytarget -a "12345,67890,11111"
 ```
 
 ### Download Specific File Types
 
 ```bash
-./varvis-download.js -t mytarget -a 12345 -f "vcf.gz,vcf.gz.tbi"
+./varvis-download.cjs -t mytarget -a 12345 -f "vcf.gz,vcf.gz.tbi"
 ```
 
 ### Download to Custom Directory
 
 ```bash
-./varvis-download.js -t mytarget -a 12345 -d "./downloads"
+./varvis-download.cjs -t mytarget -a 12345 -d "./downloads"
 ```
 
 ### Download with Filters
 
 ```bash
-./varvis-download.js -t mytarget -s "LIMS-001,LIMS-002" -F "analysisType=SNV"
+./varvis-download.cjs -t mytarget -s "LIMS-001,LIMS-002" -F "analysisType=SNV"
 ```
 
 ## Configuration File
@@ -128,7 +128,7 @@ Create a `.config.json` file for persistent settings:
 Then run with minimal arguments:
 
 ```bash
-./varvis-download.js -a 12345
+./varvis-download.cjs -a 12345
 ```
 
 ## Next Steps
@@ -142,7 +142,7 @@ Now that you have the basics working, explore these advanced features:
 
 ## Getting Help
 
-- Use `./varvis-download.js --help` for command-line help
+- Use `./varvis-download.cjs --help` for command-line help
 - Check the [API Reference](/api/) for detailed parameter documentation
 - Browse [Examples](/examples/) for real-world usage patterns
 
@@ -153,7 +153,7 @@ Now that you have the basics working, explore these advanced features:
 **Permission denied error:**
 
 ```bash
-chmod +x varvis-download.js
+chmod +x varvis-download.cjs
 ```
 
 **Node.js version too old:**

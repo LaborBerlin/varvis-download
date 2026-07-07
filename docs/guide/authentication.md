@@ -25,7 +25,7 @@ export VARVIS_PASSWORD="your_password"
 Then run commands without credential arguments:
 
 ```bash
-./varvis-download.js -t mytarget -a 12345
+./varvis-download.cjs -t mytarget -a 12345
 ```
 
 ### Alternative Variable Names
@@ -61,7 +61,7 @@ Source the script:
 
 ```bash
 source setup_session.sh
-./varvis-download.js -a 12345,67890
+./varvis-download.cjs -a 12345,67890
 ```
 
 ## Interactive Password Prompts
@@ -71,7 +71,7 @@ source setup_session.sh
 When no password is provided, the tool prompts securely with hidden input:
 
 ```bash
-./varvis-download.js -t mytarget -u your_username -a 12345
+./varvis-download.cjs -t mytarget -u your_username -a 12345
 # Output: Please enter your Varvis password: [hidden input]
 ```
 
@@ -119,7 +119,7 @@ Create `.config.json` with credentials:
 
 ```bash
 export VARVIS_PASSWORD="your_password"
-./varvis-download.js --config .config.json -a 12345
+./varvis-download.cjs --config .config.json -a 12345
 ```
 
 ### Multiple Environments
@@ -153,11 +153,11 @@ Usage:
 ```bash
 # Development
 export VARVIS_PASSWORD="dev_password"
-./varvis-download.js --config development.config.json -a 12345
+./varvis-download.cjs --config development.config.json -a 12345
 
 # Production
 export VARVIS_PASSWORD="prod_password"
-./varvis-download.js --config production.config.json -a 12345
+./varvis-download.cjs --config production.config.json -a 12345
 ```
 
 ## Command Line Arguments
@@ -167,7 +167,7 @@ export VARVIS_PASSWORD="prod_password"
 Provide credentials directly via command line:
 
 ```bash
-./varvis-download.js -t mytarget -u "your_username" -p "your_password" -a 12345
+./varvis-download.cjs -t mytarget -u "your_username" -p "your_password" -a 12345
 ```
 
 ::: warning Security Risk
@@ -179,7 +179,7 @@ Command line arguments are visible in process lists and shell history. Use only 
 Use environment variables even with CLI:
 
 ```bash
-./varvis-download.js -t mytarget -u "$VARVIS_USER" -p "$VARVIS_PASSWORD" -a 12345
+./varvis-download.cjs -t mytarget -u "$VARVIS_USER" -p "$VARVIS_PASSWORD" -a 12345
 ```
 
 ## Authentication Flow
@@ -232,8 +232,8 @@ export VARVIS_T2_USER="t2_username"
 export VARVIS_T2_PASSWORD="t2_password"
 
 # Use with different targets
-./varvis-download.js -t mytarget -u "$VARVIS_T1_USER" -p "$VARVIS_T1_PASSWORD" -a 12345
-./varvis-download.js -t othertarget -u "$VARVIS_T2_USER" -p "$VARVIS_T2_PASSWORD" -a 67890
+./varvis-download.cjs -t mytarget -u "$VARVIS_T1_USER" -p "$VARVIS_T1_PASSWORD" -a 12345
+./varvis-download.cjs -t othertarget -u "$VARVIS_T2_USER" -p "$VARVIS_T2_PASSWORD" -a 67890
 ```
 
 ### Configuration per Target
@@ -271,7 +271,7 @@ Create target-specific configurations:
    export VARVIS_PASSWORD="secret"
 
    # Avoid
-   ./varvis-download.js -p "secret"  # Visible in process list
+   ./varvis-download.cjs -p "secret"  # Visible in process list
    ```
 
 2. **File Permissions**
@@ -308,7 +308,7 @@ echo
 export VARVIS_PASSWORD="$NEW_PASSWORD"
 
 # Test authentication
-./varvis-download.js -t mytarget --list -a 12345
+./varvis-download.cjs -t mytarget --list -a 12345
 
 if [ $? -eq 0 ]; then
     echo "✓ Credential rotation successful"
@@ -335,7 +335,7 @@ fi
 
    ```bash
    # Enable authentication logging
-   ./varvis-download.js -t mytarget -a 12345 --loglevel info --logfile auth.log
+   ./varvis-download.cjs -t mytarget -a 12345 --loglevel info --logfile auth.log
 
    # Review authentication events
    grep "Login\|Auth" auth.log
@@ -388,7 +388,7 @@ Error: Session token expired
 Enable detailed authentication logging:
 
 ```bash
-./varvis-download.js -t mytarget -a 12345 --loglevel debug 2>&1 | grep -i auth
+./varvis-download.cjs -t mytarget -a 12345 --loglevel debug 2>&1 | grep -i auth
 ```
 
 Example debug output:
@@ -407,7 +407,7 @@ Verify credentials without downloading:
 
 ```bash
 # Quick authentication test
-./varvis-download.js -t mytarget -a 12345 --list | head -5
+./varvis-download.cjs -t mytarget -a 12345 --list | head -5
 ```
 
 Expected output:
@@ -443,7 +443,7 @@ For enterprise authentication:
    export VARVIS_USER VARVIS_PASSWORD
 
    # Execute download
-   ./varvis-download.js "$@"
+   ./varvis-download.cjs "$@"
    ```
 
 ### CI/CD Integration
@@ -456,7 +456,7 @@ For enterprise authentication:
     VARVIS_USER: ${{ secrets.VARVIS_USER }}
     VARVIS_PASSWORD: ${{ secrets.VARVIS_PASSWORD }}
   run: |
-    ./varvis-download.js -t mytarget -a ${{ matrix.analysis_id }}
+    ./varvis-download.cjs -t mytarget -a ${{ matrix.analysis_id }}
 ```
 
 **Jenkins:**
@@ -467,7 +467,7 @@ withCredentials([usernamePassword(
     usernameVariable: 'VARVIS_USER',
     passwordVariable: 'VARVIS_PASSWORD')]) {
 
-    sh './varvis-download.js -t mytarget -a ${ANALYSIS_ID}'
+    sh './varvis-download.cjs -t mytarget -a ${ANALYSIS_ID}'
 }
 ```
 

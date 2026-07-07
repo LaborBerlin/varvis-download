@@ -82,7 +82,7 @@ Triggered by changes to:
 
 - `docs/**` - Documentation files
 - `js/**` - Source code (for API docs)
-- `varvis-download.js` - Main CLI file
+- `varvis-download.cjs` - Main CLI file
 - `package.json` - Dependencies
 
 ### Adding Documentation
@@ -149,7 +149,7 @@ Always test code samples before publishing:
 
 ```bash
 # Good - tested example
-./varvis-download.js -t mytarget -a 12345
+./varvis-download.cjs -t mytarget -a 12345
 
 # Include expected output when helpful
 # Output: ✓ Downloaded sample_001.bam (1.2 GB)

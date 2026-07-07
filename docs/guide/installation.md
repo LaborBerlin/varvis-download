@@ -35,10 +35,10 @@ cd varvis-download
 npm install
 
 # Make executable
-chmod +x varvis-download.js
+chmod +x varvis-download.cjs
 
 # Test installation
-./varvis-download.js --version
+./varvis-download.cjs --version
 ```
 
 ### Method 2: Download Release
@@ -51,7 +51,7 @@ curl -L https://github.com/LaborBerlin/varvis-download/archive/refs/heads/main.z
 unzip varvis-download.zip
 cd varvis-download-main
 npm install
-chmod +x varvis-download.js
+chmod +x varvis-download.cjs
 ```
 
 ### Method 3: Global Installation
@@ -139,7 +139,7 @@ npm --version     # Should show v10.0.0+
 ### Verify Varvis Download CLI
 
 ```bash
-./varvis-download.js --version
+./varvis-download.cjs --version
 ```
 
 Expected output:

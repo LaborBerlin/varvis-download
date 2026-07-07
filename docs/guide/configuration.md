@@ -52,7 +52,7 @@ Create a `.config.json` file in your project directory:
 Use a custom configuration file location:
 
 ```bash
-./varvis-download.js --config "./configs/production.json" -a 12345
+./varvis-download.cjs --config "./configs/production.json" -a 12345
 ```
 
 ## Environment Variables
@@ -394,7 +394,7 @@ export VARVIS_PROXY_PASS="proxy_password"
 
 ```bash
 # Test configuration without downloading
-./varvis-download.js --config ./my-config.json --list -a 12345
+./varvis-download.cjs --config ./my-config.json --list -a 12345
 ```
 
 ### Common Validation Errors
@@ -457,7 +457,7 @@ export VARVIS_PROXY_PASS="proxy_password"
 ### Debug Configuration Loading
 
 ```bash
-./varvis-download.js --loglevel debug --config ./my-config.json -a 12345
+./varvis-download.cjs --loglevel debug --config ./my-config.json -a 12345
 ```
 
 ### Common Issues
@@ -469,7 +469,7 @@ export VARVIS_PROXY_PASS="proxy_password"
 ls -la .config.json
 
 # Use absolute path
-./varvis-download.js --config "$(pwd)/configs/my-config.json"
+./varvis-download.cjs --config "$(pwd)/configs/my-config.json"
 ```
 
 **JSON syntax errors:**
@@ -492,7 +492,7 @@ env | grep VARVIS
 # Test with all sources
 export VARVIS_USER="env_user"
 echo '{"username": "config_user"}' > test.config.json
-./varvis-download.js --config test.config.json --username "cli_user" --list
+./varvis-download.cjs --config test.config.json --username "cli_user" --list
 
 # Result: CLI argument "cli_user" takes precedence
 ```

@@ -19,10 +19,10 @@ Proxy support includes:
 
 ```bash
 # Basic proxy
-./varvis-download.js -t mytarget -a 12345 --proxy "http://proxy.company.com:8080"
+./varvis-download.cjs -t mytarget -a 12345 --proxy "http://proxy.company.com:8080"
 
 # Proxy with authentication
-./varvis-download.js -t mytarget -a 12345 \
+./varvis-download.cjs -t mytarget -a 12345 \
   --proxy "http://proxy.company.com:8080" \
   --proxyUsername "user" \
   --proxyPassword "pass"
@@ -41,7 +41,7 @@ export HTTP_PROXY="http://user:pass@proxy.company.com:8080"
 export HTTPS_PROXY="http://user:pass@proxy.company.com:8080"
 
 # Run without proxy arguments
-./varvis-download.js -t mytarget -a 12345
+./varvis-download.cjs -t mytarget -a 12345
 ```
 
 ### Configuration File
@@ -63,11 +63,11 @@ export HTTPS_PROXY="http://user:pass@proxy.company.com:8080"
 
 ```bash
 # Method 1: URL-encoded credentials
-./varvis-download.js -t mytarget -a 12345 \
+./varvis-download.cjs -t mytarget -a 12345 \
   --proxy "http://username:password@proxy.company.com:8080"
 
 # Method 2: Separate username/password
-./varvis-download.js -t mytarget -a 12345 \
+./varvis-download.cjs -t mytarget -a 12345 \
   --proxy "http://proxy.company.com:8080" \
   --proxyUsername "username" \
   --proxyPassword "password"
@@ -82,7 +82,7 @@ export VARVIS_PROXY_PASS="proxy_password"
 export VARVIS_PROXY="http://proxy.company.com:8080"
 
 # Credentials will be automatically used
-./varvis-download.js -t mytarget -a 12345
+./varvis-download.cjs -t mytarget -a 12345
 ```
 
 ### Interactive Proxy Authentication
@@ -98,7 +98,7 @@ echo
 export VARVIS_PROXY_USER="$PROXY_USER"
 export VARVIS_PROXY_PASS="$PROXY_PASS"
 
-./varvis-download.js -t mytarget -a 12345 --proxy "http://proxy.company.com:8080"
+./varvis-download.cjs -t mytarget -a 12345 --proxy "http://proxy.company.com:8080"
 ```
 
 ## Corporate Network Setup
@@ -124,7 +124,7 @@ if ($proxyServer) {
 }
 
 # Run Varvis Download
-& node varvis-download.js -t mytarget -a $args[0]
+& node varvis-download.cjs -t mytarget -a $args[0]
 ```
 
 ### Linux Corporate Environment
@@ -162,7 +162,7 @@ if [[ -f ~/.proxy_credentials ]]; then
 fi
 
 # Run with corporate-friendly settings
-./varvis-download.js \
+./varvis-download.cjs \
   -t mytarget \
   -a "$1" \
   --loglevel info \
@@ -254,7 +254,7 @@ sleep 2
 export VARVIS_PROXY="http://localhost:5865"
 
 # Run download
-./varvis-download.js -t mytarget -a "$1"
+./varvis-download.cjs -t mytarget -a "$1"
 
 # Cleanup
 kill $NTLMAPS_PID 2>/dev/null
@@ -280,7 +280,7 @@ fi
 # Alternative: Disable SSL verification (NOT recommended for production)
 # export NODE_TLS_REJECT_UNAUTHORIZED=0
 
-./varvis-download.js -t mytarget -a "$1"
+./varvis-download.cjs -t mytarget -a "$1"
 ```
 
 ### Custom Certificate Bundle
@@ -296,7 +296,7 @@ cat /path/to/corporate-ca.crt >> /tmp/custom-ca-bundle.crt
 # Use custom bundle
 export NODE_EXTRA_CA_CERTS="/tmp/custom-ca-bundle.crt"
 
-./varvis-download.js -t mytarget -a "$1"
+./varvis-download.cjs -t mytarget -a "$1"
 
 # Cleanup
 rm -f /tmp/custom-ca-bundle.crt
@@ -358,7 +358,7 @@ fi
 export NODE_DEBUG=http,https,tls
 
 # Test Varvis download with maximum logging
-./varvis-download.js \
+./varvis-download.cjs \
   -t mytarget \
   -a 12345 \
   --proxy "$VARVIS_PROXY" \
@@ -464,7 +464,7 @@ export NODE_TLS_REJECT_UNAUTHORIZED=0
 export NODE_OPTIONS="--max-http-header-size=32768"
 
 # Use keep-alive connections
-./varvis-download.js \
+./varvis-download.cjs \
   --proxy "$VARVIS_PROXY" \
   --loglevel debug \
   -t mytarget -a 12345
@@ -504,7 +504,7 @@ export VARVIS_LOG_LEVEL="info"
 export VARVIS_DESTINATION="/data/genomics"
 
 # Run with enterprise settings
-./varvis-download.js "$@"
+./varvis-download.cjs "$@"
 ```
 
 ### Development Environment
@@ -526,7 +526,7 @@ else
   export NODE_EXTRA_CA_CERTS="/etc/ssl/certs/prod-ca-bundle.crt"
 fi
 
-./varvis-download.js "$@"
+./varvis-download.cjs "$@"
 ```
 
 ### Multi-Proxy Failover
@@ -561,7 +561,7 @@ test_and_use_proxy() {
 test_and_use_proxy
 
 # Run download
-./varvis-download.js "$@"
+./varvis-download.cjs "$@"
 ```
 
 ## Best Practices
