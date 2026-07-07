@@ -15,17 +15,18 @@ varvis-download [options]
 | `--config, c`                    | `string`  | `.config.json`              | Path to the configuration file                                                                                      |
 | `--username, u`                  | `string`  | -                           | Varvis API username                                                                                                 |
 | `--password, p`                  | `string`  | -                           | Varvis API password                                                                                                 |
-| `--target, t`                    | `string`  | -                           | Target for the Varvis API                                                                                           |
-| `--analysisIds, a`               | `string`  | -                           | Analysis IDs to download files for (comma-separated)                                                                |
-| `--sampleIds, s`                 | `string`  | -                           | Sample IDs to filter analyses (comma-separated)                                                                     |
-| `--limsIds, l`                   | `string`  | -                           | LIMS IDs to filter analyses (comma-separated)                                                                       |
+| `--password-stdin`               | `boolean` | `false`                     | Read the password from the first line of stdin (recommended for automation; mirrors `docker login`).                |
+| `--target, t`                    | `string`  | -                           | Target for the Varvis API (instance short name, e.g. `laborberlin`)                                                 |
+| `--analysisIds, a`               | `array`   | -                           | Analysis IDs to download files for (comma-separated)                                                                |
+| `--sampleIds, s`                 | `array`   | -                           | Sample IDs to filter analyses (comma-separated)                                                                     |
+| `--limsIds, l`                   | `array`   | -                           | LIMS IDs to filter analyses (comma-separated)                                                                       |
 | `--list, L`                      | `boolean` | `false`                     | List available files for the specified analysis IDs                                                                 |
 | `--destination, d`               | `string`  | `.`                         | Destination folder for the downloaded files                                                                         |
 | `--proxy, x`                     | `string`  | -                           | Proxy URL                                                                                                           |
 | `--proxyUsername, pxu`           | `string`  | -                           | Proxy username                                                                                                      |
 | `--proxyPassword, pxp`           | `string`  | -                           | Proxy password                                                                                                      |
 | `--overwrite, o`                 | `boolean` | `false`                     | Overwrite existing files                                                                                            |
-| `--filetypes, f`                 | `string`  | `bam,bam.bai`               | File types to download (comma-separated)                                                                            |
+| `--filetypes, f`                 | `array`   | `bam,bam.bai`               | File types to download (comma-separated): `bam`, `bam.bai`, `vcf.gz`, `vcf.gz.tbi`                                  |
 | `--loglevel, ll`                 | `string`  | `info`                      | Logging level (info, warn, error, debug)                                                                            |
 | `--logfile, lf`                  | `string`  | -                           | Path to the log file                                                                                                |
 | `--reportfile, r`                | `string`  | -                           | Path to the report file                                                                                             |
@@ -95,7 +96,7 @@ varvis-download -u username -p password -t target -a "analysis1" --list-urls | a
 
 **VCF Range Downloads**:
 
-- Requires `tabix` v1.7+ and `bgzip` v1.7+
+- Requires `tabix` v1.20+ and `bgzip` v1.20+
 - Automatically downloads `.tbi` index files
 - Uses `tabix -h | bgzip` pipeline for proper VCF format
 - Creates files with format: `basename.region.vcf.gz`
@@ -129,9 +130,9 @@ Example configuration file:
 ```json
 {
   "username": "your-username",
-  "target": "https://your-varvis-instance.com",
+  "target": "mytarget",
   "destination": "/path/to/downloads",
-  "filetypes": "bam,bam.bai,vcf",
+  "filetypes": "bam,bam.bai,vcf.gz",
   "loglevel": "info"
 }
 ```
