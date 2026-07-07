@@ -427,7 +427,7 @@ done
 
 ```bash
 # Incorrect: missing quotes for multi-word values
-./varvis-download.cjs -t mytarget -F "analysisType=Targeted Panel"
+./varvis-download.cjs -t mytarget -F analysisType=Targeted Panel
 
 # Correct: quoted values
 ./varvis-download.cjs -t mytarget -F "analysisType=Targeted Panel"

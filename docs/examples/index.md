@@ -124,7 +124,7 @@ mkdir -p "$DEST_DIR"
 ### Docker Container
 
 ```dockerfile
-FROM node:20-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 COPY . .
@@ -152,7 +152,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install dependencies
         run: npm install

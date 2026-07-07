@@ -625,7 +625,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install dependencies
         run: npm install
@@ -647,7 +647,7 @@ jobs:
           ./batch-download.sh analysis_list.txt
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: batch-download-results
           path: |
@@ -659,7 +659,7 @@ jobs:
 
 ```dockerfile
 # Dockerfile.batch
-FROM node:20-alpine
+FROM node:22-alpine
 
 # Install bioinformatics tools
 RUN apk add --no-cache \

@@ -190,7 +190,7 @@ npm run docs:build
 
 **Build Failures:**
 
-- Check Node.js version (requires v20+)
+- Check Node.js version (requires >= 22.22.2)
 - Verify all dependencies installed: `npm ci`
 - Clear cache: `rm -rf node_modules docs/.vitepress/cache`
 
