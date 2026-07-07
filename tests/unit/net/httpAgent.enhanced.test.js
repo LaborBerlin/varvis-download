@@ -38,7 +38,7 @@ describe('net/httpAgent.createHttpAgent construction', () => {
 
     expect(ProxyAgent).toHaveBeenCalledWith({
       uri: 'http://example.test:8080',
-      auth: 'user:pass',
+      token: 'Basic dXNlcjpwYXNz', // base64('user:pass')
     });
   });
 
