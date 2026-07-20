@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.1] - 2026-07-20
+
+### Added
+
+- **`.github/CODEOWNERS`** assigning repository-wide ownership to @berntpopp, enabling automatic reviewer assignment (#135, contributed by @your-highness).
+
+### Changed
+
+- **Production dependency**: `tough-cookie` 6.0.1 → 6.0.2 (#131).
+- **Tooling**: `typescript` 6.0.2 → **7.0.2** (the native compiler); `tsconfig.json` migrated from the removed `moduleResolution: "node10"` to `module`/`moduleResolution: "nodenext"`. Also `prettier` 3.8.4 → 3.9.5, `lint-staged` 17.0.8 → 17.1.0, `@types/node` 26.1.0 → 26.1.1 (#138).
+- **Linting**: `eslint` 10.6.0 → 10.7.0, `eslint-plugin-jsdoc` 63.0.12 → 63.2.0, `eslint-plugin-unicorn` 71.1.0 → 72.0.0 (#137).
+- **CI**: `actions/setup-node` v6 → v7 across all workflows (#136).
+
 ## [0.33.0] - 2026-07-07
 
 ### Fixed
