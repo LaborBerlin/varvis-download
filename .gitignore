@@ -4,7 +4,12 @@ node_modules
 /examples
 
 
+# worktrees
+.worktrees/
+worktrees/
+
 # local env files
+.env
 .env.local
 .env.*.local
 .env.test
