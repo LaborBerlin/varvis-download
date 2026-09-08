@@ -12,6 +12,7 @@ const {
   compareVersions,
   rangedDownloadVCF,
   indexVCF,
+  generateOutputFileName,
 } = require('../../js/rangedUtils');
 
 describe('rangedUtils', () => {
@@ -481,6 +482,14 @@ describe('rangedUtils', () => {
       expect(mockLogger.error).toHaveBeenCalledWith(
         'Error indexing VCF.gz file: Process tabix exited with code 1',
       );
+    });
+  });
+
+  describe('generateOutputFileName', () => {
+    test('sanitizes path traversal characters from remote fileName', () => {
+      const traversalName = '../../../../etc/shadow.bam';
+      const out = generateOutputFileName(traversalName, [], mockLogger);
+      expect(out).toBe('shadow.bam');
     });
   });
 });

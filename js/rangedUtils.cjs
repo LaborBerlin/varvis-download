@@ -398,8 +398,9 @@ async function ensureIndexFile(
  * @returns {string}                            - The new file name with the range appended, or the original file name.
  */
 function generateOutputFileName(fileName, regions, logger) {
+  const safeFileName = path.basename(fileName.replace(/\\/g, '/'));
   logger.debug(
-    `Generating output file name for file: ${fileName} with regions: ${JSON.stringify(regions)}`,
+    `Generating output file name for file: ${safeFileName} with regions: ${JSON.stringify(regions)}`,
   );
 
   // If no regions are provided, return the original filename. This covers full downloads for any file type.
@@ -410,26 +411,26 @@ function generateOutputFileName(fileName, regions, logger) {
     (regions.length === 1 && regions[0] === '')
   ) {
     logger.debug(
-      `No regions provided. Returning original filename: ${fileName}`,
+      `No regions provided. Returning original filename: ${safeFileName}`,
     );
-    return fileName;
+    return safeFileName;
   }
 
   // Handle compound extensions like .vcf.gz, .bam.bai properly
   let extension, baseName;
 
-  if (fileName.endsWith('.vcf.gz')) {
+  if (safeFileName.endsWith('.vcf.gz')) {
     extension = '.vcf.gz';
-    baseName = fileName.slice(0, -7); // Remove .vcf.gz
-  } else if (fileName.endsWith('.vcf.gz.tbi')) {
+    baseName = safeFileName.slice(0, -7); // Remove .vcf.gz
+  } else if (safeFileName.endsWith('.vcf.gz.tbi')) {
     extension = '.vcf.gz.tbi';
-    baseName = fileName.slice(0, -11); // Remove .vcf.gz.tbi
-  } else if (fileName.endsWith('.bam.bai')) {
+    baseName = safeFileName.slice(0, -11); // Remove .vcf.gz.tbi
+  } else if (safeFileName.endsWith('.bam.bai')) {
     extension = '.bam.bai';
-    baseName = fileName.slice(0, -8); // Remove .bam.bai
+    baseName = safeFileName.slice(0, -8); // Remove .bam.bai
   } else {
-    extension = path.extname(fileName);
-    baseName = path.basename(fileName, extension);
+    extension = path.extname(safeFileName);
+    baseName = path.basename(safeFileName, extension);
   }
 
   let suffix;
