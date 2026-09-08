@@ -20,6 +20,7 @@ jest.mock('../../../js/download/commonDownload.cjs', () => ({
   fullDownloadWithOptionalIndex: jest.fn(),
 }));
 
+const path = require('node:path');
 const { handleBamFile } = require('../../../js/download/bamHandler.cjs');
 const {
   ensureIndexFile,
@@ -130,14 +131,14 @@ describe('download/bamHandler.handleBamFile', () => {
     expect(ensureIndexFile).toHaveBeenCalled();
     expect(unmappedDownloadBAM).toHaveBeenCalledWith(
       'https://sample.bam',
-      '/tmp/out_sample.bam_unmapped',
-      '/tmp/sample.bam.bai',
+      path.join('/tmp', 'out_sample.bam_unmapped'),
+      path.join('/tmp', 'sample.bam.bai'),
       mockLogger,
       deps.metrics,
       false,
     );
     expect(indexBAM).toHaveBeenCalledWith(
-      '/tmp/out_sample.bam_unmapped',
+      path.join('/tmp', 'out_sample.bam_unmapped'),
       mockLogger,
       false,
     );

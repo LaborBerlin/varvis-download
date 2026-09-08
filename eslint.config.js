@@ -25,6 +25,8 @@ export default [
   // ─────────────────────────────────────────────────────────────────────────────
   {
     ignores: [
+      '.worktrees/',
+      'worktrees/',
       'development/',
       'node_modules/',
       'logs/',
