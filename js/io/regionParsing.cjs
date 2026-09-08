@@ -65,7 +65,7 @@ function parseRegions({ range, bed }, logger) {
     const tempBedPath = makeTempBedPath();
     const bedContent = regions.map(regionToBedLine).join('\n');
 
-    fs.writeFileSync(tempBedPath, bedContent);
+    fs.writeFileSync(tempBedPath, bedContent, { mode: 0o600 });
     logger.info(`Generated temporary BED file: ${tempBedPath}`);
     return { regions, tempBedPath };
   }
@@ -83,7 +83,7 @@ function parseRegions({ range, bed }, logger) {
       logger.info(`Using regions from BED file: ${regions}`);
 
       const tempBedPath = makeTempBedPath();
-      fs.writeFileSync(tempBedPath, bedFileContent);
+      fs.writeFileSync(tempBedPath, bedFileContent, { mode: 0o600 });
       logger.info(`Generated temporary BED file: ${tempBedPath}`);
       return { regions, tempBedPath };
     } catch (error) {

@@ -105,4 +105,26 @@ describe('io/regionParsing.parseRegions', () => {
     expect(b.tempBedPath).not.toBe(fixed);
     expect(a.tempBedPath).not.toBe(b.tempBedPath);
   });
+
+  test('creates temporary BED file with 0600 permissions', () => {
+    const writeSpy = jest.spyOn(fs, 'writeFileSync');
+    try {
+      const { tempBedPath } = parseRegions(
+        { range: 'chr1:100-200' },
+        mockLogger,
+      );
+      expect(writeSpy).toHaveBeenCalledWith(
+        tempBedPath,
+        expect.any(String),
+        expect.objectContaining({ mode: 0o600 }),
+      );
+      const stat = fs.statSync(tempBedPath);
+      if (process.platform !== 'win32') {
+        expect(stat.mode & 0o777).toBe(0o600);
+      }
+      fs.unlinkSync(tempBedPath);
+    } finally {
+      writeSpy.mockRestore();
+    }
+  });
 });
