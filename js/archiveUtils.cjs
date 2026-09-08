@@ -1,7 +1,4 @@
-const {
-  appendToAwaitingRestoration,
-  appendBatchToAwaitingRestoration,
-} = require('./restorationState.cjs');
+const { appendToAwaitingRestoration } = require('./restorationState.cjs');
 const { getErrorMessage } = require('./errorUtils.cjs');
 
 /**
@@ -88,5 +85,4 @@ async function triggerRestoreArchivedFile(
 module.exports = {
   triggerRestoreArchivedFile,
   appendToAwaitingRestoration,
-  appendBatchToAwaitingRestoration,
 };

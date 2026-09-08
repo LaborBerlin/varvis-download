@@ -10,13 +10,14 @@
 
 ## Goal
 
-Resolve all verified security vulnerabilities, process deadlocks, race conditions, and performance bottlenecks end-to-end with focused unit tests, strict backwards compatibility, and a passing CI gate (`npm run check`).
+Resolve the 10 prioritized security vulnerabilities, process deadlocks, race conditions, and performance bottlenecks identified during the audit across Issues #147, #148, and #149 end-to-end with focused unit tests, strict backwards compatibility, and a passing CI gate (`npm run check`).
 
 ## Non-goals
 
 - No rewrite of the fundamental CLI structure or command interface.
 - No new external binary dependencies beyond `samtools`, `tabix`, and `bgzip`.
 - No modification of the Varvis backend API schema or authentication contract.
+- Broader undici connection pool tuning and request backoff jitter are deferred to a dedicated follow-up PR to keep this remediation focused on verified defect fixes.
 
 ---
 

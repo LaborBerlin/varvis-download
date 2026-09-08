@@ -191,16 +191,24 @@ async function rangedDownloadVCF(
     // Pipe stdout of bgzip to the output file
     bgzipProcess.stdout.pipe(outputStream);
 
-    // --- Error Handling ---
+    const MAX_STDERR_BUFFER = 65536;
     let tabixError = '';
     tabixProcess.stderr.on('data', (data) => {
-      if (tabixError.length < 65536) tabixError += data.toString();
+      if (tabixError.length < MAX_STDERR_BUFFER) {
+        tabixError += data
+          .toString()
+          .slice(0, MAX_STDERR_BUFFER - tabixError.length);
+      }
       logger.debug(`[tabix stderr]: ${data.toString().trim()}`);
     });
 
     let bgzipError = '';
     bgzipProcess.stderr.on('data', (data) => {
-      if (bgzipError.length < 65536) bgzipError += data.toString();
+      if (bgzipError.length < MAX_STDERR_BUFFER) {
+        bgzipError += data
+          .toString()
+          .slice(0, MAX_STDERR_BUFFER - bgzipError.length);
+      }
       logger.debug(`[bgzip stderr]: ${data.toString().trim()}`);
     });
 

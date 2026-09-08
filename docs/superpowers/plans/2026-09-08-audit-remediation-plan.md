@@ -13,7 +13,7 @@
 
 **Tech Stack:** Node.js >=22.22.2, CommonJS, Jest 30, undici, winston, yargs 18, child_process.
 
-**Spec:** [`docs/superpowers/specs/2026-09-08-audit-remediation-design.md`](file:///C:/development/varvis-download/.worktrees/audit-perf-sec/docs/superpowers/specs/2026-09-08-audit-remediation-design.md)
+**Spec:** [`docs/superpowers/specs/2026-09-08-audit-remediation-design.md`](../specs/2026-09-08-audit-remediation-design.md)
 
 ## Global Constraints
 

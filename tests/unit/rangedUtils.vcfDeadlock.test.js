@@ -145,4 +145,39 @@ describe('rangedDownloadVCF - pipe deadlock prevention on outputStream error', (
     expect(tabixProcess.kill).not.toHaveBeenCalled();
     expect(bgzipProcess.kill).not.toHaveBeenCalled();
   });
+
+  test('strictly caps stderr buffer at 65536 characters even when chunk overshoots', async () => {
+    fs.existsSync.mockReturnValue(false);
+
+    const tabixProcess = createMockProcess();
+    const bgzipProcess = createMockProcess();
+    const outputStream = createMockStream();
+
+    spawn.mockReturnValueOnce(tabixProcess).mockReturnValueOnce(bgzipProcess);
+    fs.createWriteStream.mockReturnValue(outputStream);
+
+    const downloadPromise = rangedDownloadVCF(
+      'https://example.com/test.vcf.gz',
+      'chr1:1000-2000',
+      '/path/to/output.vcf.gz',
+      '/path/to/index.tbi',
+      mockLogger,
+      mockMetrics,
+      false,
+    );
+
+    // Emit chunks totaling 70KB (exceeding 65536 bytes)
+    tabixProcess.stderr.emit('data', 'A'.repeat(60000));
+    tabixProcess.stderr.emit('data', 'B'.repeat(10000));
+
+    tabixProcess.emit('close', 1);
+    bgzipProcess.emit('close', 0);
+    outputStream.emit('finish');
+
+    await expect(downloadPromise).rejects.toThrow(
+      new RegExp(
+        `tabix process exited with code 1\\. Stderr: A{60000}B{5536}$`,
+      ),
+    );
+  });
 });
