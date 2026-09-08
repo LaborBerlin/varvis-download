@@ -30,12 +30,14 @@ jest.mock('../../../js/download/vcfHandler.cjs', () => ({
   handleVcfFile: jest.fn(),
 }));
 
+const fs = require('node:fs');
 const { resumeArchivedDownloads } = require('../../../js/commands/resume.cjs');
 const {
   readRestorationState,
   writeRestorationState,
 } = require('../../../js/restorationState.cjs');
 const { getDownloadLinks } = require('../../../js/fetchUtils.cjs');
+const { downloadFile } = require('../../../js/fileUtils.cjs');
 const { handleBamFile } = require('../../../js/download/bamHandler.cjs');
 const { handleVcfFile } = require('../../../js/download/vcfHandler.cjs');
 
@@ -192,5 +194,56 @@ describe('commands/resume.resumeArchivedDownloads', () => {
       }),
       expect.anything(),
     );
+  });
+
+  test('requeues entry and prevents download when BED file cannot be read', async () => {
+    const entry = {
+      analysisId: 'A1',
+      fileName: 'sample.bam',
+      restoreEstimation: new Date(Date.now() - 60_000).toISOString(),
+      options: { destination: '/tmp', overwrite: false, bed: '/missing.bed' },
+    };
+    readRestorationState.mockReturnValue([entry]);
+    getDownloadLinks.mockResolvedValue({
+      'sample.bam': {
+        currentlyArchived: false,
+        downloadLink: 'https://example.test/sample.bam',
+      },
+    });
+    const readSpy = jest
+      .spyOn(fs, 'readFileSync')
+      .mockImplementationOnce(() => {
+        throw new Error('ENOENT: no such file or directory');
+      });
+
+    try {
+      await resumeArchivedDownloads(
+        'awaiting-restoration.json',
+        '/tmp',
+        'demo',
+        'tok',
+        {},
+        mockLogger,
+        false,
+      );
+
+      expect(handleBamFile).not.toHaveBeenCalled();
+      expect(handleVcfFile).not.toHaveBeenCalled();
+      expect(downloadFile).not.toHaveBeenCalled();
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /Error reading BED file.*Keeping entry in restoration queue to prevent unintended full download/,
+        ),
+      );
+      expect(writeRestorationState).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({ fileName: 'sample.bam' }),
+        ]),
+        'awaiting-restoration.json',
+        mockLogger,
+      );
+    } finally {
+      readSpy.mockRestore();
+    }
   });
 });

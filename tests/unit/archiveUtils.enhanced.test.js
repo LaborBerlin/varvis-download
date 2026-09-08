@@ -313,8 +313,15 @@ describe('archiveUtils (enhanced)', () => {
         false,
       );
 
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('Error reading BED file'),
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /Error reading BED file.*Keeping entry in restoration queue to prevent unintended full download/,
+        ),
+      );
+      expect(downloadFile).not.toHaveBeenCalled();
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        'test-restoration.json',
+        expect.stringContaining('sample.bam'),
       );
     });
 
