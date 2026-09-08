@@ -181,28 +181,10 @@ function validateConfig(config) {
 
 /**
  * Merges argv, config file values, environment variables, and defaults.
- * @param   {MergeOptions}                   options     - Merge input sources.
- * @param   {MergeSource}                    [rawConfig] - Fallback config when positional arguments are used.
- * @param   {NodeJS.ProcessEnv}              [rawEnv]    - Fallback env when positional arguments are used.
- * @returns {import('../types').FinalConfig}             - Final merged config.
+ * @param   {MergeOptions}                   [options] - Merge input sources.
+ * @returns {import('../types').FinalConfig}           - Final merged config.
  */
-function mergeConfig(options, rawConfig = {}, rawEnv = {}) {
-  const isPositional =
-    Boolean(options) &&
-    typeof options === 'object' &&
-    !('argv' in options) &&
-    !('config' in options) &&
-    !('env' in options);
-
-  /** @type {MergeSource} */
-  const argv = isPositional
-    ? /** @type {MergeSource} */ (options)
-    : options?.argv || {};
-  /** @type {MergeSource} */
-  const config = isPositional ? rawConfig : options?.config || {};
-  /** @type {NodeJS.ProcessEnv} */
-  const env = isPositional ? rawEnv : options?.env || {};
-
+function mergeConfig({ argv = {}, config = {}, env = {} } = {}) {
   const envConfig = getEnvConfig(env);
   const username = firstNonEmptyString(
     /** @type {string|string[]|null|undefined} */ (

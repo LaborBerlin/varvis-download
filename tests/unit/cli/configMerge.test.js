@@ -198,11 +198,11 @@ describe('CLI config merge', () => {
     ];
     for (const target of invalidTargets) {
       expect(() =>
-        mergeConfig(
-          { target, username: 'u', password: 'p', analysisIds: ['AN01'] },
-          {},
-          {},
-        ),
+        mergeConfig({
+          argv: { target, username: 'u', password: 'p', analysisIds: ['AN01'] },
+          config: {},
+          env: {},
+        }),
       ).toThrow(ConfigurationError);
     }
   });
