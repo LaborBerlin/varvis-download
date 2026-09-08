@@ -38,10 +38,12 @@ const { ConfigurationError } = require('../errors.cjs');
 
 /**
  * @typedef {object} MergeOptions
- * @property {MergeSource}       argv   - Parsed command-line arguments.
- * @property {MergeSource}       config - Loaded configuration file values.
- * @property {NodeJS.ProcessEnv} env    - Environment variables.
+ * @property {MergeSource}       [argv]   - Parsed command-line arguments.
+ * @property {MergeSource}       [config] - Loaded configuration file values.
+ * @property {NodeJS.ProcessEnv} [env]    - Environment variables.
  */
+
+const VALID_TARGET_PATTERN = /^[a-z0-9]$|^[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/i;
 
 /**
  * Normalizes a possibly repeated string option.
@@ -179,10 +181,28 @@ function validateConfig(config) {
 
 /**
  * Merges argv, config file values, environment variables, and defaults.
- * @param   {MergeOptions}                   options - Merge input sources.
- * @returns {import('../types').FinalConfig}         - Final merged config.
+ * @param   {MergeOptions}                   options     - Merge input sources.
+ * @param   {MergeSource}                    [rawConfig] - Fallback config when positional arguments are used.
+ * @param   {NodeJS.ProcessEnv}              [rawEnv]    - Fallback env when positional arguments are used.
+ * @returns {import('../types').FinalConfig}             - Final merged config.
  */
-function mergeConfig({ argv, config = {}, env = {} }) {
+function mergeConfig(options, rawConfig = {}, rawEnv = {}) {
+  const isPositional =
+    Boolean(options) &&
+    typeof options === 'object' &&
+    !('argv' in options) &&
+    !('config' in options) &&
+    !('env' in options);
+
+  /** @type {MergeSource} */
+  const argv = isPositional
+    ? /** @type {MergeSource} */ (options)
+    : options?.argv || {};
+  /** @type {MergeSource} */
+  const config = isPositional ? rawConfig : options?.config || {};
+  /** @type {NodeJS.ProcessEnv} */
+  const env = isPositional ? rawEnv : options?.env || {};
+
   const envConfig = getEnvConfig(env);
   const username = firstNonEmptyString(
     /** @type {string|string[]|null|undefined} */ (
@@ -211,6 +231,12 @@ function mergeConfig({ argv, config = {}, env = {} }) {
   }
   if (!target) {
     throw new ConfigurationError('Missing required argument --target');
+  }
+
+  if (!VALID_TARGET_PATTERN.test(target)) {
+    throw new ConfigurationError(
+      `Invalid --target "${target}": must be a valid alphanumeric subdomain without special characters, slashes, or fragments.`,
+    );
   }
 
   const normalizedDestination = normalizeOptionalString(
