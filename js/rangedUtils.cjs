@@ -194,13 +194,13 @@ async function rangedDownloadVCF(
     // --- Error Handling ---
     let tabixError = '';
     tabixProcess.stderr.on('data', (data) => {
-      tabixError += data.toString();
+      if (tabixError.length < 65536) tabixError += data.toString();
       logger.debug(`[tabix stderr]: ${data.toString().trim()}`);
     });
 
     let bgzipError = '';
     bgzipProcess.stderr.on('data', (data) => {
-      bgzipError += data.toString();
+      if (bgzipError.length < 65536) bgzipError += data.toString();
       logger.debug(`[bgzip stderr]: ${data.toString().trim()}`);
     });
 
