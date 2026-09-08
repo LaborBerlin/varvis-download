@@ -30,17 +30,40 @@ const { getErrorMessage } = require('../errorUtils.cjs');
  */
 
 /**
- * Downloads a primary file and then optionally downloads its index file.
+ * Downloads an optional index file first, then downloads the primary file.
+ * Downloading the index first prevents presigned S3 URL expiration on the index
+ * during long multi-gigabyte primary file downloads.
  *
- * @param   {FullDownloadOptions} options - Download options.
- * @param   {DownloadDeps}        deps    - Injected dependencies.
- * @returns {Promise<void>}
+ * @param   {FullDownloadOptions}                   options - Download options.
+ * @param   {DownloadDeps}                          deps    - Injected dependencies.
+ * @returns {Promise<{ indexDownloaded: boolean }>}         Download completion status.
  */
 async function fullDownloadWithOptionalIndex(
   { primary, index, overwrite },
   deps,
 ) {
   const { agent, logger, metrics, rl } = deps;
+  let indexDownloaded = false;
+
+  if (index) {
+    logger.info(`Downloading index file: ${index.label}`);
+    try {
+      await downloadFile(
+        index.url,
+        index.path,
+        overwrite,
+        agent,
+        rl,
+        logger,
+        metrics,
+      );
+      indexDownloaded = true;
+    } catch (error) {
+      logger.warn(
+        `Failed to download index file ${index.label}: ${getErrorMessage(error)}. Attempting primary download anyway.`,
+      );
+    }
+  }
 
   await downloadFile(
     primary.url,
@@ -52,26 +75,7 @@ async function fullDownloadWithOptionalIndex(
     metrics,
   );
 
-  if (!index) {
-    return;
-  }
-
-  logger.info(`Downloading optional index file: ${index.label}`);
-  try {
-    await downloadFile(
-      index.url,
-      index.path,
-      overwrite,
-      agent,
-      rl,
-      logger,
-      metrics,
-    );
-  } catch (error) {
-    logger.warn(
-      `Failed to download index file ${index.label}: ${getErrorMessage(error)}`,
-    );
-  }
+  return { indexDownloaded };
 }
 
 module.exports = { fullDownloadWithOptionalIndex };
