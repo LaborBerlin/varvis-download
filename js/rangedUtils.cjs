@@ -216,7 +216,16 @@ async function rangedDownloadVCF(
 
     tabixProcess.on('error', (err) => onProcessError('tabix', err));
     bgzipProcess.on('error', (err) => onProcessError('bgzip', err));
-    outputStream.on('error', (err) => onProcessError('outputStream', err));
+    outputStream.on('error', (err) => {
+      onProcessError('outputStream', err);
+      if (!tabixProcess.killed) tabixProcess.kill('SIGTERM');
+      if (!bgzipProcess.killed) bgzipProcess.kill('SIGTERM');
+      if (!resolved) {
+        resolved = true;
+        cleanup();
+        reject(new Error(processError || err.message));
+      }
+    });
 
     // Register finish handler BEFORE piping to avoid race conditions
     outputStream.on('finish', () => {
