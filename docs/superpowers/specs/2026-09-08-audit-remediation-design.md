@@ -1,7 +1,8 @@
-# Design: Security, Performance, and Stability Remediation
+# Design: Security, Performance, and Stability Remediation (#147, #148, #149)
 
 - **Date:** 2026-09-08
-- **Status:** Draft (pending Codex GPT-6 Astra adversarial review)
+- **Status:** Approved (Adversarially reviewed by Codex GPT-6 Astra)
+- **GitHub Issues:** [#147](https://github.com/LaborBerlin/varvis-download/issues/147), [#148](https://github.com/LaborBerlin/varvis-download/issues/148), [#149](https://github.com/LaborBerlin/varvis-download/issues/149)
 - **Scope:** Ten verified, module-local defects and architectural improvements identified during the security, performance, and concurrency audit of `varvis-download`.
 - **Public Hygiene Note:** This repository is public/open source. All examples, tests, and documentation use synthetic identifiers (`AN00001`, `sample.bam`, `chr1:100-200`). No internal identifiers, customer identifiers, patient data, or environment credentials appear anywhere in this design.
 
