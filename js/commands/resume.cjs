@@ -126,9 +126,11 @@ async function resumeArchivedDownloads(
               return `${chr}:${start}-${end}`;
             });
         } catch (bedError) {
-          logger.warn(
-            `Error reading BED file ${restoredOptions.bed}: ${getErrorMessage(bedError)}. Proceeding with full download.`,
+          logger.error(
+            `Error reading BED file ${restoredOptions.bed} for ${entry.fileName}: ${getErrorMessage(bedError)}. Keeping entry in restoration queue to prevent unintended full download.`,
           );
+          updatedData.push(entry);
+          continue;
         }
       }
       const includeUnmapped = restoredOptions.unmapped === true;

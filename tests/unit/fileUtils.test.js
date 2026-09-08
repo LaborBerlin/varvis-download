@@ -4,6 +4,7 @@ const {
   createMockReadline,
 } = require('../helpers/mockFactories');
 const { TestDirectory } = require('../helpers/testUtils');
+const { once } = require('node:events');
 const fs = require('node:fs');
 const path = require('node:path');
 const { Writable } = require('node:stream');
@@ -126,6 +127,21 @@ describe('fileUtils', () => {
 
       jest.clearAllMocks();
     });
+
+    const runDownload = (
+      outPath,
+      ow = true,
+      url = 'https://example.com/file.txt',
+    ) =>
+      downloadFile(
+        url,
+        outPath,
+        ow,
+        mockAgent,
+        mockRl,
+        mockLogger,
+        mockMetrics,
+      );
 
     test('should skip download when file exists and overwrite is false', async () => {
       const dir = await testDir.create(`download-skip-${Date.now()}`);
@@ -356,13 +372,78 @@ describe('fileUtils', () => {
       );
     });
 
+    test('should write to .part file and atomically rename on successful download', async () => {
+      const dir = await testDir.create(`download-atomic-${Date.now()}`);
+      const outputPath = path.join(dir, 'file.txt');
+      const partPath = `${outputPath}.${process.pid}.part`;
+      const createWriteStreamSpy = jest.spyOn(fs, 'createWriteStream');
+
+      let partExistedDuringStream = false;
+      let outputExistedDuringStream = false;
+
+      const mockBody = {
+        async *[Symbol.asyncIterator]() {
+          const writer = createWriteStreamSpy.mock.results[0].value;
+          if (writer.pending) {
+            await once(writer, 'open');
+          }
+          partExistedDuringStream = fs.existsSync(partPath);
+          outputExistedDuringStream = fs.existsSync(outputPath);
+          yield Buffer.from('downloaded content');
+        },
+      };
+
+      fetchWithRetry.mockResolvedValue({
+        body: mockBody,
+        headers: { get: () => '18' },
+      });
+
+      try {
+        await runDownload(outputPath);
+      } finally {
+        createWriteStreamSpy.mockRestore();
+      }
+
+      expect(partExistedDuringStream).toBe(true);
+      expect(outputExistedDuringStream).toBe(false);
+      expect(fs.existsSync(outputPath)).toBe(true);
+      expect(fs.readFileSync(outputPath, 'utf8')).toBe('downloaded content');
+      expect(fs.existsSync(partPath)).toBe(false);
+    });
+
+    test('should leave existing file untouched and clean up .part file when download fails', async () => {
+      const dir = await testDir.create(`download-fail-atomic-${Date.now()}`);
+      const outputPath = path.join(dir, 'file.txt');
+      const partPath = `${outputPath}.${process.pid}.part`;
+      fs.writeFileSync(outputPath, 'original content');
+
+      const mockError = new Error('Download interrupted mid-stream');
+      const mockBody = {
+        async *[Symbol.asyncIterator]() {
+          yield Buffer.from('partial chunk');
+          throw mockError;
+        },
+      };
+
+      fetchWithRetry.mockResolvedValue({
+        body: mockBody,
+        headers: { get: () => '1024' },
+      });
+
+      await expect(runDownload(outputPath)).rejects.toThrow(
+        'Download interrupted mid-stream',
+      );
+
+      expect(fs.existsSync(outputPath)).toBe(true);
+      expect(fs.readFileSync(outputPath, 'utf8')).toBe('original content');
+      expect(fs.existsSync(partPath)).toBe(false);
+    });
+
     test('awaits drain when the writable applies backpressure', async () => {
       const dir = await testDir.create(`download-backpressure-${Date.now()}`);
       const outputPath = path.join(dir, 'file.bin');
 
       const order = [];
-      // highWaterMark:1 forces write() to return false, so the fix must await
-      // 'drain' between chunks instead of buffering them all up front.
       const slowWriter = new Writable({
         highWaterMark: 1,
         write(chunk, _enc, cb) {
@@ -370,7 +451,12 @@ describe('fileUtils', () => {
           setTimeout(cb, 0);
         },
       });
-      jest.spyOn(fs, 'createWriteStream').mockReturnValue(slowWriter);
+      const spy = jest
+        .spyOn(fs, 'createWriteStream')
+        .mockReturnValue(slowWriter);
+      const renameSpy = jest
+        .spyOn(fs, 'renameSync')
+        .mockImplementation(() => {});
 
       const chunks = ['a', 'b', 'c'];
       const mockBody = {
@@ -386,15 +472,12 @@ describe('fileUtils', () => {
         headers: { get: () => '3' },
       });
 
-      await downloadFile(
-        'https://example.com/file.bin',
-        outputPath,
-        true,
-        mockAgent,
-        mockRl,
-        mockLogger,
-        mockMetrics,
-      );
+      try {
+        await runDownload(outputPath, true, 'https://example.com/file.bin');
+      } finally {
+        spy.mockRestore();
+        renameSpy.mockRestore();
+      }
 
       // Backpressure honored => pulls and writes strictly interleave 1:1.
       expect(order).toEqual([

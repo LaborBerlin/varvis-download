@@ -1,3 +1,5 @@
+const path = require('node:path');
+
 jest.mock('../../../js/download/urlRefresh.cjs', () => ({
   getValidDownloadUrl: jest.fn(async (_fileDict, name) => `https://${name}`),
 }));
@@ -17,7 +19,9 @@ jest.mock('../../../js/rangedUtils.cjs', () => ({
 }));
 
 jest.mock('../../../js/download/commonDownload.cjs', () => ({
-  fullDownloadWithOptionalIndex: jest.fn(),
+  fullDownloadWithOptionalIndex: jest.fn(async () => ({
+    indexDownloaded: false,
+  })),
 }));
 
 const { handleBamFile } = require('../../../js/download/bamHandler.cjs');
@@ -130,14 +134,14 @@ describe('download/bamHandler.handleBamFile', () => {
     expect(ensureIndexFile).toHaveBeenCalled();
     expect(unmappedDownloadBAM).toHaveBeenCalledWith(
       'https://sample.bam',
-      '/tmp/out_sample.bam_unmapped',
-      '/tmp/sample.bam.bai',
+      path.join('/tmp', 'out_sample.bam_unmapped'),
+      path.join('/tmp', 'sample.bam.bai'),
       mockLogger,
       deps.metrics,
       false,
     );
     expect(indexBAM).toHaveBeenCalledWith(
-      '/tmp/out_sample.bam_unmapped',
+      path.join('/tmp', 'out_sample.bam_unmapped'),
       mockLogger,
       false,
     );
@@ -230,5 +234,58 @@ describe('download/bamHandler.handleBamFile', () => {
         deps,
       ),
     ).rejects.toThrow('auth');
+  });
+
+  test('skips samtools index when index was downloaded from server', async () => {
+    fullDownloadWithOptionalIndex.mockResolvedValueOnce({
+      indexDownloaded: true,
+    });
+
+    await handleBamFile(
+      {
+        fileDict: { ...baseFileDict },
+        fileName: 'sample.bam',
+        finalConfig: {
+          destination: '/tmp',
+          overwrite: true,
+          unmapped: false,
+        },
+        regions: [],
+        target: 'demo',
+      },
+      deps,
+    );
+
+    expect(indexBAM).not.toHaveBeenCalled();
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      'Valid index file downloaded from server, skipping samtools index.',
+    );
+  });
+
+  test('runs samtools index when index was not downloaded from server', async () => {
+    fullDownloadWithOptionalIndex.mockResolvedValueOnce({
+      indexDownloaded: false,
+    });
+
+    await handleBamFile(
+      {
+        fileDict: { ...baseFileDict },
+        fileName: 'sample.bam',
+        finalConfig: {
+          destination: '/tmp',
+          overwrite: true,
+          unmapped: false,
+        },
+        regions: [],
+        target: 'demo',
+      },
+      deps,
+    );
+
+    expect(indexBAM).toHaveBeenCalledWith(
+      path.join('/tmp', 'out_sample.bam'),
+      mockLogger,
+      true,
+    );
   });
 });

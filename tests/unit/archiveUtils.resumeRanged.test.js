@@ -1,4 +1,5 @@
 const fs = require('node:fs');
+const path = require('node:path');
 const { resumeArchivedDownloads } = require('../../js/commands/resume.cjs');
 const { getDownloadLinks, metrics } = require('../../js/fetchUtils.cjs');
 const { readRestorationState } = require('../../js/restorationState.cjs');
@@ -106,7 +107,7 @@ describe('archiveUtils.resumeArchivedDownloads ranged restores', () => {
     expect(ensureIndexFile).toHaveBeenCalledWith(
       'https://example.test/sample.bam',
       'https://example.test/sample.bam.bai',
-      '/restored/sample.bam.bai',
+      path.join('/restored', 'sample.bam.bai'),
       mockAgent,
       null,
       mockLogger,
@@ -116,8 +117,8 @@ describe('archiveUtils.resumeArchivedDownloads ranged restores', () => {
     expect(rangedDownloadBAM).toHaveBeenCalledWith(
       'https://example.test/sample.bam',
       expect.stringContaining('restore-regions-'),
-      '/restored/out-sample.bam',
-      '/restored/sample.bam.bai',
+      path.join('/restored', 'out-sample.bam'),
+      path.join('/restored', 'sample.bam.bai'),
       mockLogger,
       metrics,
       true,
@@ -183,7 +184,7 @@ describe('archiveUtils.resumeArchivedDownloads ranged restores', () => {
     expect(ensureIndexFile).toHaveBeenCalledWith(
       'https://example.test/sample.bam',
       'https://example.test/refreshed.bam.bai',
-      '/restored/sample.bam.bai',
+      path.join('/restored', 'sample.bam.bai'),
       mockAgent,
       null,
       mockLogger,
@@ -193,8 +194,8 @@ describe('archiveUtils.resumeArchivedDownloads ranged restores', () => {
     expect(rangedDownloadBAM).toHaveBeenCalledWith(
       'https://example.test/sample.bam',
       expect.stringContaining('restore-regions-'),
-      '/restored/out-sample.bam',
-      '/restored/sample.bam.bai',
+      path.join('/restored', 'out-sample.bam'),
+      path.join('/restored', 'sample.bam.bai'),
       mockLogger,
       metrics,
       true,
@@ -243,8 +244,8 @@ describe('archiveUtils.resumeArchivedDownloads ranged restores', () => {
     expect(rangedDownloadBAM).toHaveBeenCalledWith(
       'https://example.test/sample.bam',
       expect.stringContaining('restore-regions-'),
-      '/restored/out-sample.bam',
-      '/restored/sample.bam.bai',
+      path.join('/restored', 'out-sample.bam'),
+      path.join('/restored', 'sample.bam.bai'),
       mockLogger,
       metrics,
       true,
@@ -292,7 +293,7 @@ describe('archiveUtils.resumeArchivedDownloads ranged restores', () => {
     expect(ensureIndexFile).toHaveBeenCalledWith(
       'https://example.test/sample.bam',
       'https://example.test/sample.bam.bai',
-      '/restored/sample.bam.bai',
+      path.join('/restored', 'sample.bam.bai'),
       mockAgent,
       null,
       mockLogger,
@@ -301,8 +302,8 @@ describe('archiveUtils.resumeArchivedDownloads ranged restores', () => {
     );
     expect(unmappedDownloadBAM).toHaveBeenCalledWith(
       'https://example.test/sample.bam',
-      '/restored/out-sample.bam',
-      '/restored/sample.bam.bai',
+      path.join('/restored', 'out-sample.bam'),
+      path.join('/restored', 'sample.bam.bai'),
       mockLogger,
       metrics,
       true,
@@ -348,7 +349,7 @@ describe('archiveUtils.resumeArchivedDownloads ranged restores', () => {
     expect(ensureIndexFile).toHaveBeenCalledWith(
       'https://example.test/sample.vcf.gz',
       'https://example.test/sample.vcf.gz.tbi',
-      '/restored/sample.vcf.gz.tbi',
+      path.join('/restored', 'sample.vcf.gz.tbi'),
       mockAgent,
       null,
       mockLogger,
@@ -358,8 +359,8 @@ describe('archiveUtils.resumeArchivedDownloads ranged restores', () => {
     expect(rangedDownloadVCF).toHaveBeenCalledWith(
       'https://example.test/sample.vcf.gz',
       'chr1:10-20',
-      '/restored/out-sample.vcf.gz',
-      '/restored/sample.vcf.gz.tbi',
+      path.join('/restored', 'out-sample.vcf.gz'),
+      path.join('/restored', 'sample.vcf.gz.tbi'),
       mockLogger,
       metrics,
       true,

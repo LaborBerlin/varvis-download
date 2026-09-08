@@ -30,8 +30,8 @@ describe('download/commonDownload.fullDownloadWithOptionalIndex', () => {
     jest.clearAllMocks();
   });
 
-  test('downloads the primary file when no index URL is provided', async () => {
-    await fullDownloadWithOptionalIndex(
+  test('returns { indexDownloaded: false } when no index is provided', async () => {
+    const result = await fullDownloadWithOptionalIndex(
       {
         index: null,
         overwrite: false,
@@ -40,6 +40,7 @@ describe('download/commonDownload.fullDownloadWithOptionalIndex', () => {
       deps,
     );
 
+    expect(result).toEqual({ indexDownloaded: false });
     expect(downloadFile).toHaveBeenCalledTimes(1);
     expect(downloadFile).toHaveBeenCalledWith(
       'https://primary',
@@ -52,8 +53,8 @@ describe('download/commonDownload.fullDownloadWithOptionalIndex', () => {
     );
   });
 
-  test('downloads the primary file and then the optional index', async () => {
-    await fullDownloadWithOptionalIndex(
+  test('downloads the index file first before the primary file and returns { indexDownloaded: true }', async () => {
+    const result = await fullDownloadWithOptionalIndex(
       {
         index: {
           label: 'file.bam.bai',
@@ -66,8 +67,9 @@ describe('download/commonDownload.fullDownloadWithOptionalIndex', () => {
       deps,
     );
 
+    expect(result).toEqual({ indexDownloaded: true });
     expect(downloadFile).toHaveBeenCalledTimes(2);
-    expect(downloadFile.mock.calls[1]).toEqual([
+    expect(downloadFile.mock.calls[0]).toEqual([
       'https://index',
       '/tmp/file.bam.bai',
       true,
@@ -76,14 +78,23 @@ describe('download/commonDownload.fullDownloadWithOptionalIndex', () => {
       deps.logger,
       deps.metrics,
     ]);
+    expect(downloadFile.mock.calls[1]).toEqual([
+      'https://primary',
+      '/tmp/file.bam',
+      true,
+      deps.agent,
+      deps.rl,
+      deps.logger,
+      deps.metrics,
+    ]);
   });
 
-  test('logs warning when optional index download fails', async () => {
+  test('attempts primary download and returns { indexDownloaded: false } when index download fails', async () => {
     downloadFile
-      .mockResolvedValueOnce()
-      .mockRejectedValueOnce(new Error('index 404'));
+      .mockRejectedValueOnce(new Error('index 404'))
+      .mockResolvedValueOnce();
 
-    await fullDownloadWithOptionalIndex(
+    const result = await fullDownloadWithOptionalIndex(
       {
         index: {
           label: 'file.bam.bai',
@@ -96,6 +107,10 @@ describe('download/commonDownload.fullDownloadWithOptionalIndex', () => {
       deps,
     );
 
+    expect(result).toEqual({ indexDownloaded: false });
+    expect(downloadFile).toHaveBeenCalledTimes(2);
+    expect(downloadFile.mock.calls[0][0]).toBe('https://index');
+    expect(downloadFile.mock.calls[1][0]).toBe('https://primary');
     expect(mockLogger.warn).toHaveBeenCalledWith(
       expect.stringContaining('Failed to download index file file.bam.bai'),
     );

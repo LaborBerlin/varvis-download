@@ -71,18 +71,22 @@ function writeRestorationState(data, restorationFile, logger) {
 }
 
 /**
- * Appends or updates restoration information in an awaiting-restoration JSON file.
+ * Appends or updates multiple restoration entries in an awaiting-restoration JSON file in a single batch.
  * The entry is identified by matching analysisId, fileName, and options.
- * @param   {import('./types').RestorationEntry} restorationInfo                               - An object containing restoration details (analysisId, fileName, restoreEstimation, options).
- * @param   {import('winston').Logger}           logger                                        - The logger instance.
- * @param   {string}                             [restorationFile="awaiting-restoration.json"] - Optional path/name for the awaiting restoration JSON file.
+ * @param   {import('./types').RestorationEntry[]} entries                                       - Array of restoration details (analysisId, fileName, restoreEstimation, options).
+ * @param   {import('winston').Logger}             logger                                        - The logger instance.
+ * @param   {string}                               [restorationFile="awaiting-restoration.json"] - Optional path/name for the awaiting restoration JSON file.
  * @returns {Promise<void>}
  */
-async function appendToAwaitingRestoration(
-  restorationInfo,
+async function appendBatchToAwaitingRestoration(
+  entries,
   logger,
   restorationFile = 'awaiting-restoration.json',
 ) {
+  if (!Array.isArray(entries) || entries.length === 0) {
+    return;
+  }
+
   /** @type {import('./types').RestorationEntry[]} */
   let data = [];
   if (fs.existsSync(restorationFile)) {
@@ -102,29 +106,65 @@ async function appendToAwaitingRestoration(
       );
     }
   }
-  // Check if an entry with the same analysisId, fileName, and options exists.
-  // Use deep equality for options comparison to handle different property orders.
-  const index = data.findIndex(
-    (entry) =>
-      entry.analysisId === restorationInfo.analysisId &&
-      entry.fileName === restorationInfo.fileName &&
-      deepEqual(entry.options || {}, restorationInfo.options || {}),
-  );
-  if (index !== -1) {
-    // Overwrite existing entry.
-    data[index] = restorationInfo;
-    logger.info(
-      `Updated existing restoration entry for analysis ${restorationInfo.analysisId}, file ${restorationInfo.fileName}.`,
+
+  let updatedCount = 0;
+  let appendedCount = 0;
+
+  for (const entry of entries) {
+    if (!entry) {
+      continue;
+    }
+
+    // Check if an entry with the same analysisId, fileName, and options exists.
+    // Use deep equality for options comparison to handle different property orders.
+    const index = data.findIndex(
+      (existing) =>
+        existing.analysisId === entry.analysisId &&
+        existing.fileName === entry.fileName &&
+        deepEqual(existing.options || {}, entry.options || {}),
     );
-  } else {
-    // Append new entry.
-    data.push(restorationInfo);
-    logger.info(
-      `Appended new restoration entry for analysis ${restorationInfo.analysisId}, file ${restorationInfo.fileName}.`,
-    );
+    if (index !== -1) {
+      // Overwrite existing entry.
+      data[index] = entry;
+      updatedCount++;
+      logger.info(
+        `Updated existing restoration entry for analysis ${entry.analysisId}, file ${entry.fileName}.`,
+      );
+    } else {
+      // Append new entry.
+      data.push(entry);
+      appendedCount++;
+      logger.info(
+        `Appended new restoration entry for analysis ${entry.analysisId}, file ${entry.fileName}.`,
+      );
+    }
   }
+
   fs.writeFileSync(restorationFile, JSON.stringify(data, null, 2));
-  logger.info(`Restoration info written to ${restorationFile}`);
+  logger.info(
+    `Restoration info written to ${restorationFile} (${updatedCount} updated, ${appendedCount} appended).`,
+  );
+}
+
+/**
+ * Appends or updates restoration information in an awaiting-restoration JSON file.
+ * The entry is identified by matching analysisId, fileName, and options.
+ * Delegates to appendBatchToAwaitingRestoration.
+ * @param   {import('./types').RestorationEntry} restorationInfo                               - An object containing restoration details (analysisId, fileName, restoreEstimation, options).
+ * @param   {import('winston').Logger}           logger                                        - The logger instance.
+ * @param   {string}                             [restorationFile="awaiting-restoration.json"] - Optional path/name for the awaiting restoration JSON file.
+ * @returns {Promise<void>}
+ */
+async function appendToAwaitingRestoration(
+  restorationInfo,
+  logger,
+  restorationFile = 'awaiting-restoration.json',
+) {
+  return appendBatchToAwaitingRestoration(
+    [restorationInfo],
+    logger,
+    restorationFile,
+  );
 }
 
 /**
@@ -189,6 +229,7 @@ function getReadyEntries(restorationFile, logger) {
 module.exports = {
   readRestorationState,
   writeRestorationState,
+  appendBatchToAwaitingRestoration,
   appendToAwaitingRestoration,
   removeRestorationEntry,
   getReadyEntries,

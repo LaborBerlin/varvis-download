@@ -187,6 +187,73 @@ describe('CLI config merge', () => {
     ).toThrow('Missing required argument --target');
   });
 
+  test('throws ConfigurationError when target contains URL metacharacters or fragments', () => {
+    const invalidTargets = [
+      'attacker.com#',
+      'evil.com/path',
+      'target?param=1',
+      'user@host',
+      '-invalid',
+      'invalid-',
+    ];
+    for (const target of invalidTargets) {
+      expect(() =>
+        mergeConfig({
+          argv: { target, username: 'u', password: 'p', analysisIds: ['AN01'] },
+          config: {},
+          env: {},
+        }),
+      ).toThrow(ConfigurationError);
+    }
+  });
+
+  test('throws ConfigurationError with descriptive message when target format is invalid', () => {
+    expect(() =>
+      mergeConfig({
+        argv: {
+          target: 'attacker.com#',
+          username: 'u',
+          password: 'p',
+          analysisIds: ['AN01'],
+        },
+        config: {},
+        env: {},
+      }),
+    ).toThrow(
+      'Invalid --target "attacker.com#": must be a valid alphanumeric subdomain without special characters, slashes, or fragments.',
+    );
+  });
+
+  test('validates target format when supplied via environment variable or config file', () => {
+    expect(() =>
+      mergeConfig({
+        argv: { username: 'u', password: 'p', analysisIds: ['AN01'] },
+        config: {},
+        env: { VARVIS_TARGET: 'evil.com/leak' },
+      }),
+    ).toThrow(ConfigurationError);
+
+    expect(() =>
+      mergeConfig({
+        argv: { username: 'u', password: 'p', analysisIds: ['AN01'] },
+        config: { target: 'bad?target=1' },
+        env: {},
+      }),
+    ).toThrow(ConfigurationError);
+  });
+
+  test('accepts valid alphanumeric subdomains with hyphens', () => {
+    const validTargets = ['demo', 'prod-01', 'my-env', 'a', 'target123'];
+    for (const target of validTargets) {
+      const result = mergeConfig({
+        argv: { target, username: 'u', password: 'p', analysisIds: ['AN01'] },
+        config: {},
+        env: {},
+      });
+      expect(result.target).toBe(target);
+    }
+  });
+
   test('throws ConfigurationError when username is missing after source resolution', () => {
     expect(() =>
       mergeConfig({

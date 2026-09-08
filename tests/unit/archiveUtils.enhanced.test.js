@@ -313,8 +313,15 @@ describe('archiveUtils (enhanced)', () => {
         false,
       );
 
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('Error reading BED file'),
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /Error reading BED file.*Keeping entry in restoration queue to prevent unintended full download/,
+        ),
+      );
+      expect(downloadFile).not.toHaveBeenCalled();
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        'test-restoration.json',
+        expect.stringContaining('sample.bam'),
       );
     });
 
@@ -484,8 +491,8 @@ describe('archiveUtils (enhanced)', () => {
 
       generateOutputFileName.mockReturnValue('sample.bam');
       downloadFile
-        .mockResolvedValueOnce() // First call succeeds (BAM file)
-        .mockRejectedValueOnce(new Error('Index download failed')); // Second call fails (index)
+        .mockRejectedValueOnce(new Error('Index download failed')) // First call fails (index file)
+        .mockResolvedValueOnce(); // Second call succeeds (primary BAM)
       indexBAM.mockResolvedValue();
 
       await resumeArchivedDownloads(
@@ -499,7 +506,7 @@ describe('archiveUtils (enhanced)', () => {
       );
 
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        'Failed to download index file sample.bam.bai: Index download failed',
+        'Failed to download index file sample.bam.bai: Index download failed. Attempting primary download anyway.',
       );
       expect(indexBAM).toHaveBeenCalled(); // Should still index the BAM
     });

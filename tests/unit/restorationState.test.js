@@ -6,6 +6,7 @@ jest.mock('node:fs');
 const {
   readRestorationState,
   writeRestorationState,
+  appendBatchToAwaitingRestoration,
   appendToAwaitingRestoration,
   removeRestorationEntry,
   getReadyEntries,
@@ -182,6 +183,116 @@ describe('restorationState', () => {
       expect(fs.writeFileSync).toHaveBeenCalledWith(
         'test.json',
         JSON.stringify([info], null, 2),
+      );
+    });
+  });
+
+  describe('appendBatchToAwaitingRestoration', () => {
+    test('should create new file with multiple entries if file does not exist', async () => {
+      fs.existsSync.mockReturnValue(false);
+
+      const entries = [
+        {
+          analysisId: 'AN001',
+          fileName: 'test1.bam',
+          restoreEstimation: '2026-02-04T12:00:00Z',
+          options: {},
+        },
+        {
+          analysisId: 'AN002',
+          fileName: 'test2.bam',
+          restoreEstimation: '2026-02-04T13:00:00Z',
+          options: {},
+        },
+      ];
+
+      await appendBatchToAwaitingRestoration(entries, mockLogger, 'test.json');
+
+      expect(fs.writeFileSync).toHaveBeenCalledTimes(1);
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        'test.json',
+        JSON.stringify(entries, null, 2),
+      );
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Appended new restoration entry for analysis AN001, file test1.bam.',
+      );
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Appended new restoration entry for analysis AN002, file test2.bam.',
+      );
+    });
+
+    test('should update existing entries and append new ones in a single batch', async () => {
+      fs.existsSync.mockReturnValue(true);
+      const existing = [
+        {
+          analysisId: 'AN001',
+          fileName: 'test1.bam',
+          restoreEstimation: '2026-02-03T12:00:00Z',
+          options: { range: 'chr1:100-200' },
+        },
+      ];
+      fs.readFileSync.mockReturnValue(JSON.stringify(existing));
+
+      const updatedEntry = {
+        analysisId: 'AN001',
+        fileName: 'test1.bam',
+        restoreEstimation: '2026-02-04T12:00:00Z',
+        options: { range: 'chr1:100-200' },
+      };
+      const newEntry = {
+        analysisId: 'AN002',
+        fileName: 'test2.bam',
+        restoreEstimation: '2026-02-04T14:00:00Z',
+        options: {},
+      };
+
+      await appendBatchToAwaitingRestoration(
+        [updatedEntry, newEntry],
+        mockLogger,
+        'test.json',
+      );
+
+      expect(fs.writeFileSync).toHaveBeenCalledTimes(1);
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        'test.json',
+        JSON.stringify([updatedEntry, newEntry], null, 2),
+      );
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Updated existing restoration entry for analysis AN001, file test1.bam.',
+      );
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Appended new restoration entry for analysis AN002, file test2.bam.',
+      );
+    });
+
+    test('should do nothing if entries array is empty', async () => {
+      await appendBatchToAwaitingRestoration([], mockLogger, 'test.json');
+
+      expect(fs.writeFileSync).not.toHaveBeenCalled();
+    });
+
+    test('should start fresh if file is corrupted', async () => {
+      fs.existsSync.mockReturnValue(true);
+      fs.readFileSync.mockReturnValue('invalid json');
+
+      const entries = [
+        {
+          analysisId: 'AN001',
+          fileName: 'test.bam',
+          restoreEstimation: '2026-02-04T12:00:00Z',
+          options: {},
+        },
+      ];
+
+      await appendBatchToAwaitingRestoration(entries, mockLogger, 'test.json');
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Failed to parse awaiting-restoration file. Starting fresh.',
+      );
+      expect(fs.writeFileSync).toHaveBeenCalledTimes(1);
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        'test.json',
+        JSON.stringify(entries, null, 2),
       );
     });
   });

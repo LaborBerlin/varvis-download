@@ -47,12 +47,13 @@ async function downloadFile(
     return;
   }
 
+  const partPath = `${outputPath}.${process.pid}.part`;
   let writer;
   let response;
 
   try {
     // Create writer and fetch inside try block to ensure cleanup on any failure
-    writer = fs.createWriteStream(outputPath);
+    writer = fs.createWriteStream(partPath);
     response = await fetchWithRetry(
       url,
       { method: 'GET', dispatcher: agent },
@@ -103,6 +104,11 @@ async function downloadFile(
     // Use stream/promises finished() for deterministic cleanup
     await finished(writer);
 
+    if (fs.existsSync(outputPath)) {
+      fs.unlinkSync(outputPath);
+    }
+    fs.renameSync(partPath, outputPath);
+
     logger.info(`Successfully downloaded ${outputPath}`);
     metrics.totalFilesDownloaded += 1;
     metrics.totalBytesDownloaded += totalBytes;
@@ -120,14 +126,14 @@ async function downloadFile(
         // Ignore errors during cleanup - stream may already be closed
       }
     }
-    try {
-      if (fs.existsSync(outputPath)) {
-        fs.unlinkSync(outputPath); // Clean up partial download
+    if (fs.existsSync(partPath)) {
+      try {
+        fs.unlinkSync(partPath);
+      } catch (unlinkError) {
+        logger.debug(
+          `Could not remove partial download ${partPath}: ${getErrorMessage(unlinkError)}`,
+        );
       }
-    } catch (unlinkError) {
-      logger.debug(
-        `Could not remove partial download ${outputPath}: ${getErrorMessage(unlinkError)}`,
-      );
     }
     throw error;
   }

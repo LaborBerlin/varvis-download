@@ -68,7 +68,7 @@ async function handleBamFile(args, deps) {
   if (regions.length === 0 && !unmapped) {
     try {
       logger.info(`Performing full download for BAM file: ${fileName}`);
-      await fullDownloadWithOptionalIndex(
+      const { indexDownloaded } = await fullDownloadWithOptionalIndex(
         {
           index: indexFileUrl
             ? { label: indexFileName, path: indexFilePath, url: indexFileUrl }
@@ -85,7 +85,13 @@ async function handleBamFile(args, deps) {
         );
       }
 
-      await indexBAM(outputFile, logger, overwrite);
+      if (!indexDownloaded) {
+        await indexBAM(outputFile, logger, overwrite);
+      } else {
+        logger.info(
+          'Valid index file downloaded from server, skipping samtools index.',
+        );
+      }
     } catch (error) {
       ok = false;
       logger.error(
