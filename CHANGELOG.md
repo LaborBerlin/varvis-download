@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Resolved 13 Dependabot security advisories** across production and dev dependency trees (`npm audit` reports 0 vulnerabilities):
   - `undici`: CRLF injection and cache/cookie disclosure advisories (GHSA-8xcm-r25x-g524, GHSA-4cwx-7wf7-3272, GHSA-m8rv-5g2x-5cg5, GHSA-jr45-8vmc-qm54, GHSA-v3r7-h72x-cjcm).
   - `js-yaml`: quadratic CPU consumption in !!omap resolution (CVE-2026-59870 / GHSA-5p4m-2wfm-xmqj), pinned to `^3.15.2` via npm overrides.
-  - `brace-expansion`: exponential-time DoS (GHSA-3jxr-9vmj-r5cp, GHSA-mh99-v99m-4gvg, GHSA-rgw5-rvv9-x895), resolved with scoped overrides for `minimatch` (`^5.0.9`) and `glob`/`test-exclude` (`^1.1.18`).
+  - `brace-expansion`: exponential-time DoS (GHSA-3jxr-9vmj-r5cp, GHSA-mh99-v99m-4gvg, GHSA-rgw5-rvv9-x895), resolved by pinning `brace-expansion` with scoped overrides under `minimatch` (`^5.0.9`) and under `glob`/`test-exclude` (`^1.1.18`).
   - `browserslist`: unhandled crash and memory growth (GHSA-73wf-gq98-2v4g, GHSA-c83g-rgw3-j3cx), pinned to `^4.28.9` via npm overrides.
   - `postcss`: path traversal in source map auto-loading (GHSA-fxqj-rqcc-2cmp, GHSA-r28c-9q8g-f849), pinned to `^8.5.28` via npm overrides.
   - `@humanfs/node`: symlink traversal in recursive copy (GHSA-p498-v437-472g), pinned to `^0.16.8` via npm overrides.

@@ -10,10 +10,10 @@ module.exports = {
   testMatch: ['**/tests/**/*.test.js'],
   testPathIgnorePatterns: [
     'tests/integration/e2e/',
-    '/.worktrees/',
+    '/\\.worktrees/',
     '/worktrees/',
   ],
-  modulePathIgnorePatterns: ['<rootDir>/.worktrees/', '<rootDir>/worktrees/'],
+  modulePathIgnorePatterns: ['<rootDir>/\\.worktrees/', '<rootDir>/worktrees/'],
   verbose: true,
   testTimeout: 30000,
   clearMocks: true,
