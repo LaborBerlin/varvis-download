@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-09-08
+
+### Security
+
+- **Target subdomain format validation**: `--target` is validated against `/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i` before URL construction, preventing SSRF and fragment injection attacks (#147).
+- **Remote filename path traversal sanitization**: Neutralized directory traversal sequences in API-provided filenames using `path.basename` across POSIX and Windows (#147).
+- **Enforce `0o600` permissions on temporary BED files**: Restricts permissions on temporary interval files created during ranged downloads to owner-only read/write on multi-user systems (#147).
+- **Promote `dotenv` to production dependencies**: Ensures standalone CLI installations (`npm install --omit=dev`) include `dotenv` for environment loading (#147).
+- **Production dependency**: `undici` 8.7.0 → **8.10.2** resolving high-severity advisories GHSA-8xcm-r25x-g524, GHSA-4cwx-7wf7-3272, GHSA-m8rv-5g2x-5cg5, GHSA-jr45-8vmc-qm54, and GHSA-v3r7-h72x-cjcm.
+
+### Performance
+
+- **Invert BAM download sequence**: Downloads the small `.bai` index file before the primary BAM file, protecting against 1-hour presigned S3 URL expiration during long downloads (#148).
+- **Skip redundant `samtools index`**: When a valid index file is successfully downloaded from the server, skips redundant local indexing, saving CPU and disk I/O (#148).
+- **Batch restoration state writes**: Consolidates multi-file restoration updates into a single read-modify-write cycle, eliminating $O(N^2)$ disk I/O (#148).
+
+### Fixed
+
+- **VCF pipeline deadlock on outputStream write errors**: Properly terminates `tabix` and `bgzip` child processes and immediately rejects upon write errors in `rangedDownloadVCF` (#148).
+- **Prevent silent whole-genome download in resume**: If a BED file cannot be read during `--resumeArchivedDownloads`, logs an error and requeues the entry rather than silently falling back to a full whole-genome download (#149).
+- **Atomic file writes**: Downloads stream to `.part` temporary files and are atomically replaced upon completion, preventing corruption of existing files on failure (#149).
+- **Bounded stderr buffers**: Capped process stderr accumulation at 64KB to prevent unbounded memory growth on verbose tool output (#149).
+
 ## [0.33.1] - 2026-07-20
 
 ### Added

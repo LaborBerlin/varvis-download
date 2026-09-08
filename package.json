@@ -1,6 +1,6 @@
 {
   "name": "varvis-download",
-  "version": "0.33.1",
+  "version": "0.34.0",
   "type": "module",
   "description": "",
   "repository": {
@@ -53,7 +53,7 @@
     "mute-stream": "^4.0.0",
     "progress": "^2.0.3",
     "tough-cookie": "^6.0.2",
-    "undici": "^8.7.0",
+    "undici": "^8.10.2",
     "winston": "^3.19.0",
     "yargs": "^18.0.0"
   },
