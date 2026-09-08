@@ -571,9 +571,11 @@ describe('Archive Workflow Integration Tests', () => {
         },
       });
 
-      // Mock the downloadFile to throw an error (simulating download failure)
+      // Mock the downloadFile to throw an error (simulating BAM download failure)
       const { downloadFile } = require('../../js/fileUtils');
-      downloadFile.mockRejectedValueOnce(new Error('Download failed'));
+      downloadFile
+        .mockResolvedValueOnce() // Success for index download
+        .mockRejectedValueOnce(new Error('Download failed')); // Failure for BAM download
 
       // Act
       await resumeArchivedDownloads(
@@ -773,13 +775,14 @@ describe('Archive Workflow Integration Tests', () => {
           },
         });
 
-      // Mock downloadFile - first call succeeds, second fails
+      // Mock downloadFile - index-first download order
       const { downloadFile } = require('../../js/fileUtils');
       const { indexBAM } = require('../../js/rangedUtils');
       downloadFile
-        .mockResolvedValueOnce() // Success for ready-success.bam
         .mockResolvedValueOnce() // Success for ready-success.bam.bai (index file)
-        .mockRejectedValueOnce(new Error('Download failed')); // Failure for ready-fail.bam
+        .mockResolvedValueOnce() // Success for ready-success.bam (BAM file)
+        .mockResolvedValueOnce() // Success for ready-fail.bam.bai (index file)
+        .mockRejectedValueOnce(new Error('Download failed')); // Failure for ready-fail.bam (BAM file)
 
       indexBAM
         .mockResolvedValueOnce() // Success for ready-success.bam indexing
