@@ -24,6 +24,7 @@ jest.mock('../../../js/download/commonDownload.cjs', () => ({
   })),
 }));
 
+const path = require('node:path');
 const { handleBamFile } = require('../../../js/download/bamHandler.cjs');
 const {
   ensureIndexFile,

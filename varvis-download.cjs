@@ -4,13 +4,15 @@ require('dotenv').config({ quiet: true });
 
 const fs = require('node:fs');
 const readline = require('node:readline');
-const { createRequire } = process.getBuiltinModule('node:module');
+const nodeModule = process.getBuiltinModule('node:module');
+const hostCreateRequire =
+  Object.getPrototypeOf(nodeModule)?.createRequire || nodeModule.createRequire;
 
 // yargs ships ESM-only ("yargs/helpers" has no "require" export condition).
 // A plain require() here would go through Jest's instrumented module loader,
 // which cannot load ESM; a require created via createRequire() uses Node's
 // native loader instead, so it can (see js/cli/args.cjs for the same pattern).
-const nativeRequire = createRequire(__filename);
+const nativeRequire = hostCreateRequire(__filename);
 const { hideBin } = nativeRequire('yargs/helpers');
 const {
   author,

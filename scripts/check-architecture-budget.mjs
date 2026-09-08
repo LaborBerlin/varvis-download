@@ -31,6 +31,7 @@ const CHECK_EXTENSIONS = new Set(['.js', '.cjs', '.mjs', '.ts']);
 const SKIP_DIRS = new Set([
   '.git',
   '.husky',
+  '.worktrees',
   'assets',
   'build',
   'coverage',
@@ -38,6 +39,7 @@ const SKIP_DIRS = new Set([
   'logs',
   'node_modules',
   'release',
+  'worktrees',
 ]);
 
 const SKIP_PREFIXES = [
