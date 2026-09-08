@@ -8,7 +8,12 @@ module.exports = {
     '!node_modules/**',
   ],
   testMatch: ['**/tests/**/*.test.js'],
-  testPathIgnorePatterns: ['tests/integration/e2e/'],
+  testPathIgnorePatterns: [
+    'tests/integration/e2e/',
+    '/.worktrees/',
+    '/worktrees/',
+  ],
+  modulePathIgnorePatterns: ['<rootDir>/.worktrees/', '<rootDir>/worktrees/'],
   verbose: true,
   testTimeout: 30000,
   clearMocks: true,

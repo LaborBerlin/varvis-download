@@ -1,6 +1,8 @@
-const { createRequire } = process.getBuiltinModule('node:module');
+const nodeModule = process.getBuiltinModule('node:module');
+const hostCreateRequire =
+  Object.getPrototypeOf(nodeModule)?.createRequire || nodeModule.createRequire;
 
-const nativeRequire = createRequire(__filename);
+const nativeRequire = hostCreateRequire(__filename);
 /** @type {typeof import('yargs')} */
 const yargs = nativeRequire('yargs');
 
