@@ -111,6 +111,7 @@ describe('commands/resume ranged/region handling', () => {
       mockLogger,
       metrics,
       true,
+      { chunkSize: undefined, enabled: undefined },
     );
     expect(rangedDownloadVCF).toHaveBeenCalledWith(
       'https://example.test/sample.vcf.gz',
@@ -120,6 +121,7 @@ describe('commands/resume ranged/region handling', () => {
       mockLogger,
       metrics,
       true,
+      { chunkSize: undefined, enabled: undefined },
     );
     expect(indexVCF).toHaveBeenCalledTimes(2);
   });
@@ -287,6 +289,7 @@ describe('commands/resume ranged/region handling', () => {
       mockLogger,
       metrics,
       true,
+      { chunkSize: undefined, enabled: undefined },
     );
   });
 });

@@ -123,6 +123,9 @@ export interface FinalConfig {
   loglevel?: string;
   logfile?: string;
   version?: boolean;
+  boundedRangeProxy: boolean;
+  boundedRangeChunkSize: number;
+  boundedRangeProxyExplicit?: boolean;
 }
 
 export interface Credentials {

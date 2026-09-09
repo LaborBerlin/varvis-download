@@ -77,3 +77,6 @@ docs/.vitepress/.temp/
 
 # Integration test temporary files
 tests/integration/e2e/temp_downloads/
+
+# Superpowers SDD workspace
+.superpowers/

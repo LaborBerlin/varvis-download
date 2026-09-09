@@ -1,0 +1,356 @@
+jest.mock('../../../js/fetchUtils.cjs', () => ({
+  fetchAnalysisIds: jest.fn(async () => ['A1']),
+  generateReport: jest.fn(),
+  getDownloadLinks: jest.fn(async () => ({
+    'sample.bam': { analysisId: 'A1', downloadLink: 'https://primary-bam' },
+    'sample.vcf.gz': { analysisId: 'A1', downloadLink: 'https://primary-vcf' },
+  })),
+  metrics: {
+    downloadSpeeds: [],
+    startTime: 0,
+    totalBytesDownloaded: 0,
+    totalFilesDownloaded: 0,
+    totalFilesSkipped: 0,
+  },
+}));
+
+jest.mock('../../../js/download/bamHandler.cjs', () => ({
+  handleBamFile: jest.fn(),
+}));
+
+jest.mock('../../../js/download/vcfHandler.cjs', () => ({
+  handleVcfFile: jest.fn(),
+}));
+
+jest.mock('../../../js/io/urlListing.cjs', () => ({
+  handleUrlListing: jest.fn(),
+}));
+
+jest.mock('../../../js/toolChecks.cjs', () => ({
+  checkToolAvailability: jest.fn(async () => true),
+  compareVersions: jest.requireActual('../../../js/toolChecks.cjs')
+    .compareVersions,
+  getToolVersion: jest.fn(),
+  isToolAffectedByUnboundedRangeBug: jest.requireActual(
+    '../../../js/toolChecks.cjs',
+  ).isToolAffectedByUnboundedRangeBug,
+}));
+
+const { mergeConfig } = require('../../../js/cli/configMerge.cjs');
+const { runDownloadCommand } = require('../../../js/commands/download.cjs');
+const { handleBamFile } = require('../../../js/download/bamHandler.cjs');
+const { handleVcfFile } = require('../../../js/download/vcfHandler.cjs');
+const {
+  checkToolAvailability,
+  getToolVersion,
+} = require('../../../js/toolChecks.cjs');
+
+describe('commands/download proxy guard', () => {
+  const mockLogger = {
+    debug: jest.fn(),
+    error: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+  };
+  const deps = {
+    agent: {},
+    authService: { token: 'tok' },
+    logger: mockLogger,
+    metrics: {
+      downloadSpeeds: [],
+      startTime: 0,
+      totalBytesDownloaded: 0,
+      totalFilesDownloaded: 0,
+      totalFilesSkipped: 0,
+    },
+    rl: {},
+  };
+
+  // create base configuration helper for test scenarios
+  const createConfig = (overrides = {}) => ({
+    analysisIds: ['A1'],
+    bed: null,
+    boundedRangeChunkSize: 1048576,
+    boundedRangeProxy: true,
+    boundedRangeProxyExplicit: false,
+    destination: '/tmp',
+    filetypes: ['bam', 'vcf'],
+    filters: [],
+    latest: false,
+    limsIds: [],
+    listUrls: false,
+    overwrite: false,
+    range: 'chr1:1-100',
+    restorationFile: 'awaiting-restoration.json',
+    restoreArchived: 'ask',
+    sampleIds: [],
+    target: 'demo',
+    unmapped: false,
+    urlFile: null,
+    ...overrides,
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    checkToolAvailability.mockResolvedValue(true);
+  });
+
+  // bypass proxy for samtools when samtools version is 1.25.0 or above and flag is not explicit
+  test('bypasses proxy for samtools when samtools version >= 1.25.0 and proxy flag is not explicit', async () => {
+    getToolVersion.mockImplementation(async (tool) => {
+      if (tool === 'samtools') return '1.25.0';
+      return '1.24';
+    });
+
+    const finalConfig = createConfig({
+      boundedRangeProxy: true,
+      boundedRangeProxyExplicit: false,
+    });
+
+    await runDownloadCommand({ finalConfig, regions: ['chr1:1-100'] }, deps);
+
+    expect(handleBamFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        finalConfig: expect.objectContaining({ boundedRangeProxy: false }),
+      }),
+      deps,
+    );
+    expect(finalConfig.boundedRangeProxy).toBe(true);
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      'Detected samtools version 1.25.0 with native bounded range support; proxy bypassed.',
+    );
+  });
+
+  // keep proxy enabled for samtools when samtools version is below 1.25.0
+  test('keeps proxy enabled for samtools when samtools version is below 1.25.0', async () => {
+    getToolVersion.mockImplementation(async (tool) => {
+      if (tool === 'samtools') return '1.24.1';
+      return '1.24';
+    });
+
+    const finalConfig = createConfig({
+      boundedRangeProxy: true,
+      boundedRangeProxyExplicit: false,
+    });
+
+    await runDownloadCommand({ finalConfig, regions: ['chr1:1-100'] }, deps);
+
+    expect(handleBamFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        finalConfig: expect.objectContaining({ boundedRangeProxy: true }),
+      }),
+      deps,
+    );
+    expect(finalConfig.boundedRangeProxy).toBe(true);
+    expect(mockLogger.info).not.toHaveBeenCalledWith(
+      expect.stringContaining('native bounded range support; proxy bypassed'),
+    );
+  });
+
+  // keep proxy enabled for samtools when samtools >= 1.25.0 but proxy was explicitly requested
+  test('retains proxy when samtools version >= 1.25.0 if proxy flag was explicitly passed', async () => {
+    getToolVersion.mockImplementation(async (tool) => {
+      if (tool === 'samtools') return '1.25.0';
+      return '1.24';
+    });
+
+    const finalConfig = createConfig({
+      boundedRangeProxy: true,
+      boundedRangeProxyExplicit: true,
+    });
+
+    await runDownloadCommand({ finalConfig, regions: ['chr1:1-100'] }, deps);
+
+    expect(handleBamFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        finalConfig: expect.objectContaining({ boundedRangeProxy: true }),
+      }),
+      deps,
+    );
+    expect(finalConfig.boundedRangeProxy).toBe(true);
+    expect(mockLogger.info).not.toHaveBeenCalledWith(
+      expect.stringContaining('native bounded range support; proxy bypassed'),
+    );
+  });
+
+  // bypass proxy for tabix when tabix version is 1.25.0 or above and flag is not explicit
+  test('bypasses proxy for tabix when tabix version >= 1.25.0 and proxy flag is not explicit', async () => {
+    getToolVersion.mockImplementation(async (tool) => {
+      if (tool === 'samtools') return '1.24';
+      if (tool === 'tabix') return '1.25.0';
+      return '1.24';
+    });
+
+    const finalConfig = createConfig({
+      boundedRangeProxy: true,
+      boundedRangeProxyExplicit: false,
+    });
+
+    await runDownloadCommand({ finalConfig, regions: ['chr1:1-100'] }, deps);
+
+    expect(handleVcfFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        finalConfig: expect.objectContaining({ boundedRangeProxy: false }),
+      }),
+      deps,
+    );
+    expect(finalConfig.boundedRangeProxy).toBe(true);
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      'Detected tabix version 1.25.0 with native bounded range support; proxy bypassed.',
+    );
+  });
+
+  // keep proxy enabled for tabix when tabix version >= 1.25.0 but proxy was explicitly requested
+  test('retains proxy when tabix version >= 1.25.0 if proxy flag was explicitly passed', async () => {
+    getToolVersion.mockImplementation(async (tool) => {
+      if (tool === 'samtools') return '1.24';
+      if (tool === 'tabix') return '1.25.0';
+      return '1.24';
+    });
+
+    const finalConfig = createConfig({
+      boundedRangeProxy: true,
+      boundedRangeProxyExplicit: true,
+    });
+
+    await runDownloadCommand({ finalConfig, regions: ['chr1:1-100'] }, deps);
+
+    expect(handleVcfFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        finalConfig: expect.objectContaining({ boundedRangeProxy: true }),
+      }),
+      deps,
+    );
+    expect(finalConfig.boundedRangeProxy).toBe(true);
+    expect(mockLogger.info).not.toHaveBeenCalledWith(
+      expect.stringContaining('native bounded range support; proxy bypassed'),
+    );
+  });
+
+  // handle asymmetric versions correctly without cross-tool proxy disabling
+  test('handles asymmetric tool versions correctly (samtools >= 1.25.0, tabix < 1.25.0)', async () => {
+    getToolVersion.mockImplementation(async (tool) => {
+      if (tool === 'samtools') return '1.25.0';
+      if (tool === 'tabix') return '1.24.0';
+      return '1.24';
+    });
+
+    const finalConfig = createConfig({
+      boundedRangeProxy: true,
+      boundedRangeProxyExplicit: false,
+    });
+
+    await runDownloadCommand({ finalConfig, regions: ['chr1:1-100'] }, deps);
+
+    // samtools receives proxy disabled
+    expect(handleBamFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        finalConfig: expect.objectContaining({ boundedRangeProxy: false }),
+      }),
+      deps,
+    );
+    // tabix receives proxy enabled
+    expect(handleVcfFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        finalConfig: expect.objectContaining({ boundedRangeProxy: true }),
+      }),
+      deps,
+    );
+    // global finalConfig is not mutated
+    expect(finalConfig.boundedRangeProxy).toBe(true);
+  });
+
+  // handle asymmetric versions correctly in reverse (samtools < 1.25.0, tabix >= 1.25.0)
+  test('handles asymmetric tool versions correctly (samtools < 1.25.0, tabix >= 1.25.0)', async () => {
+    getToolVersion.mockImplementation(async (tool) => {
+      if (tool === 'samtools') return '1.24.0';
+      if (tool === 'tabix') return '1.25.0';
+      return '1.24';
+    });
+
+    const finalConfig = createConfig({
+      boundedRangeProxy: true,
+      boundedRangeProxyExplicit: false,
+    });
+
+    await runDownloadCommand({ finalConfig, regions: ['chr1:1-100'] }, deps);
+
+    // samtools receives proxy enabled
+    expect(handleBamFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        finalConfig: expect.objectContaining({ boundedRangeProxy: true }),
+      }),
+      deps,
+    );
+    // tabix receives proxy disabled
+    expect(handleVcfFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        finalConfig: expect.objectContaining({ boundedRangeProxy: false }),
+      }),
+      deps,
+    );
+    // global finalConfig is not mutated
+    expect(finalConfig.boundedRangeProxy).toBe(true);
+  });
+
+  // retain proxy when samtools >= 1.25.0 if proxy was explicitly configured in config file
+  test('retains proxy when samtools version >= 1.25.0 if proxy was configured in config file', async () => {
+    getToolVersion.mockImplementation(async (tool) => {
+      if (tool === 'samtools') return '1.25.0';
+      return '1.24';
+    });
+
+    const finalConfig = mergeConfig({
+      argv: {
+        analysisIds: ['A1'],
+        range: 'chr1:1-100',
+        target: 'demo',
+        username: 'user',
+      },
+      config: {
+        boundedRangeProxy: true,
+      },
+    });
+
+    expect(finalConfig.boundedRangeProxyExplicit).toBe(true);
+
+    await runDownloadCommand({ finalConfig, regions: ['chr1:1-100'] }, deps);
+
+    expect(handleBamFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        finalConfig: expect.objectContaining({ boundedRangeProxy: true }),
+      }),
+      deps,
+    );
+    expect(finalConfig.boundedRangeProxy).toBe(true);
+    expect(mockLogger.info).not.toHaveBeenCalledWith(
+      expect.stringContaining('native bounded range support; proxy bypassed'),
+    );
+  });
+
+  // spawn tool version checks only once per tool without duplicate calls
+  test('spawns tool version checks only once per tool without duplicate calls', async () => {
+    getToolVersion.mockImplementation(async (tool) => {
+      if (tool === 'samtools') return '1.24.0';
+      if (tool === 'tabix') return '1.24.0';
+      return '1.24';
+    });
+
+    const finalConfig = createConfig({
+      boundedRangeProxy: true,
+      boundedRangeProxyExplicit: false,
+    });
+
+    await runDownloadCommand({ finalConfig, regions: ['chr1:1-100'] }, deps);
+
+    const samtoolsCalls = getToolVersion.mock.calls.filter(
+      ([tool]) => tool === 'samtools',
+    );
+    const tabixCalls = getToolVersion.mock.calls.filter(
+      ([tool]) => tool === 'tabix',
+    );
+
+    expect(samtoolsCalls).toHaveLength(1);
+    expect(tabixCalls).toHaveLength(1);
+  });
+});

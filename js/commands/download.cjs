@@ -9,7 +9,12 @@ const { handleVcfFile } = require('../download/vcfHandler.cjs');
 const { OperationalError } = require('../errors.cjs');
 const { getErrorMessage } = require('../errorUtils.cjs');
 const { handleUrlListing } = require('../io/urlListing.cjs');
-const { checkToolAvailability } = require('../toolChecks.cjs');
+const {
+  checkToolAvailability,
+  compareVersions,
+  getToolVersion,
+  isToolAffectedByUnboundedRangeBug,
+} = require('../toolChecks.cjs');
 
 /**
  * @typedef {object} DownloadCommandArgs
@@ -42,28 +47,108 @@ async function runDownloadCommand({ finalConfig, regions, tempBedPath }, deps) {
   } = finalConfig;
 
   try {
+    // track tool-specific proxy enablement without mutating global finalConfig
+    let samtoolsProxyEnabled = finalConfig.boundedRangeProxy;
+    let tabixProxyEnabled = finalConfig.boundedRangeProxy;
+
     if (finalConfig.range || finalConfig.bed || finalConfig.unmapped) {
-      const samtoolsOK = await checkToolAvailability(
-        'samtools',
-        'samtools --version',
-        '1.17',
-        logger,
-      );
+      // inspect samtools version and availability
+      let samtoolsVersion = null;
+      let samtoolsOK = false;
+      if (typeof getToolVersion === 'function') {
+        samtoolsVersion = await getToolVersion(
+          'samtools',
+          'samtools --version',
+          logger,
+        );
+        samtoolsOK = Boolean(
+          samtoolsVersion && compareVersions(samtoolsVersion, '1.17'),
+        );
+        if (samtoolsOK) {
+          logger.info(`samtools version ${samtoolsVersion} is available.`);
+        } else if (samtoolsVersion) {
+          logger.error(
+            `samtools version ${samtoolsVersion} is less than the required version 1.17.`,
+          );
+        }
+      } else {
+        samtoolsOK = await checkToolAvailability(
+          'samtools',
+          'samtools --version',
+          '1.17',
+          logger,
+        );
+      }
+
       if (!samtoolsOK) {
         throw new OperationalError(
           'samtools is missing or outdated. Please install/update it and try again.',
         );
       }
 
+      // inspect samtools version for native bounded range support
+      if (
+        samtoolsVersion &&
+        typeof isToolAffectedByUnboundedRangeBug === 'function' &&
+        !isToolAffectedByUnboundedRangeBug('samtools', samtoolsVersion) &&
+        !finalConfig.boundedRangeProxyExplicit
+      ) {
+        logger.info(
+          `Detected samtools version ${samtoolsVersion} with native bounded range support; proxy bypassed.`,
+        );
+        samtoolsProxyEnabled = false;
+      }
+
       if (finalConfig.range || finalConfig.bed) {
+        // inspect tabix and bgzip availability concurrently
+        let tabixVersion = null;
         const [tabixOK, bgzipOK] = await Promise.all([
-          checkToolAvailability('tabix', 'tabix --version', '1.7', logger),
+          (async () => {
+            if (typeof getToolVersion === 'function') {
+              tabixVersion = await getToolVersion(
+                'tabix',
+                'tabix --version',
+                logger,
+              );
+              const isOk = Boolean(
+                tabixVersion && compareVersions(tabixVersion, '1.7'),
+              );
+              if (isOk) {
+                logger.info(`tabix version ${tabixVersion} is available.`);
+              } else if (tabixVersion) {
+                logger.error(
+                  `tabix version ${tabixVersion} is less than the required version 1.7.`,
+                );
+              }
+              return isOk;
+            }
+            return checkToolAvailability(
+              'tabix',
+              'tabix --version',
+              '1.7',
+              logger,
+            );
+          })(),
           checkToolAvailability('bgzip', 'bgzip --version', '1.7', logger),
         ]);
+
         if (!tabixOK || !bgzipOK) {
           throw new OperationalError(
             'One or more required external tools (tabix, bgzip) are missing or outdated. Please install/update them and try again.',
           );
+        }
+
+        // inspect tabix version for native bounded range support
+        if (
+          tabixVersion &&
+          typeof isToolAffectedByUnboundedRangeBug === 'function' &&
+          !isToolAffectedByUnboundedRangeBug('tabix', tabixVersion) &&
+          !finalConfig.boundedRangeProxyExplicit
+        ) {
+          logger.info(
+            `Detected tabix version ${tabixVersion} with native bounded range support; proxy bypassed.`,
+          );
+          tabixProxyEnabled = false;
         }
       }
     }
@@ -130,12 +215,31 @@ async function runDownloadCommand({ finalConfig, regions, tempBedPath }, deps) {
       for (const [fileName] of primaryFiles) {
         if (fileName.endsWith('.bam')) {
           await handleBamFile(
-            { fileDict, fileName, finalConfig, regions, target, tempBedPath },
+            {
+              fileDict,
+              fileName,
+              finalConfig: {
+                ...finalConfig,
+                boundedRangeProxy: samtoolsProxyEnabled,
+              },
+              regions,
+              target,
+              tempBedPath,
+            },
             deps,
           );
         } else if (fileName.endsWith('.vcf.gz')) {
           await handleVcfFile(
-            { fileDict, fileName, finalConfig, regions, target },
+            {
+              fileDict,
+              fileName,
+              finalConfig: {
+                ...finalConfig,
+                boundedRangeProxy: tabixProxyEnabled,
+              },
+              regions,
+              target,
+            },
             deps,
           );
         }

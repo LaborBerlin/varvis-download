@@ -366,6 +366,115 @@ mkdir -p ./regions/{region_a,region_b,region_c}
 ./varvis-download.cjs -t mytarget -a 12345 -g "chr7:5500000-5600000" -d "./regions/region_c/"
 ```
 
+## Bounded-Range Reverse Proxy (S3 Egress Guard)
+
+### The Cloud Egress Problem in HTSlib
+
+When reading remote indexed genomic files (BAM and VCF) via HTTP or S3 pre-signed URLs, HTSlib (< 1.25.0, the core library powering `samtools` and `tabix`) issues open-ended HTTP range requests:
+
+```http
+GET /sample.bam HTTP/1.1
+Range: bytes=0-
+```
+
+or for specific genomic coordinates:
+
+```http
+GET /sample.bam HTTP/1.1
+Range: bytes=8224425-
+```
+
+While `samtools` only reads a small initial portion (such as 64 KiB for the BAM header or ~130 KiB for a targeted alignment chunk) before closing the downstream client socket, AWS S3 does not immediately stop sending data. Because S3 streams the full object payload across TCP socket buffers and WAN hops until connection teardown propagates, tens of gigabytes of unintended data egress can be transferred and billed per request (see [LaborBerlin/varvis-download#22](https://github.com/LaborBerlin/varvis-download/issues/22)). For an exome BAM file (~17.28 GB), two small sliced queries can easily incur over 34 GB of cloud egress charges.
+
+### In-Process Reverse Proxy Architecture
+
+To eliminate this vulnerability without requiring upstream server modifications or waiting for widespread HTSlib upgrades, `varvis-download` features an automated in-process reverse proxy:
+
+1. **Ephemeral Local Loopback**: When a ranged download begins, `varvis-download` boots an in-process HTTP proxy on `127.0.0.1` using an ephemeral port.
+2. **Cryptographic Token Route Protection**: Each proxy instance generates a random UUID token (`/stream/<uuid>`) ensuring that only the spawned `samtools` or `tabix` child process can access the proxy endpoint.
+3. **Range Bounding & Clamping**: Every incoming HTTP Range header is evaluated:
+   - Unbounded queries (`bytes=start-`) are rewritten to bounded requests: `bytes=start-(start + chunkSize - 1)`.
+   - Oversized bounded ranges are clamped to the configured maximum chunk boundary.
+4. **Immediate Upstream Abort**: When `samtools` or `tabix` closes the downstream TCP socket, the proxy's `AbortController` instantly aborts the active upstream fetch to S3. Upstream transfer stops within milliseconds, preventing TCP stream drain.
+5. **Deterministic Cleanup**: Proxy instances are strictly bounded to the lifecycle of the download command and guaranteed to close in `finally` handlers on success and failure alike.
+
+### Configuration & CLI Options
+
+The reverse proxy is enabled by default for all ranged downloads.
+
+#### CLI Flags
+
+```bash
+# Explicitly enable proxy (default)
+./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1000000-2000000" --bounded-range-proxy
+
+# Disable proxy (direct upstream connection)
+./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1000000-2000000" --no-bounded-range-proxy
+
+# Customize chunk size (e.g., 4 MiB)
+./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1000000-2000000" --bounded-range-chunk-size 4194304
+```
+
+| Flag                         | Type    | Default           | Description                                                                                       |
+| ---------------------------- | ------- | ----------------- | ------------------------------------------------------------------------------------------------- |
+| `--bounded-range-proxy`      | boolean | `true`            | Enables in-process proxy for ranged BAM/VCF downloads. Use `--no-bounded-range-proxy` to disable. |
+| `--bounded-range-chunk-size` | number  | `2097152` (2 MiB) | Maximum bytes requested per upstream HTTP Range chunk.                                            |
+
+#### Configuration File Syntax
+
+Options can also be configured permanently in `.config.json`:
+
+```json
+{
+  "target": "mytarget",
+  "boundedRangeProxy": true,
+  "boundedRangeChunkSize": 2097152
+}
+```
+
+### Automatic Tool Version Guard
+
+Modern versions of HTSlib (>= 1.25.0) incorporate native support for bounded range requests. `varvis-download` automatically inspects the installed version of `samtools` and `tabix` before dispatching downloads:
+
+- **Installed tool < 1.25.0**: The bounded-range proxy is kept active to protect against cloud egress leaks.
+- **Installed tool >= 1.25.0**: The proxy is automatically bypassed, connecting the tool directly to the upstream URL with zero overhead.
+- **Explicit Override**: Passing `--bounded-range-proxy` explicitly on the command line forces the proxy to remain enabled regardless of tool version.
+
+::: tip Tool & HTSlib Version Compatibility
+The proxy operates purely at the HTTP protocol layer on loopback (`http://127.0.0.1:<port>/stream/<token>`). Because it intercepts downstream HTTP Range headers and streams chunked responses, it is compatible with any tool release issuing unbounded ranges, including mixed binary builds (e.g., `samtools 1.20` dynamically linked against `HTSlib 1.23`). Development and CI tests baseline on standard lockstep releases (`1.20/1.20`, `1.21/1.21`), as exhaustive permutation testing across all decoupled samtools and HTSlib version pairs is not maintained.
+:::
+
+### Egress Savings Benchmark
+
+To verify and benchmark the real-world egress reduction against the public 1000 Genomes S3 exome BAM (17.28 GB, 17,282,007,379 bytes), run the included benchmark script:
+
+```bash
+node scripts/benchmark-bounded-proxy.mjs
+```
+
+Benchmark results comparing two simulated ranged queries (64 KiB BAM header + 130 KiB region slice):
+
+| Metric                        | Without Proxy (Unbounded HTSlib)           | With Bounded Proxy     | Reduction    |
+| ----------------------------- | ------------------------------------------ | ---------------------- | ------------ |
+| **HTTP Range Requests**       | 2 unbounded (`bytes=0-`, `bytes=8224425-`) | 2 bounded (2 MiB max)  | -            |
+| **Client Data Read**          | ~246 KiB                                   | ~247 KiB               | Equal        |
+| **Max Upstream S3 Egress**    | 34.56 GB (34,555,790,333 B)                | 4.00 MiB (4,194,304 B) | **> 99.98%** |
+| **Actual Expected S3 Egress** | 17.2 – 34.5 GB (stream drain)              | ~4.00 MiB              | **> 99.9%**  |
+
+### How to Verify in Production
+
+To verify that the proxy is actively intercepting and protecting your downloads in production:
+
+1. **Enable Debug Logging**:
+   ```bash
+   ./varvis-download.cjs -t mytarget -a 12345 -g "chr1:1000000-2000000" --loglevel debug
+   ```
+2. **Observe Proxy Lifecycle in Logs**:
+   - `Proxying ranged BAM download through bounded-range reverse proxy`
+   - Child process execution passes a loopback target: `samtools view ... http://127.0.0.1:<port>/stream/<token>`
+   - Bounded range rewrites: `Upstream Range: bytes=0-2097151`
+   - Clean shutdown upon completion.
+
 ## Integration with Downstream Research Tools
 
 ### Optional Downstream Processing
