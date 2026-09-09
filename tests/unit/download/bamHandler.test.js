@@ -136,6 +136,10 @@ describe('download/bamHandler.handleBamFile', () => {
       mockLogger,
       deps.metrics,
       false,
+      {
+        enabled: undefined,
+        chunkSize: undefined,
+      },
     );
     expect(indexBAM).toHaveBeenCalledWith(
       path.join('/tmp', 'out_sample.bam_unmapped'),

@@ -2,6 +2,7 @@ const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const { downloadFile } = require('./fileUtils.cjs');
+const { createBoundedRangeProxy } = require('./net/boundedRangeProxy.cjs');
 const {
   spawnPromise,
   compareVersions,
@@ -10,16 +11,23 @@ const {
 const { getErrorMessage } = require('./errorUtils.cjs');
 
 /**
+ * @typedef {object} ProxyOptions
+ * @property {boolean} [enabled] - Whether bounded range reverse proxy is enabled.
+ * @property {number}  [chunkSize] - Maximum chunk size in bytes for bounded range requests.
+ */
+
+/**
  * Performs a ranged download for a BAM file using samtools.
- * @param   {string}                    url             - The URL of the BAM file.
- * @param   {string}                    bedFile         - Path to BED file with regions.
- * @param   {string}                    outputFile      - The output file name.
- * @param   {string}                    indexFile       - The path to the downloaded .bai index file.
- * @param   {import('winston').Logger}  logger          - The logger instance.
- * @param   {import('./types').Metrics} metrics         - Metrics object for tracking stats.
- * @param   {boolean}                   overwrite       - Flag indicating whether to overwrite existing files.
- * @param   {boolean}                   includeUnmapped - Also include unmapped reads (wildcard '*' region).
- * @param   {string[]}                  regions         - Genomic regions in chr:start-end format (used when includeUnmapped is true).
+ * @param   {string}                    url                     - The URL of the BAM file.
+ * @param   {string}                    bedFile                 - Path to BED file with regions.
+ * @param   {string}                    outputFile              - The output file name.
+ * @param   {string}                    indexFile               - The path to the downloaded .bai index file.
+ * @param   {import('winston').Logger}  logger                  - The logger instance.
+ * @param   {import('./types').Metrics} metrics                 - Metrics object for tracking stats.
+ * @param   {boolean}                   [overwrite=false]       - Flag indicating whether to overwrite existing files.
+ * @param   {boolean}                   [includeUnmapped=false] - Also include unmapped reads (wildcard '*' region).
+ * @param   {string[]}                  [regions=[]]            - Genomic regions in chr:start-end format (used when includeUnmapped is true).
+ * @param   {ProxyOptions}              [proxyOptions={}]       - Options for bounded-range reverse proxy.
  * @returns {Promise<void>}
  */
 async function rangedDownloadBAM(
@@ -32,23 +40,36 @@ async function rangedDownloadBAM(
   overwrite = false,
   includeUnmapped = false,
   regions = [],
+  proxyOptions = {},
 ) {
+  // check if output BAM file already exists and skip download if overwrite is false
+  if (fs.existsSync(outputFile) && !overwrite) {
+    logger.info(`BAM file already exists: ${outputFile}, skipping download.`);
+    metrics.totalFilesSkipped += 1;
+    return;
+  }
+
+  /** @type {import('./net/boundedRangeProxy.cjs').BoundedRangeProxyInstance | undefined} */
+  let proxy;
   try {
-    // Check if the output BAM file already exists and skip download if overwrite is false
-    if (fs.existsSync(outputFile) && !overwrite) {
-      logger.info(`BAM file already exists: ${outputFile}, skipping download.`);
-      metrics.totalFilesSkipped += 1;
-      return;
+    let effectiveUrl = url;
+    // create bounded range reverse proxy if enabled
+    if (proxyOptions?.enabled !== false) {
+      proxy = await createBoundedRangeProxy(url, {
+        chunkSize: proxyOptions?.chunkSize,
+        logger,
+      });
+      effectiveUrl = proxy.proxyUrl;
     }
 
     let args;
 
     if (includeUnmapped) {
-      // When including unmapped reads, use command-line regions instead of BED file
-      // because samtools -L (BED) and -M don't support the '*' wildcard.
-      // Note: -M (multi-region iterator) is deliberately omitted here because it
-      // is only needed with -L (BED) to optimize overlapping region merging.
-      // With command-line regions, samtools handles them correctly without -M.
+      // when including unmapped reads, use command-line regions instead of BED file
+      // because samtools -L (BED) and -M don't support the '*' wildcard
+      // note: -M (multi-region iterator) is deliberately omitted here because it
+      // is only needed with -L (BED) to optimize overlapping region merging
+      // with command-line regions, samtools handles them correctly without -M
       logger.debug(
         'Using command-line regions with unmapped wildcard for combined download',
       );
@@ -56,7 +77,7 @@ async function rangedDownloadBAM(
         'view',
         '-b',
         '-X',
-        url,
+        effectiveUrl,
         indexFile,
         ...regions,
         '*',
@@ -64,13 +85,13 @@ async function rangedDownloadBAM(
         outputFile,
       ];
     } else {
-      // Standard ranged download using BED file
+      // standard ranged download using BED file
       logger.debug(`Downloading BAM for regions in BED file: ${bedFile}`);
       args = [
         'view',
         '-b',
         '-X',
-        url,
+        effectiveUrl,
         indexFile,
         '-L',
         bedFile,
@@ -86,7 +107,7 @@ async function rangedDownloadBAM(
     logger.info(`Downloaded BAM file to ${outputFile}`);
     metrics.totalFilesDownloaded += 1;
   } catch (error) {
-    // Clean up partial output file on failure
+    // clean up partial output file on failure
     if (fs.existsSync(outputFile)) {
       try {
         fs.unlinkSync(outputFile);
@@ -99,18 +120,28 @@ async function rangedDownloadBAM(
       `Error performing ranged download for BAM: ${getErrorMessage(error)}`,
     );
     throw error;
+  } finally {
+    // ensure proxy server is closed
+    if (proxy) {
+      try {
+        await proxy.close();
+      } catch {
+        /* ignore proxy close errors */
+      }
+    }
   }
 }
 
 /**
  * Performs a ranged download for a VCF file using a tabix -> bgzip pipeline.
- * @param   {string}                    url        - The URL of the VCF.gz file.
- * @param   {string}                    range      - The genomic range (e.g., 'chr1:1-100000').
- * @param   {string}                    outputFile - The output file name (will be compressed as .vcf.gz).
- * @param   {string}                    indexFile  - The local path to the downloaded .tbi index file.
- * @param   {import('winston').Logger}  logger     - The logger instance.
- * @param   {import('./types').Metrics} metrics    - Metrics object for tracking stats.
- * @param   {boolean}                   overwrite  - Flag indicating whether to overwrite existing files.
+ * @param   {string}                    url               - The URL of the VCF.gz file.
+ * @param   {string}                    range             - The genomic range (e.g., 'chr1:1-100000').
+ * @param   {string}                    outputFile        - The output file name (will be compressed as .vcf.gz).
+ * @param   {string}                    indexFile         - The local path to the downloaded .tbi index file.
+ * @param   {import('winston').Logger}  logger            - The logger instance.
+ * @param   {import('./types').Metrics} metrics           - Metrics object for tracking stats.
+ * @param   {boolean}                   [overwrite=false] - Flag indicating whether to overwrite existing files.
+ * @param   {ProxyOptions}              [proxyOptions={}] - Options for bounded-range reverse proxy.
  * @returns {Promise<void>}
  */
 async function rangedDownloadVCF(
@@ -121,59 +152,85 @@ async function rangedDownloadVCF(
   logger,
   metrics,
   overwrite = false,
+  proxyOptions = {},
 ) {
+  // check if output VCF file already exists and skip download if overwrite is false
   if (fs.existsSync(outputFile) && !overwrite) {
     logger.info(`VCF file already exists: ${outputFile}, skipping download.`);
     metrics.totalFilesSkipped += 1;
     return;
   }
 
+  /** @type {import('./net/boundedRangeProxy.cjs').BoundedRangeProxyInstance | undefined} */
+  let proxy;
+  let effectiveUrl = url;
+  // create bounded range reverse proxy if enabled
+  if (proxyOptions?.enabled !== false) {
+    proxy = await createBoundedRangeProxy(url, {
+      chunkSize: proxyOptions?.chunkSize,
+      logger,
+    });
+    effectiveUrl = proxy.proxyUrl;
+  }
+
+  // close proxy server on completion or error
+  const closeProxy = async () => {
+    if (proxy) {
+      try {
+        await proxy.close();
+      } catch {
+        /* ignore proxy close errors */
+      }
+    }
+  };
+
   return new Promise((resolve, reject) => {
-    // For tabix to work with remote URLs:
+    // for tabix to work with remote URLs:
     // 1. The index file must already be downloaded (handled by ensureIndexFile)
     // 2. Execute tabix in the directory containing the index file
     // 3. The index file must be named exactly as expected by tabix (basename.vcf.gz.tbi)
 
-    // Get the directory where the index file is located
+    // get directory where the index file is located
     const indexDir = path.dirname(indexFile);
 
-    // Command 1: tabix to extract the region with header.
-    // Spawn tabix directly with an argv array (no shell) so the URL and range
-    // are inert to shell metacharacters — matching the safe BAM path.
-    logger.info(`Executing in ${indexDir}: tabix -h ${url} ${range}`);
-    const tabixProcess = spawn('tabix', ['-h', url, range], {
-      cwd: indexDir, // Execute in the directory where the index file is located
+    // spawn tabix directly to extract the region with header
+    logger.info(`Executing in ${indexDir}: tabix -h ${effectiveUrl} ${range}`);
+    const tabixProcess = spawn('tabix', ['-h', effectiveUrl, range], {
+      cwd: indexDir,
     });
 
-    // Command 2: bgzip to compress the output
+    // spawn bgzip to compress the output
     const bgzipArgs = ['-c'];
     logger.info(`Piping to: bgzip -c`);
     const bgzipProcess = spawn('bgzip', bgzipArgs);
 
-    // Create a write stream for the final output file
+    // create write stream for the final output file
     const outputStream = fs.createWriteStream(outputFile);
 
-    // Track completion states to avoid race conditions
+    // track completion states to avoid race conditions
     /** @type {string|null} */
     let processError = null;
     let bgzipClosed = false;
     let streamFinished = false;
     let resolved = false;
 
+    // clean up partial output file on error
     const cleanup = () => {
       if (fs.existsSync(outputFile) && processError) {
         try {
           fs.unlinkSync(outputFile);
         } catch {
-          // Ignore cleanup errors
+          // ignore cleanup errors
         }
       }
     };
 
-    const tryResolve = () => {
+    // try resolving promise when all stream and process stages finish
+    const tryResolve = async () => {
       if (resolved) return;
       if (bgzipClosed && streamFinished) {
         resolved = true;
+        await closeProxy();
         if (processError) {
           cleanup();
           reject(new Error(processError));
@@ -185,13 +242,29 @@ async function rangedDownloadVCF(
       }
     };
 
-    // Pipe stdout of tabix to stdin of bgzip
+    /**
+     * Abort pipeline and reject immediately on process or stream error.
+     *
+     * @param   {string}                  procName - Name of the failing process/stream.
+     * @param   {Error|{message: string}} err      - Failure error.
+     * @returns {Promise<void>}
+     */
+    const failImmediately = async (procName, err) => {
+      if (resolved) return;
+      resolved = true;
+      if (!processError) processError = `Error in ${procName}: ${err.message}`;
+      await closeProxy();
+      cleanup();
+      reject(new Error(processError));
+    };
+
+    // pipe stdout of tabix to stdin of bgzip
     tabixProcess.stdout.pipe(bgzipProcess.stdin);
 
-    // Pipe stdout of bgzip to the output file
+    // pipe stdout of bgzip to output file stream
     bgzipProcess.stdout.pipe(outputStream);
 
-    // --- Error Handling ---
+    // handle stderr buffers
     let tabixError = '';
     tabixProcess.stderr.on('data', (data) => {
       tabixError += data.toString();
@@ -204,27 +277,18 @@ async function rangedDownloadVCF(
       logger.debug(`[bgzip stderr]: ${data.toString().trim()}`);
     });
 
-    /**
-     * Records the first process error encountered in the pipeline.
-     *
-     * @param {string} procName - Process name for the diagnostic message.
-     * @param {Error}  err      - Process error.
-     */
-    const onProcessError = (procName, err) => {
-      if (!processError) processError = `Error in ${procName}: ${err.message}`;
-    };
+    // listen for process and stream errors
+    tabixProcess.on('error', (err) => failImmediately('tabix', err));
+    bgzipProcess.on('error', (err) => failImmediately('bgzip', err));
+    outputStream.on('error', (err) => failImmediately('outputStream', err));
 
-    tabixProcess.on('error', (err) => onProcessError('tabix', err));
-    bgzipProcess.on('error', (err) => onProcessError('bgzip', err));
-    outputStream.on('error', (err) => onProcessError('outputStream', err));
-
-    // Register finish handler BEFORE piping to avoid race conditions
+    // register finish handler before piping finishes
     outputStream.on('finish', () => {
       streamFinished = true;
       tryResolve();
     });
 
-    // --- Completion Handling ---
+    // handle process exits
     bgzipProcess.on('close', (code) => {
       if (code !== 0 && !processError) {
         processError = `bgzip process exited with code ${code}. Stderr: ${bgzipError}`;
@@ -237,7 +301,7 @@ async function rangedDownloadVCF(
       if (code !== 0 && !processError) {
         processError = `tabix process exited with code ${code}. Stderr: ${tabixError}`;
       }
-      // Don't resolve here; wait for bgzip and stream to finish
+      // don't resolve here; wait for bgzip and stream to finish
     });
   });
 }
@@ -247,12 +311,13 @@ async function rangedDownloadVCF(
  * Uses the wildcard chromosome '*' to target reads with no reference assignment.
  * This is particularly useful for Illumina NovaSeq data where unmapped reads
  * may contain contamination, adapter sequences, or novel sequences of interest.
- * @param   {string}                    url        - The URL of the BAM file.
- * @param   {string}                    outputFile - The output file name.
- * @param   {string}                    indexFile  - The path to the downloaded .bai index file.
- * @param   {import('winston').Logger}  logger     - The logger instance.
- * @param   {import('./types').Metrics} metrics    - Metrics object for tracking stats.
- * @param   {boolean}                   overwrite  - Flag indicating whether to overwrite existing files.
+ * @param   {string}                    url               - The URL of the BAM file.
+ * @param   {string}                    outputFile        - The output file name.
+ * @param   {string}                    indexFile         - The path to the downloaded .bai index file.
+ * @param   {import('winston').Logger}  logger            - The logger instance.
+ * @param   {import('./types').Metrics} metrics           - Metrics object for tracking stats.
+ * @param   {boolean}                   [overwrite=false] - Flag indicating whether to overwrite existing files.
+ * @param   {ProxyOptions}              [proxyOptions={}] - Options for bounded-range reverse proxy.
  * @returns {Promise<void>}
  */
 async function unmappedDownloadBAM(
@@ -262,25 +327,48 @@ async function unmappedDownloadBAM(
   logger,
   metrics,
   overwrite = false,
+  proxyOptions = {},
 ) {
+  // check if output BAM file already exists and skip download if overwrite is false
+  if (fs.existsSync(outputFile) && !overwrite) {
+    logger.info(
+      `Unmapped reads BAM file already exists: ${outputFile}, skipping download.`,
+    );
+    metrics.totalFilesSkipped += 1;
+    return;
+  }
+
+  /** @type {import('./net/boundedRangeProxy.cjs').BoundedRangeProxyInstance | undefined} */
+  let proxy;
   try {
-    if (fs.existsSync(outputFile) && !overwrite) {
-      logger.info(
-        `Unmapped reads BAM file already exists: ${outputFile}, skipping download.`,
-      );
-      metrics.totalFilesSkipped += 1;
-      return;
+    let effectiveUrl = url;
+    // create bounded range reverse proxy if enabled
+    if (proxyOptions?.enabled !== false) {
+      proxy = await createBoundedRangeProxy(url, {
+        chunkSize: proxyOptions?.chunkSize,
+        logger,
+      });
+      effectiveUrl = proxy.proxyUrl;
     }
 
     logger.debug('Extracting unmapped reads from BAM file');
-    const args = ['view', '-b', '-X', url, indexFile, '*', '-o', outputFile];
+    const args = [
+      'view',
+      '-b',
+      '-X',
+      effectiveUrl,
+      indexFile,
+      '*',
+      '-o',
+      outputFile,
+    ];
     logger.info(`Running command: samtools ${args.join(' ')}`);
 
     await spawnPromise('samtools', args, logger);
     logger.info(`Extracted unmapped reads to ${outputFile}`);
     metrics.totalFilesDownloaded += 1;
   } catch (error) {
-    // Clean up partial output file on failure
+    // clean up partial output file on failure
     if (fs.existsSync(outputFile)) {
       try {
         fs.unlinkSync(outputFile);
@@ -291,6 +379,15 @@ async function unmappedDownloadBAM(
     }
     logger.error(`Error extracting unmapped reads: ${getErrorMessage(error)}`);
     throw error;
+  } finally {
+    // ensure proxy server is closed
+    if (proxy) {
+      try {
+        await proxy.close();
+      } catch {
+        /* ignore proxy close errors */
+      }
+    }
   }
 }
 
