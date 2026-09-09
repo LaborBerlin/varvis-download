@@ -61,6 +61,8 @@ export default [
         clearTimeout: 'readonly',
         clearInterval: 'readonly',
         URLSearchParams: 'readonly',
+        AbortSignal: 'readonly',
+        AbortController: 'readonly',
       },
     },
     plugins: {

@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const { applyFilters, deduplicateByLatest } = require('./filterUtils.cjs');
 const { triggerRestoreArchivedFile } = require('./archiveUtils.cjs');
+const { appendBatchToAwaitingRestoration } = require('./restorationState.cjs');
 const { fetchWithRetry } = require('./apiClient.cjs');
 const { getErrorMessage } = require('./errorUtils.cjs');
 
@@ -9,6 +10,7 @@ const metrics = {
   startTime: Date.now(),
   totalFilesDownloaded: 0,
   totalFilesSkipped: 0,
+  totalFilesFailed: 0,
   totalBytesDownloaded: 0,
   downloadSpeeds: [],
 };
@@ -175,6 +177,8 @@ async function getDownloadLinks(
 
     /** @type {import('./types').FileDict} */
     const fileDict = {};
+    /** @type {import('./types').AnalysisFile[]} */
+    const filesToRestore = [];
     for (const file of apiFileLinks) {
       // If the file is a BAM and is archived, handle restoration logic.
       if (file.fileName.endsWith('.bam') && file.currentlyArchived) {
@@ -226,16 +230,7 @@ async function getDownloadLinks(
         }
 
         if (shouldRestore) {
-          await triggerRestoreArchivedFile(
-            analysisId,
-            file,
-            target,
-            token,
-            agent,
-            logger,
-            restorationFile ?? undefined,
-            options ?? undefined,
-          );
+          filesToRestore.push(file);
         }
         // In all cases, skip adding this archived file to the download list.
         continue;
@@ -257,6 +252,35 @@ async function getDownloadLinks(
           );
           fileDict[file.fileName] = fileWithAnalysisId;
         }
+      }
+    }
+
+    if (filesToRestore.length > 0) {
+      // Trigger restoration once for the analysis using the first file
+      const restoreResult = await triggerRestoreArchivedFile(
+        analysisId,
+        filesToRestore[0],
+        target,
+        token,
+        agent,
+        logger,
+        restorationFile ?? undefined,
+        options ?? undefined,
+        false,
+      );
+      if (restoreResult) {
+        /** @type {import('./types').RestorationEntry[]} */
+        const batchEntries = filesToRestore.map((archivedFile) => ({
+          analysisId,
+          fileName: archivedFile.fileName,
+          restoreEstimation: restoreResult.restoreEstimation,
+          options: options || {},
+        }));
+        await appendBatchToAwaitingRestoration(
+          batchEntries,
+          logger,
+          restorationFile ?? undefined,
+        );
       }
     }
 

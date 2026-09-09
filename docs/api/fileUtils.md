@@ -2,29 +2,6 @@
 
 ##
 
-confirmOverwrite
-
-    Prompts the user to confirm file overwrite if the file already exists.
-
-    ### Parameters | Name | Type | Description | |------|------|-------------|
-      | `file` | `string` |
-      The file path.
-      |
-      | `rl` | `Object` |
-      The readline interface instance.
-      |
-      | `logger` | `Object` |
-      The logger instance.
-      |
-
-    ### Returns **Type:** `Promise.&lt;boolean&gt;`
-
-      - True if the user confirms overwrite, otherwise false.
-
----
-
-##
-
 downloadFile
 
     Downloads a file from the given URL to the specified output path with progress reporting.
