@@ -48,8 +48,8 @@ async function resumeArchivedDownloads(
   const now = new Date();
 
   for (const entry of data) {
-    // Check if restoration time has passed
-    if (!entry.restoreEstimation || new Date(entry.restoreEstimation) > now) {
+    // Check if restoration time has passed (unknown ETA is treated as ready)
+    if (entry.restoreEstimation && new Date(entry.restoreEstimation) > now) {
       // Keep entries that aren't ready yet
       updatedData.push(entry);
       continue;
