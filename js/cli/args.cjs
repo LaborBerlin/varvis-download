@@ -176,6 +176,18 @@ function buildParser(argv) {
         'Path to a file to save the download URLs when using --list-urls.',
       type: 'string',
     })
+    .option('bounded-range-proxy', {
+      describe:
+        'Enable local bounded-range reverse proxy for remote ranged downloads (guards against excessive S3 egress).',
+      type: 'boolean',
+      default: true,
+    })
+    .option('bounded-range-chunk-size', {
+      describe:
+        'Chunk size in bytes for the bounded-range reverse proxy (default: 2097152 [2 MiB]).',
+      type: 'number',
+      default: 2097152,
+    })
     .option('version', {
       alias: 'v',
       type: 'boolean',
