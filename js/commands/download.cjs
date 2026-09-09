@@ -46,6 +46,10 @@ async function runDownloadCommand({ finalConfig, regions, tempBedPath }, deps) {
   } = finalConfig;
 
   try {
+    // track tool-specific proxy enablement without mutating global finalConfig
+    let samtoolsProxyEnabled = finalConfig.boundedRangeProxy;
+    let tabixProxyEnabled = finalConfig.boundedRangeProxy;
+
     if (finalConfig.range || finalConfig.bed || finalConfig.unmapped) {
       const samtoolsOK = await checkToolAvailability(
         'samtools',
@@ -75,7 +79,7 @@ async function runDownloadCommand({ finalConfig, regions, tempBedPath }, deps) {
           logger.info(
             `Detected samtools version ${samtoolsVersion} with native bounded range support; proxy bypassed.`,
           );
-          finalConfig.boundedRangeProxy = false;
+          samtoolsProxyEnabled = false;
         }
       }
 
@@ -106,7 +110,7 @@ async function runDownloadCommand({ finalConfig, regions, tempBedPath }, deps) {
             logger.info(
               `Detected tabix version ${tabixVersion} with native bounded range support; proxy bypassed.`,
             );
-            finalConfig.boundedRangeProxy = false;
+            tabixProxyEnabled = false;
           }
         }
       }
@@ -174,12 +178,31 @@ async function runDownloadCommand({ finalConfig, regions, tempBedPath }, deps) {
       for (const [fileName] of primaryFiles) {
         if (fileName.endsWith('.bam')) {
           await handleBamFile(
-            { fileDict, fileName, finalConfig, regions, target, tempBedPath },
+            {
+              fileDict,
+              fileName,
+              finalConfig: {
+                ...finalConfig,
+                boundedRangeProxy: samtoolsProxyEnabled,
+              },
+              regions,
+              target,
+              tempBedPath,
+            },
             deps,
           );
         } else if (fileName.endsWith('.vcf.gz')) {
           await handleVcfFile(
-            { fileDict, fileName, finalConfig, regions, target },
+            {
+              fileDict,
+              fileName,
+              finalConfig: {
+                ...finalConfig,
+                boundedRangeProxy: tabixProxyEnabled,
+              },
+              regions,
+              target,
+            },
             deps,
           );
         }
