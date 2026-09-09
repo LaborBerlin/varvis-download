@@ -9,6 +9,7 @@ const metrics = {
   startTime: Date.now(),
   totalFilesDownloaded: 0,
   totalFilesSkipped: 0,
+  totalFilesFailed: 0,
   totalBytesDownloaded: 0,
   downloadSpeeds: [],
 };
