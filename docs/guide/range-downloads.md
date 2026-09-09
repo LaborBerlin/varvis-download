@@ -440,6 +440,10 @@ Modern versions of HTSlib (>= 1.25.0) incorporate native support for bounded ran
 - **Installed tool >= 1.25.0**: The proxy is automatically bypassed, connecting the tool directly to the upstream URL with zero overhead.
 - **Explicit Override**: Passing `--bounded-range-proxy` explicitly on the command line forces the proxy to remain enabled regardless of tool version.
 
+::: tip Tool & HTSlib Version Compatibility
+The proxy operates purely at the HTTP protocol layer on loopback (`http://127.0.0.1:<port>/stream/<token>`). Because it intercepts downstream HTTP Range headers and streams chunked responses, it is compatible with any tool release issuing unbounded ranges, including mixed binary builds (e.g., `samtools 1.20` dynamically linked against `HTSlib 1.23`). Development and CI tests baseline on standard lockstep releases (`1.20/1.20`, `1.21/1.21`), as exhaustive permutation testing across all decoupled samtools and HTSlib version pairs is not maintained.
+:::
+
 ### Egress Savings Benchmark
 
 To verify and benchmark the real-world egress reduction against the public 1000 Genomes S3 exome BAM (17.28 GB, 17,282,007,379 bytes), run the included benchmark script:
