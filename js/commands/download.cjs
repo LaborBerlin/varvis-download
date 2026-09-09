@@ -46,6 +46,10 @@ async function runDownloadCommand({ finalConfig, regions, tempBedPath }, deps) {
   } = finalConfig;
 
   try {
+    // track tool-specific proxy enablement without mutating global finalConfig
+    let samtoolsProxyEnabled = finalConfig.boundedRangeProxy;
+    let tabixProxyEnabled = finalConfig.boundedRangeProxy;
+
     if (finalConfig.range || finalConfig.bed || finalConfig.unmapped) {
       const samtoolsOK = await checkToolAvailability(
         'samtools',
@@ -75,7 +79,7 @@ async function runDownloadCommand({ finalConfig, regions, tempBedPath }, deps) {
           logger.info(
             `Detected samtools version ${samtoolsVersion} with native bounded range support; proxy bypassed.`,
           );
-          finalConfig.boundedRangeProxy = false;
+          samtoolsProxyEnabled = false;
         }
       }
 
@@ -106,7 +110,7 @@ async function runDownloadCommand({ finalConfig, regions, tempBedPath }, deps) {
             logger.info(
               `Detected tabix version ${tabixVersion} with native bounded range support; proxy bypassed.`,
             );
-            finalConfig.boundedRangeProxy = false;
+            tabixProxyEnabled = false;
           }
         }
       }
@@ -176,54 +180,28 @@ async function runDownloadCommand({ finalConfig, regions, tempBedPath }, deps) {
         let result = null;
         if (fileName.endsWith('.bam')) {
           result = await handleBamFile(
-            { fileDict, fileName, finalConfig, regions, target, tempBedPath },
+            {
+              fileDict,
+              fileName,
+              finalConfig: {
+                ...finalConfig,
+                boundedRangeProxy: samtoolsProxyEnabled,
+              },
+              regions,
+              target,
+              tempBedPath,
+            },
             deps,
           );
         } else if (fileName.endsWith('.vcf.gz')) {
           result = await handleVcfFile(
-            { fileDict, fileName, finalConfig, regions, target },
-            deps,
-          );
-        }
-        if (result && result.ok === false) {
-          deps.metrics.totalFilesFailed =
-            (deps.metrics.totalFilesFailed || 0) + 1;
-        }
-      }
-    }
-
-    if (listUrls) {
-      handleUrlListing(allUrls, urlFile, logger);
-      return;
-    }
-
-    if (deps.metrics.totalFilesFailed > 0) {
-      logger.error(
-        `Download completed with ${deps.metrics.totalFilesFailed} failed file(s).`,
-      );
-      generateReport(reportfile, logger);
-      throw new OperationalError(
-        `Download completed with ${deps.metrics.totalFilesFailed} failed file(s).`,
-      );
-    }
-
-    logger.info('Download complete.');
-    generateReport(reportfile, logger);
-  } finally {
-    // The temp BED is created before this command runs; clean it up on every
-    // exit path (success, early return, or throw) so a failed download does not
-    // leak it. This command owns the file's lifecycle (mirrors resume.cjs).
-    if (tempBedPath && fs.existsSync(tempBedPath)) {
-      try {
-        fs.unlinkSync(tempBedPath);
-        logger.info(`Deleted temporary BED file: ${tempBedPath}`);
-      } catch (error) {
-        logger.debug(
-          `Could not remove temp BED ${tempBedPath}: ${getErrorMessage(error)}`,
-        );
-      }
-    }
-  }
-}
-
-module.exports = { runDownloadCommand };
+            {
+              fileDict,
+              fileName,
+              finalConfig: {
+                ...finalConfig,
+                boundedRangeProxy: tabixProxyEnabled,
+              },
+              regions,
+              target,
+            },
