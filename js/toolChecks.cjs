@@ -86,16 +86,16 @@ function compareVersions(version, minVersion) {
 }
 
 /**
- * Checks if a tool is available and meets the minimum version.
+ * Retrieves the installed version string of an external tool.
+ *
  * @param   {string}                   tool           - The name of the tool (samtools, tabix, or bgzip).
  * @param   {string}                   versionCommand - Command to check the tool version.
- * @param   {string}                   minVersion     - The minimal required version.
  * @param   {import('winston').Logger} logger         - The logger instance.
- * @returns {Promise<boolean>}                        - Resolves to true if the tool is available and meets the version requirement.
+ * @returns {Promise<string|null>}                    - The tool version string, or null if detection failed.
  */
-async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
+async function getToolVersion(tool, versionCommand, logger) {
   try {
-    // Parse the versionCommand to extract command and arguments
+    // parse the versionCommand to extract command and arguments
     const commandParts = versionCommand.split(/\s+/);
     const command = commandParts[0];
     const args = commandParts.slice(1);
@@ -113,7 +113,7 @@ async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
     }
 
     let toolVersion;
-    // For tabix and bgzip, the second word is in parentheses, so the version is the third element.
+    // for tabix and bgzip, the second word is in parentheses, so the version is the third element
     if (parts[1].startsWith('(')) {
       if (parts.length < 3) {
         throw new Error(
@@ -124,20 +124,38 @@ async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
     } else {
       toolVersion = parts[1].trim();
     }
-
-    if (compareVersions(toolVersion, minVersion)) {
-      logger.info(`${tool} version ${toolVersion} is available.`);
-      return true;
-    } else {
-      logger.error(
-        `${tool} version ${toolVersion} is less than the required version ${minVersion}.`,
-      );
-      return false;
-    }
+    return toolVersion;
   } catch (error) {
     logger.error(`Error checking ${tool} version: ${getErrorMessage(error)}`);
+    return null;
+  }
+}
+
+/**
+ * Checks if a tool is available and meets the minimum version.
+ *
+ * @param   {string}                   tool           - The name of the tool (samtools, tabix, or bgzip).
+ * @param   {string}                   versionCommand - Command to check the tool version.
+ * @param   {string}                   minVersion     - The minimal required version.
+ * @param   {import('winston').Logger} logger         - The logger instance.
+ * @returns {Promise<boolean>}                        - Resolves to true if the tool is available and meets the version requirement.
+ */
+async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
+  const toolVersion = await getToolVersion(tool, versionCommand, logger);
+  if (!toolVersion) {
     return false;
   }
+
+  // compare installed version against minimum required version
+  if (compareVersions(toolVersion, minVersion)) {
+    logger.info(`${tool} version ${toolVersion} is available.`);
+    return true;
+  }
+
+  logger.error(
+    `${tool} version ${toolVersion} is less than the required version ${minVersion}.`,
+  );
+  return false;
 }
 
 /**
@@ -161,6 +179,7 @@ function isToolAffectedByUnboundedRangeBug(toolName, versionString) {
 module.exports = {
   spawnPromise,
   compareVersions,
+  getToolVersion,
   checkToolAvailability,
   isToolAffectedByUnboundedRangeBug,
 };

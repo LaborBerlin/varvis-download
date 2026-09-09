@@ -6,6 +6,7 @@ jest.mock('node:child_process');
 const {
   compareVersions,
   spawnPromise,
+  getToolVersion,
   checkToolAvailability,
   isToolAffectedByUnboundedRangeBug,
 } = require('../../js/toolChecks.cjs');
@@ -395,6 +396,75 @@ describe('toolChecks', () => {
       expect(result).toBe(false);
       expect(mockLogger.error).toHaveBeenCalledWith(
         expect.stringContaining('Could not parse version'),
+      );
+    });
+  });
+
+  describe('getToolVersion', () => {
+    // extract version string from standard two-token format
+    test('should extract version string from standard two-token format', async () => {
+      mockSpawnProcess.stdout.on.mockImplementation((event, callback) => {
+        if (event === 'data') {
+          callback(Buffer.from('samtools 1.18\nUsing htslib 1.18'));
+        }
+      });
+      mockSpawnProcess.on.mockImplementation((event, callback) => {
+        if (event === 'close') {
+          setTimeout(() => callback(0), 0);
+        }
+        return mockSpawnProcess;
+      });
+
+      const version = await getToolVersion(
+        'samtools',
+        'samtools --version',
+        mockLogger,
+      );
+      expect(version).toBe('1.18');
+    });
+
+    // extract version string from parenthesized tool format
+    test('should extract version string from parenthesized tool format', async () => {
+      mockSpawnProcess.stdout.on.mockImplementation((event, callback) => {
+        if (event === 'data') {
+          callback(Buffer.from('tabix (htslib) 1.25.0\n'));
+        }
+      });
+      mockSpawnProcess.on.mockImplementation((event, callback) => {
+        if (event === 'close') {
+          setTimeout(() => callback(0), 0);
+        }
+        return mockSpawnProcess;
+      });
+
+      const version = await getToolVersion(
+        'tabix',
+        'tabix --version',
+        mockLogger,
+      );
+      expect(version).toBe('1.25.0');
+    });
+
+    // return null when command execution fails
+    test('should return null when command execution fails', async () => {
+      mockSpawnProcess.on.mockImplementation((event, callback) => {
+        if (event === 'error') {
+          setTimeout(
+            () => callback(new Error('command not found: samtools')),
+            0,
+          );
+        }
+        return mockSpawnProcess;
+      });
+
+      const version = await getToolVersion(
+        'samtools',
+        'samtools --version',
+        mockLogger,
+      );
+      expect(version).toBeNull();
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('command not found'),
       );
     });
   });

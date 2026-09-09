@@ -304,6 +304,10 @@ function mergeConfig({ argv, config = {}, env = {} }) {
     'boundedRangeProxy',
     true,
   );
+  const boundedRangeProxyExplicit = hasExplicitOption(
+    argv,
+    'boundedRangeProxy',
+  );
   const explicitChunkSize = getExplicitOption(argv, 'boundedRangeChunkSize');
   const rawChunkSize =
     explicitChunkSize !== undefined
@@ -396,6 +400,7 @@ function mergeConfig({ argv, config = {}, env = {} }) {
     version: mergeBoolean(argv, config, 'version', false),
     boundedRangeProxy,
     boundedRangeChunkSize,
+    boundedRangeProxyExplicit,
   };
 
   if (configPath) {

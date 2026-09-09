@@ -9,7 +9,11 @@ const { handleVcfFile } = require('../download/vcfHandler.cjs');
 const { OperationalError } = require('../errors.cjs');
 const { getErrorMessage } = require('../errorUtils.cjs');
 const { handleUrlListing } = require('../io/urlListing.cjs');
-const { checkToolAvailability } = require('../toolChecks.cjs');
+const {
+  checkToolAvailability,
+  getToolVersion,
+  isToolAffectedByUnboundedRangeBug,
+} = require('../toolChecks.cjs');
 
 /**
  * @typedef {object} DownloadCommandArgs
@@ -55,6 +59,26 @@ async function runDownloadCommand({ finalConfig, regions, tempBedPath }, deps) {
         );
       }
 
+      // inspect samtools version for native bounded range support
+      if (typeof getToolVersion === 'function') {
+        const samtoolsVersion = await getToolVersion(
+          'samtools',
+          'samtools --version',
+          logger,
+        );
+        if (
+          samtoolsVersion &&
+          typeof isToolAffectedByUnboundedRangeBug === 'function' &&
+          !isToolAffectedByUnboundedRangeBug('samtools', samtoolsVersion) &&
+          !finalConfig.boundedRangeProxyExplicit
+        ) {
+          logger.info(
+            `Detected samtools version ${samtoolsVersion} with native bounded range support; proxy bypassed.`,
+          );
+          finalConfig.boundedRangeProxy = false;
+        }
+      }
+
       if (finalConfig.range || finalConfig.bed) {
         const [tabixOK, bgzipOK] = await Promise.all([
           checkToolAvailability('tabix', 'tabix --version', '1.7', logger),
@@ -64,6 +88,26 @@ async function runDownloadCommand({ finalConfig, regions, tempBedPath }, deps) {
           throw new OperationalError(
             'One or more required external tools (tabix, bgzip) are missing or outdated. Please install/update them and try again.',
           );
+        }
+
+        // inspect tabix version for native bounded range support
+        if (typeof getToolVersion === 'function') {
+          const tabixVersion = await getToolVersion(
+            'tabix',
+            'tabix --version',
+            logger,
+          );
+          if (
+            tabixVersion &&
+            typeof isToolAffectedByUnboundedRangeBug === 'function' &&
+            !isToolAffectedByUnboundedRangeBug('tabix', tabixVersion) &&
+            !finalConfig.boundedRangeProxyExplicit
+          ) {
+            logger.info(
+              `Detected tabix version ${tabixVersion} with native bounded range support; proxy bypassed.`,
+            );
+            finalConfig.boundedRangeProxy = false;
+          }
         }
       }
     }

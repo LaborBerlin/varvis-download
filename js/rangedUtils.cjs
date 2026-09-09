@@ -173,9 +173,11 @@ async function rangedDownloadVCF(
     effectiveUrl = proxy.proxyUrl;
   }
 
+  let proxyClosed = false;
   // close proxy server on completion or error
   const closeProxy = async () => {
-    if (proxy) {
+    if (proxy && !proxyClosed) {
+      proxyClosed = true;
       try {
         await proxy.close();
       } catch {
@@ -184,126 +186,133 @@ async function rangedDownloadVCF(
     }
   };
 
-  return new Promise((resolve, reject) => {
-    // for tabix to work with remote URLs:
-    // 1. The index file must already be downloaded (handled by ensureIndexFile)
-    // 2. Execute tabix in the directory containing the index file
-    // 3. The index file must be named exactly as expected by tabix (basename.vcf.gz.tbi)
+  try {
+    return await new Promise((resolve, reject) => {
+      // for tabix to work with remote URLs:
+      // 1. The index file must already be downloaded (handled by ensureIndexFile)
+      // 2. Execute tabix in the directory containing the index file
+      // 3. The index file must be named exactly as expected by tabix (basename.vcf.gz.tbi)
 
-    // get directory where the index file is located
-    const indexDir = path.dirname(indexFile);
+      // get directory where the index file is located
+      const indexDir = path.dirname(indexFile);
 
-    // spawn tabix directly to extract the region with header
-    logger.info(`Executing in ${indexDir}: tabix -h ${effectiveUrl} ${range}`);
-    const tabixProcess = spawn('tabix', ['-h', effectiveUrl, range], {
-      cwd: indexDir,
-    });
+      // spawn tabix directly to extract the region with header
+      logger.info(
+        `Executing in ${indexDir}: tabix -h ${effectiveUrl} ${range}`,
+      );
+      const tabixProcess = spawn('tabix', ['-h', effectiveUrl, range], {
+        cwd: indexDir,
+      });
 
-    // spawn bgzip to compress the output
-    const bgzipArgs = ['-c'];
-    logger.info(`Piping to: bgzip -c`);
-    const bgzipProcess = spawn('bgzip', bgzipArgs);
+      // spawn bgzip to compress the output
+      const bgzipArgs = ['-c'];
+      logger.info(`Piping to: bgzip -c`);
+      const bgzipProcess = spawn('bgzip', bgzipArgs);
 
-    // create write stream for the final output file
-    const outputStream = fs.createWriteStream(outputFile);
+      // create write stream for the final output file
+      const outputStream = fs.createWriteStream(outputFile);
 
-    // track completion states to avoid race conditions
-    /** @type {string|null} */
-    let processError = null;
-    let bgzipClosed = false;
-    let streamFinished = false;
-    let resolved = false;
+      // track completion states to avoid race conditions
+      /** @type {string|null} */
+      let processError = null;
+      let bgzipClosed = false;
+      let streamFinished = false;
+      let resolved = false;
 
-    // clean up partial output file on error
-    const cleanup = () => {
-      if (fs.existsSync(outputFile) && processError) {
-        try {
-          fs.unlinkSync(outputFile);
-        } catch {
-          // ignore cleanup errors
+      // clean up partial output file on error
+      const cleanup = () => {
+        if (fs.existsSync(outputFile) && processError) {
+          try {
+            fs.unlinkSync(outputFile);
+          } catch {
+            // ignore cleanup errors
+          }
         }
-      }
-    };
+      };
 
-    // try resolving promise when all stream and process stages finish
-    const tryResolve = async () => {
-      if (resolved) return;
-      if (bgzipClosed && streamFinished) {
+      // try resolving promise when all stream and process stages finish
+      const tryResolve = async () => {
+        if (resolved) return;
+        if (bgzipClosed && streamFinished) {
+          resolved = true;
+          await closeProxy();
+          if (processError) {
+            cleanup();
+            reject(new Error(processError));
+          } else {
+            logger.info(`Ranged VCF download complete: ${outputFile}`);
+            metrics.totalFilesDownloaded += 1;
+            resolve();
+          }
+        }
+      };
+
+      /**
+       * Abort pipeline and reject immediately on process or stream error.
+       *
+       * @param   {string}                  procName - Name of the failing process/stream.
+       * @param   {Error|{message: string}} err      - Failure error.
+       * @returns {Promise<void>}
+       */
+      const failImmediately = async (procName, err) => {
+        if (resolved) return;
         resolved = true;
+        if (!processError)
+          processError = `Error in ${procName}: ${err.message}`;
         await closeProxy();
-        if (processError) {
-          cleanup();
-          reject(new Error(processError));
-        } else {
-          logger.info(`Ranged VCF download complete: ${outputFile}`);
-          metrics.totalFilesDownloaded += 1;
-          resolve();
+        cleanup();
+        reject(new Error(processError));
+      };
+
+      // pipe stdout of tabix to stdin of bgzip
+      tabixProcess.stdout.pipe(bgzipProcess.stdin);
+
+      // pipe stdout of bgzip to output file stream
+      bgzipProcess.stdout.pipe(outputStream);
+
+      // handle stderr buffers
+      let tabixError = '';
+      tabixProcess.stderr.on('data', (data) => {
+        tabixError += data.toString();
+        logger.debug(`[tabix stderr]: ${data.toString().trim()}`);
+      });
+
+      let bgzipError = '';
+      bgzipProcess.stderr.on('data', (data) => {
+        bgzipError += data.toString();
+        logger.debug(`[bgzip stderr]: ${data.toString().trim()}`);
+      });
+
+      // listen for process and stream errors
+      tabixProcess.on('error', (err) => failImmediately('tabix', err));
+      bgzipProcess.on('error', (err) => failImmediately('bgzip', err));
+      outputStream.on('error', (err) => failImmediately('outputStream', err));
+
+      // register finish handler before piping finishes
+      outputStream.on('finish', () => {
+        streamFinished = true;
+        tryResolve();
+      });
+
+      // handle process exits
+      bgzipProcess.on('close', (code) => {
+        if (code !== 0 && !processError) {
+          processError = `bgzip process exited with code ${code}. Stderr: ${bgzipError}`;
         }
-      }
-    };
+        bgzipClosed = true;
+        tryResolve();
+      });
 
-    /**
-     * Abort pipeline and reject immediately on process or stream error.
-     *
-     * @param   {string}                  procName - Name of the failing process/stream.
-     * @param   {Error|{message: string}} err      - Failure error.
-     * @returns {Promise<void>}
-     */
-    const failImmediately = async (procName, err) => {
-      if (resolved) return;
-      resolved = true;
-      if (!processError) processError = `Error in ${procName}: ${err.message}`;
-      await closeProxy();
-      cleanup();
-      reject(new Error(processError));
-    };
-
-    // pipe stdout of tabix to stdin of bgzip
-    tabixProcess.stdout.pipe(bgzipProcess.stdin);
-
-    // pipe stdout of bgzip to output file stream
-    bgzipProcess.stdout.pipe(outputStream);
-
-    // handle stderr buffers
-    let tabixError = '';
-    tabixProcess.stderr.on('data', (data) => {
-      tabixError += data.toString();
-      logger.debug(`[tabix stderr]: ${data.toString().trim()}`);
+      tabixProcess.on('close', (code) => {
+        if (code !== 0 && !processError) {
+          processError = `tabix process exited with code ${code}. Stderr: ${tabixError}`;
+        }
+        // don't resolve here; wait for bgzip and stream to finish
+      });
     });
-
-    let bgzipError = '';
-    bgzipProcess.stderr.on('data', (data) => {
-      bgzipError += data.toString();
-      logger.debug(`[bgzip stderr]: ${data.toString().trim()}`);
-    });
-
-    // listen for process and stream errors
-    tabixProcess.on('error', (err) => failImmediately('tabix', err));
-    bgzipProcess.on('error', (err) => failImmediately('bgzip', err));
-    outputStream.on('error', (err) => failImmediately('outputStream', err));
-
-    // register finish handler before piping finishes
-    outputStream.on('finish', () => {
-      streamFinished = true;
-      tryResolve();
-    });
-
-    // handle process exits
-    bgzipProcess.on('close', (code) => {
-      if (code !== 0 && !processError) {
-        processError = `bgzip process exited with code ${code}. Stderr: ${bgzipError}`;
-      }
-      bgzipClosed = true;
-      tryResolve();
-    });
-
-    tabixProcess.on('close', (code) => {
-      if (code !== 0 && !processError) {
-        processError = `tabix process exited with code ${code}. Stderr: ${tabixError}`;
-      }
-      // don't resolve here; wait for bgzip and stream to finish
-    });
-  });
+  } finally {
+    await closeProxy();
+  }
 }
 
 /**
