@@ -9,6 +9,13 @@ const { ProxyAgent, Agent } = require('undici');
  * @property {string|undefined} proxyPassword - Proxy password.
  */
 
+// default undici pool timeouts for resilient connection pooling
+const DEFAULT_AGENT_OPTIONS = {
+  connectTimeout: 15_000,
+  keepAliveTimeout: 30_000,
+  keepAliveMaxTimeout: 60_000,
+};
+
 /**
  * Creates an HTTP agent configured with proxy and cookie support.
  *
@@ -19,11 +26,14 @@ function createHttpAgent({ proxy, proxyUsername, proxyPassword }) {
   const jar = new CookieJar();
 
   if (!proxy) {
-    return new Agent().compose(cookie({ jar }));
+    return new Agent({ ...DEFAULT_AGENT_OPTIONS }).compose(cookie({ jar }));
   }
 
   /** @type {import('undici').ProxyAgent.Options} */
-  const agentOptions = { uri: proxy };
+  const agentOptions = {
+    uri: proxy,
+    ...DEFAULT_AGENT_OPTIONS,
+  };
   if (proxyUsername && proxyPassword) {
     // undici writes opts.token verbatim into the Proxy-Authorization header, so
     // it must be a complete, base64-encoded Basic credential. (opts.auth is
