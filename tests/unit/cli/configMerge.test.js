@@ -391,3 +391,112 @@ describe('explicit --destination "."', () => {
     expect(result.destination).toBe('/config/dir');
   });
 });
+
+describe('bounded-range-proxy configuration merge', () => {
+  test('defaults boundedRangeProxy to true and boundedRangeChunkSize to 2097152', () => {
+    const argv = parseArguments([
+      '--username',
+      'u',
+      '--target',
+      't',
+      '--analysisIds',
+      'AN001',
+    ]);
+    const result = mergeConfig({
+      argv,
+      config: {},
+      env: {},
+    });
+    expect(result.boundedRangeProxy).toBe(true);
+    expect(result.boundedRangeChunkSize).toBe(2097152);
+  });
+
+  test('respects boundedRangeProxy: false from config when no CLI flag is passed', () => {
+    const argv = parseArguments([
+      '--username',
+      'u',
+      '--target',
+      't',
+      '--analysisIds',
+      'AN001',
+    ]);
+    const result = mergeConfig({
+      argv,
+      config: { boundedRangeProxy: false },
+      env: {},
+    });
+    expect(result.boundedRangeProxy).toBe(false);
+  });
+
+  test('explicit CLI --bounded-range-proxy overrides config boundedRangeProxy: false', () => {
+    const argv = parseArguments([
+      '--username',
+      'u',
+      '--target',
+      't',
+      '--analysisIds',
+      'AN001',
+      '--bounded-range-proxy',
+    ]);
+    const result = mergeConfig({
+      argv,
+      config: { boundedRangeProxy: false },
+      env: {},
+    });
+    expect(result.boundedRangeProxy).toBe(true);
+  });
+
+  test('explicit CLI --no-bounded-range-proxy overrides config boundedRangeProxy: true', () => {
+    const argv = parseArguments([
+      '--username',
+      'u',
+      '--target',
+      't',
+      '--analysisIds',
+      'AN001',
+      '--no-bounded-range-proxy',
+    ]);
+    const result = mergeConfig({
+      argv,
+      config: { boundedRangeProxy: true },
+      env: {},
+    });
+    expect(result.boundedRangeProxy).toBe(false);
+  });
+
+  test('merges boundedRangeChunkSize from config when no CLI flag is passed', () => {
+    const argv = parseArguments([
+      '--username',
+      'u',
+      '--target',
+      't',
+      '--analysisIds',
+      'AN001',
+    ]);
+    const result = mergeConfig({
+      argv,
+      config: { boundedRangeChunkSize: 4194304 },
+      env: {},
+    });
+    expect(result.boundedRangeChunkSize).toBe(4194304);
+  });
+
+  test('explicit CLI --bounded-range-chunk-size overrides config boundedRangeChunkSize', () => {
+    const argv = parseArguments([
+      '--username',
+      'u',
+      '--target',
+      't',
+      '--analysisIds',
+      'AN001',
+      '--bounded-range-chunk-size',
+      '1048576',
+    ]);
+    const result = mergeConfig({
+      argv,
+      config: { boundedRangeChunkSize: 4194304 },
+      env: {},
+    });
+    expect(result.boundedRangeChunkSize).toBe(1048576);
+  });
+});

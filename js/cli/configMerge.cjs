@@ -13,6 +13,8 @@ const { ConfigurationError } = require('../errors.cjs');
  * @typedef {Record<string, unknown> & {
  *   analysisIds?: (string|number)[],
  *   bed?: string|string[]|null,
+ *   boundedRangeChunkSize?: number|string|null,
+ *   boundedRangeProxy?: boolean,
  *   config?: string|string[]|null,
  *   destination?: string|string[]|null,
  *   filetypes?: string[],
@@ -295,6 +297,27 @@ function mergeConfig({ argv, config = {}, env = {} }) {
     !hasExplicitOption(argv, 'overwrite') &&
     config.overwrite === true;
 
+  // resolve bounded range proxy settings
+  const boundedRangeProxy = mergeBoolean(
+    argv,
+    config,
+    'boundedRangeProxy',
+    true,
+  );
+  const explicitChunkSize = getExplicitOption(argv, 'boundedRangeChunkSize');
+  const rawChunkSize =
+    explicitChunkSize !== undefined
+      ? explicitChunkSize
+      : config.boundedRangeChunkSize;
+  const boundedRangeChunkSize =
+    typeof rawChunkSize === 'number' && !Number.isNaN(rawChunkSize)
+      ? rawChunkSize
+      : typeof rawChunkSize === 'string' &&
+          !Number.isNaN(Number(rawChunkSize)) &&
+          rawChunkSize.trim() !== ''
+        ? Number(rawChunkSize)
+        : 2097152;
+
   /** @type {import('../types').FinalConfig} */
   const finalConfig = {
     username,
@@ -371,6 +394,8 @@ function mergeConfig({ argv, config = {}, env = {} }) {
     list: mergeBoolean(argv, config, 'list', false),
     loglevel,
     version: mergeBoolean(argv, config, 'version', false),
+    boundedRangeProxy,
+    boundedRangeChunkSize,
   };
 
   if (configPath) {
