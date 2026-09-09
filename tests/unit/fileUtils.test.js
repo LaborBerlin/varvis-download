@@ -128,7 +128,12 @@ describe('fileUtils', () => {
 
       expect(fetchWithRetry).toHaveBeenCalledWith(
         'https://example.com/file.txt',
-        { method: 'GET', dispatcher: mockAgent, timeout: 0 },
+        {
+          method: 'GET',
+          dispatcher: mockAgent,
+          timeout: 0,
+          signal: expect.any(AbortSignal),
+        },
         3,
         mockLogger,
       );

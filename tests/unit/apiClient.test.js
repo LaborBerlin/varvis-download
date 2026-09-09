@@ -345,6 +345,43 @@ describe('apiClient', () => {
         expect(forwardedOpts.timeout).toBeUndefined();
         expect(forwardedOpts.jitter).toBeUndefined();
       });
+
+      test('retries when response body read times out during attempt (#152)', async () => {
+        const slowBodyResponse = {
+          ok: true,
+          status: 200,
+          body: {},
+          text: jest.fn().mockRejectedValueOnce(
+            Object.assign(
+              new Error('The operation was aborted due to timeout'),
+              {
+                name: 'TimeoutError',
+              },
+            ),
+          ),
+        };
+        const okResponse = {
+          ok: true,
+          status: 200,
+          body: {},
+          text: jest.fn().mockResolvedValueOnce('{"data":"recovered"}'),
+        };
+
+        undici.fetch
+          .mockResolvedValueOnce(slowBodyResponse)
+          .mockResolvedValueOnce(okResponse);
+
+        const client = new ApiClient(mockAgent, mockLogger);
+        const response = await client.fetchWithRetry(
+          'https://api.example.com',
+          { jitter: false },
+          2,
+        );
+
+        expect(undici.fetch).toHaveBeenCalledTimes(2);
+        const data = await response.json();
+        expect(data).toEqual({ data: 'recovered' });
+      });
     });
   });
 

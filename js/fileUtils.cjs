@@ -26,16 +26,27 @@ async function downloadFile(
   metrics,
 ) {
   logger.debug(`Starting download for: ${url}`);
-  if (fs.existsSync(outputPath) && !overwrite) {
-    logger.info(`File already exists, skipping: ${outputPath}`);
-    metrics.totalFilesSkipped += 1;
-    return;
+  if (fs.existsSync(outputPath)) {
+    if (fs.statSync(outputPath).isDirectory()) {
+      throw Object.assign(
+        new Error(
+          `EISDIR: illegal operation on a directory, open '${outputPath}'`,
+        ),
+        { code: 'EISDIR' },
+      );
+    }
+    if (!overwrite) {
+      logger.info(`File already exists, skipping: ${outputPath}`);
+      metrics.totalFilesSkipped += 1;
+      return;
+    }
   }
 
   const partPath = `${outputPath}.${process.pid}.part`;
   let writer;
   let response;
   let downloadCompleted = false;
+  const downloadController = new AbortController();
 
   try {
     // Create writer and fetch inside try block to ensure cleanup on any failure
@@ -44,11 +55,21 @@ async function downloadFile(
     let writerError = null;
     writer.on('error', (err) => {
       writerError = err;
+      downloadController.abort(err);
     });
+
+    if (writerError) {
+      throw writerError;
+    }
 
     response = await fetchWithRetry(
       url,
-      { method: 'GET', dispatcher: agent, timeout: 0 },
+      {
+        method: 'GET',
+        dispatcher: agent,
+        timeout: 0,
+        signal: downloadController.signal,
+      },
       3,
       logger,
     );
@@ -102,6 +123,14 @@ async function downloadFile(
 
     // Transactional replacement on overwrite
     if (fs.existsSync(outputPath)) {
+      if (fs.statSync(outputPath).isDirectory()) {
+        throw Object.assign(
+          new Error(
+            `EISDIR: illegal operation on a directory, open '${outputPath}'`,
+          ),
+          { code: 'EISDIR' },
+        );
+      }
       const backupPath = `${outputPath}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.bak`;
       // stage: move existing file to unique backup
       fs.renameSync(outputPath, backupPath);

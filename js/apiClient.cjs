@@ -133,6 +133,26 @@ class ApiClient {
           }
           throw new HttpResponseError(response.status);
         }
+
+        // buffer body under attemptSignal for requests with timeout
+        if (
+          isTimeoutEnabled &&
+          response.body &&
+          typeof response.text === 'function'
+        ) {
+          const rawText = await response.text();
+          Object.defineProperty(response, 'text', {
+            value: async () => rawText,
+            configurable: true,
+            writable: true,
+          });
+          Object.defineProperty(response, 'json', {
+            value: async () => JSON.parse(rawText),
+            configurable: true,
+            writable: true,
+          });
+        }
+
         return response;
       } catch (error) {
         // fail immediately on caller cancellation without retry
