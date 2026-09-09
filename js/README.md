@@ -105,7 +105,7 @@ Contains functions for file operations, including downloading files.
 
 #### Functions:
 
-- **downloadFile(url, outputPath, overwrite, agent, _rl, logger, metrics)**
+- **downloadFile(url, outputPath, overwrite, agent, \_rl, logger, metrics)**
   - Downloads a file from the given URL to the specified output path.
   - Parameters:
     - `url`: The URL of the file to download.
