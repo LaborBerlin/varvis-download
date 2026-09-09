@@ -7,6 +7,7 @@ const {
   compareVersions,
   spawnPromise,
   checkToolAvailability,
+  isToolAffectedByUnboundedRangeBug,
 } = require('../../js/toolChecks.cjs');
 
 describe('toolChecks', () => {
@@ -395,6 +396,39 @@ describe('toolChecks', () => {
       expect(mockLogger.error).toHaveBeenCalledWith(
         expect.stringContaining('Could not parse version'),
       );
+    });
+  });
+
+  describe('isToolAffectedByUnboundedRangeBug', () => {
+    // test affected samtools versions below 1.25.0
+    test('should return true for samtools versions below 1.25.0', () => {
+      expect(isToolAffectedByUnboundedRangeBug('samtools', '1.15')).toBe(true);
+      expect(isToolAffectedByUnboundedRangeBug('samtools', '1.18')).toBe(true);
+      expect(isToolAffectedByUnboundedRangeBug('samtools', '1.24')).toBe(true);
+      expect(isToolAffectedByUnboundedRangeBug('samtools', '1.24.1')).toBe(
+        true,
+      );
+    });
+
+    // test affected tabix versions below 1.25.0
+    test('should return true for tabix versions below 1.25.0', () => {
+      expect(isToolAffectedByUnboundedRangeBug('tabix', '1.15')).toBe(true);
+      expect(isToolAffectedByUnboundedRangeBug('tabix', '1.18')).toBe(true);
+      expect(isToolAffectedByUnboundedRangeBug('tabix', '1.24')).toBe(true);
+    });
+
+    // test fixed samtools versions 1.25.0 and above
+    test('should return false for samtools versions 1.25.0 and above', () => {
+      expect(isToolAffectedByUnboundedRangeBug('samtools', '1.25.0')).toBe(
+        false,
+      );
+      expect(isToolAffectedByUnboundedRangeBug('samtools', '1.26')).toBe(false);
+    });
+
+    // test fixed tabix versions 1.25.0 and above
+    test('should return false for tabix versions 1.25.0 and above', () => {
+      expect(isToolAffectedByUnboundedRangeBug('tabix', '1.25.0')).toBe(false);
+      expect(isToolAffectedByUnboundedRangeBug('tabix', '2.0.0')).toBe(false);
     });
   });
 });

@@ -140,8 +140,27 @@ async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
   }
 }
 
+/**
+ * Checks whether a tool is affected by the HTSlib unbounded range request bug.
+ * Tools using HTSlib (such as samtools and tabix) before version 1.25.0 send unbounded HTTP range requests.
+ * @param   {string}  toolName      - The name of the tool (e.g., 'samtools' or 'tabix').
+ * @param   {string}  versionString - The version string of the tool.
+ * @returns {boolean}               - True if the tool version is affected (< 1.25.0), false otherwise.
+ */
+function isToolAffectedByUnboundedRangeBug(toolName, versionString) {
+  // check whether version is 1.25.0 or higher where the bug is fixed
+  const isFixedVersion = compareVersions(versionString, '1.25.0');
+  if (toolName && isFixedVersion) {
+    return false;
+  }
+
+  // return false if fixed version, otherwise return true as tool is affected
+  return !isFixedVersion;
+}
+
 module.exports = {
   spawnPromise,
   compareVersions,
   checkToolAvailability,
+  isToolAffectedByUnboundedRangeBug,
 };
