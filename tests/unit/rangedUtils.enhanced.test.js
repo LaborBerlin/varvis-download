@@ -377,7 +377,7 @@ describe('rangedUtils (enhanced)', () => {
         'view',
         '-b',
         '-X',
-        'https://example.com/sample.bam',
+        expect.stringMatching(/^http:\/\/127\.0\.0\.1:\d+\/stream\//),
         '/path/to/sample.bam.bai',
         '-L',
         '/path/to/regions.bed',

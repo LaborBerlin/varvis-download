@@ -282,9 +282,17 @@ describe('rangedUtils', () => {
         true,
       ); // overwrite = true
 
-      expect(spawn).toHaveBeenCalledWith('tabix', ['-h', url, range], {
-        cwd: expect.any(String),
-      });
+      expect(spawn).toHaveBeenCalledWith(
+        'tabix',
+        [
+          '-h',
+          expect.stringMatching(/^http:\/\/127\.0\.0\.1:\d+\/stream\//),
+          range,
+        ],
+        {
+          cwd: expect.any(String),
+        },
+      );
       expect(spawn).toHaveBeenCalledWith('bgzip', ['-c']);
     });
 
@@ -386,7 +394,11 @@ describe('rangedUtils', () => {
       // Verify tabix runs directly (no shell) with -h flag and argv array
       expect(spawn).toHaveBeenCalledWith(
         'tabix',
-        ['-h', 'https://example.com/test.vcf.gz', 'chr1:1000-2000'],
+        [
+          '-h',
+          expect.stringMatching(/^http:\/\/127\.0\.0\.1:\d+\/stream\//),
+          'chr1:1000-2000',
+        ],
         { cwd: '/path/to' },
       );
 
