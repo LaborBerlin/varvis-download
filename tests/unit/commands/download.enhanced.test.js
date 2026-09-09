@@ -10,6 +10,7 @@ jest.mock('../../../js/fetchUtils.cjs', () => ({
     totalBytesDownloaded: 0,
     totalFilesDownloaded: 0,
     totalFilesSkipped: 0,
+    totalFilesFailed: 0,
   },
 }));
 jest.mock('../../../js/download/bamHandler.cjs', () => ({
@@ -250,5 +251,36 @@ describe('commands/download temp BED cleanup', () => {
 
     existsSpy.mockRestore();
     unlinkSpy.mockRestore();
+  });
+});
+
+describe('commands/download failure propagation (#155)', () => {
+  test('increments totalFilesFailed and throws OperationalError when download handler reports failure', async () => {
+    checkToolAvailability.mockResolvedValue(true);
+    getDownloadLinks.mockResolvedValueOnce({
+      'sample.bam': { analysisId: 'A1', downloadLink: 'https://primary' },
+    });
+    handleBamFile.mockResolvedValueOnce({ ok: false });
+
+    const localDeps = {
+      ...deps,
+      metrics: {
+        downloadSpeeds: [],
+        startTime: 0,
+        totalBytesDownloaded: 0,
+        totalFilesDownloaded: 0,
+        totalFilesFailed: 0,
+        totalFilesSkipped: 0,
+      },
+    };
+
+    await expect(
+      runDownloadCommand({ finalConfig: makeConfig(), regions: [] }, localDeps),
+    ).rejects.toThrow(OperationalError);
+
+    expect(localDeps.metrics.totalFilesFailed).toBe(1);
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      expect.stringContaining('Download completed with 1 failed file(s)'),
+    );
   });
 });

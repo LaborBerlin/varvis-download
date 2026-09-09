@@ -35,13 +35,20 @@ async function downloadFile(
   const partPath = `${outputPath}.${process.pid}.part`;
   let writer;
   let response;
+  let downloadCompleted = false;
 
   try {
     // Create writer and fetch inside try block to ensure cleanup on any failure
     writer = fs.createWriteStream(partPath);
+    /** @type {Error|null} */
+    let writerError = null;
+    writer.on('error', (err) => {
+      writerError = err;
+    });
+
     response = await fetchWithRetry(
       url,
-      { method: 'GET', dispatcher: agent },
+      { method: 'GET', dispatcher: agent, timeout: 0 },
       3,
       logger,
     );
@@ -69,6 +76,9 @@ async function downloadFile(
     }
 
     for await (const chunk of response.body) {
+      if (writerError) {
+        throw writerError;
+      }
       totalBytes += chunk.length;
       // Honor writable backpressure: when the internal buffer is full,
       // write() returns false — wait for 'drain' before pulling the next chunk
@@ -88,11 +98,41 @@ async function downloadFile(
 
     // Use stream/promises finished() for deterministic cleanup
     await finished(writer);
+    downloadCompleted = true;
 
+    // Transactional replacement on overwrite
     if (fs.existsSync(outputPath)) {
-      fs.unlinkSync(outputPath);
+      const backupPath = `${outputPath}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.bak`;
+      // stage: move existing file to unique backup
+      fs.renameSync(outputPath, backupPath);
+      try {
+        // commit: move completed part to final destination
+        fs.renameSync(partPath, outputPath);
+      } catch (commitError) {
+        // rollback: restore original file from backup
+        try {
+          fs.renameSync(backupPath, outputPath);
+          logger.error(
+            `Failed to replace ${outputPath} with ${partPath}: ${getErrorMessage(commitError)}. Original destination restored; completed download preserved at ${partPath}`,
+          );
+        } catch (rollbackError) {
+          logger.error(
+            `CRITICAL: Replacement and rollback both failed for ${outputPath}. Backup preserved at ${backupPath}; completed download preserved at ${partPath}: ${getErrorMessage(rollbackError)}`,
+          );
+        }
+        throw commitError;
+      }
+      // cleanup: remove backup after successful commit
+      try {
+        fs.unlinkSync(backupPath);
+      } catch (unlinkError) {
+        logger.debug(
+          `Could not remove temporary backup ${backupPath}: ${getErrorMessage(unlinkError)}`,
+        );
+      }
+    } else {
+      fs.renameSync(partPath, outputPath);
     }
-    fs.renameSync(partPath, outputPath);
 
     logger.info(`Successfully downloaded ${outputPath}`);
     metrics.totalFilesDownloaded += 1;
@@ -111,7 +151,10 @@ async function downloadFile(
         // Ignore errors during cleanup - stream may already be closed
       }
     }
-    if (fs.existsSync(partPath)) {
+    // Only remove .part if the download failed mid-flight before completion.
+    // If downloadCompleted is true, the failure occurred during the replace phase,
+    // so we preserve the completed .part file for recovery.
+    if (!downloadCompleted && fs.existsSync(partPath)) {
       try {
         fs.unlinkSync(partPath);
       } catch (unlinkError) {

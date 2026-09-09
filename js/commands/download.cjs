@@ -128,16 +128,22 @@ async function runDownloadCommand({ finalConfig, regions, tempBedPath }, deps) {
       );
 
       for (const [fileName] of primaryFiles) {
+        /** @type {{ ok?: boolean }|null} */
+        let result = null;
         if (fileName.endsWith('.bam')) {
-          await handleBamFile(
+          result = await handleBamFile(
             { fileDict, fileName, finalConfig, regions, target, tempBedPath },
             deps,
           );
         } else if (fileName.endsWith('.vcf.gz')) {
-          await handleVcfFile(
+          result = await handleVcfFile(
             { fileDict, fileName, finalConfig, regions, target },
             deps,
           );
+        }
+        if (result && result.ok === false) {
+          deps.metrics.totalFilesFailed =
+            (deps.metrics.totalFilesFailed || 0) + 1;
         }
       }
     }
@@ -145,6 +151,16 @@ async function runDownloadCommand({ finalConfig, regions, tempBedPath }, deps) {
     if (listUrls) {
       handleUrlListing(allUrls, urlFile, logger);
       return;
+    }
+
+    if (deps.metrics.totalFilesFailed > 0) {
+      logger.error(
+        `Download completed with ${deps.metrics.totalFilesFailed} failed file(s).`,
+      );
+      generateReport(reportfile, logger);
+      throw new OperationalError(
+        `Download completed with ${deps.metrics.totalFilesFailed} failed file(s).`,
+      );
     }
 
     logger.info('Download complete.');

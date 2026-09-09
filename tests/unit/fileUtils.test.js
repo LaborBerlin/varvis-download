@@ -128,7 +128,7 @@ describe('fileUtils', () => {
 
       expect(fetchWithRetry).toHaveBeenCalledWith(
         'https://example.com/file.txt',
-        { method: 'GET', dispatcher: mockAgent },
+        { method: 'GET', dispatcher: mockAgent, timeout: 0 },
         3,
         mockLogger,
       );
