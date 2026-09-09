@@ -500,5 +500,12 @@ describe('toolChecks', () => {
       expect(isToolAffectedByUnboundedRangeBug('tabix', '1.25.0')).toBe(false);
       expect(isToolAffectedByUnboundedRangeBug('tabix', '2.0.0')).toBe(false);
     });
+
+    // test non-affected tools return false regardless of version
+    test('should return false for non-HTSlib tools', () => {
+      expect(isToolAffectedByUnboundedRangeBug('bgzip', '1.18')).toBe(false);
+      expect(isToolAffectedByUnboundedRangeBug('bgzip', '1.24')).toBe(false);
+      expect(isToolAffectedByUnboundedRangeBug('other', '1.10')).toBe(false);
+    });
   });
 });
