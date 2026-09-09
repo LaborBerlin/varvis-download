@@ -51,6 +51,7 @@ describe('apiClient', () => {
             'Sec-Fetch-Mode': 'same-origin',
           },
           dispatcher: mockAgent,
+          signal: expect.any(AbortSignal),
         });
         expect(mockLogger.warn).not.toHaveBeenCalled();
         expect(mockLogger.error).not.toHaveBeenCalled();
@@ -162,6 +163,7 @@ describe('apiClient', () => {
             'Content-Type': 'application/json',
           },
           dispatcher: mockAgent,
+          signal: expect.any(AbortSignal),
         });
       });
 
@@ -226,6 +228,122 @@ describe('apiClient', () => {
           'Fetch attempt 1 failed. Retrying...',
         );
         jest.useRealTimers();
+      });
+
+      test('attaches a fresh per-attempt timeout signal by default (#152)', async () => {
+        const mockError = new Error('Network timeout');
+        const mockResponse = { ok: true, status: 200 };
+        undici.fetch
+          .mockRejectedValueOnce(mockError)
+          .mockResolvedValueOnce(mockResponse);
+
+        const client = new ApiClient(mockAgent, mockLogger);
+        await client.fetchWithRetry('https://api.example.com', {
+          jitter: false,
+        });
+
+        expect(undici.fetch).toHaveBeenCalledTimes(2);
+        const firstCallSignal = undici.fetch.mock.calls[0][1].signal;
+        const secondCallSignal = undici.fetch.mock.calls[1][1].signal;
+        expect(firstCallSignal).toBeInstanceOf(AbortSignal);
+        expect(secondCallSignal).toBeInstanceOf(AbortSignal);
+        expect(firstCallSignal).not.toBe(secondCallSignal);
+      });
+
+      test('omits timeout signal when timeout is 0 or null (#152)', async () => {
+        const mockResponse = { ok: true, status: 200 };
+        undici.fetch.mockResolvedValueOnce(mockResponse);
+
+        const client = new ApiClient(mockAgent, mockLogger);
+        await client.fetchWithRetry('https://api.example.com', { timeout: 0 });
+
+        expect(undici.fetch).toHaveBeenCalledTimes(1);
+        expect(undici.fetch.mock.calls[0][1].signal).toBeUndefined();
+      });
+
+      test('cancels response body on non-ok response before retry and terminal error (#152)', async () => {
+        const cancel1 = jest.fn();
+        const cancel2 = jest.fn();
+        const failedResponse1 = {
+          ok: false,
+          status: 500,
+          body: { cancel: cancel1 },
+        };
+        const failedResponse2 = {
+          ok: false,
+          status: 500,
+          body: { cancel: cancel2 },
+        };
+
+        undici.fetch
+          .mockResolvedValueOnce(failedResponse1)
+          .mockResolvedValueOnce(failedResponse2);
+
+        const client = new ApiClient(mockAgent, mockLogger);
+        await expect(
+          client.fetchWithRetry(
+            'https://api.example.com',
+            { jitter: false },
+            2,
+          ),
+        ).rejects.toThrow('Fetch failed with status: 500');
+
+        expect(cancel1).toHaveBeenCalledTimes(1);
+        expect(cancel2).toHaveBeenCalledTimes(1);
+      });
+
+      test('stops retries immediately when caller abort signal is triggered (#152)', async () => {
+        const controller = new AbortController();
+        controller.abort();
+
+        const client = new ApiClient(mockAgent, mockLogger);
+        await expect(
+          client.fetchWithRetry('https://api.example.com', {
+            signal: controller.signal,
+          }),
+        ).rejects.toThrow();
+
+        expect(undici.fetch).not.toHaveBeenCalled();
+      });
+
+      test('applies equal jitter to backoff delay when jitter is true (#152)', async () => {
+        jest.useFakeTimers();
+        const mockError = new Error('Transient error');
+        const mockResponse = { ok: true, status: 200 };
+
+        undici.fetch
+          .mockRejectedValueOnce(mockError)
+          .mockResolvedValueOnce(mockResponse);
+
+        const client = new ApiClient(mockAgent, mockLogger);
+        const promise = client.fetchWithRetry('https://api.example.com', {
+          jitter: true,
+        });
+
+        // Nominal backoff for attempt 1 is 1000ms. Jitter bounds: [500ms, 1000ms].
+        await jest.advanceTimersByTimeAsync(499);
+        expect(undici.fetch).toHaveBeenCalledTimes(1);
+
+        await jest.advanceTimersByTimeAsync(502);
+        await promise;
+        expect(undici.fetch).toHaveBeenCalledTimes(2);
+
+        jest.useRealTimers();
+      });
+
+      test('strips timeout and jitter wrapper options before forwarding to undici.fetch (#152)', async () => {
+        const mockResponse = { ok: true, status: 200 };
+        undici.fetch.mockResolvedValueOnce(mockResponse);
+
+        const client = new ApiClient(mockAgent, mockLogger);
+        await client.fetchWithRetry('https://api.example.com', {
+          timeout: 5000,
+          jitter: false,
+        });
+
+        const forwardedOpts = undici.fetch.mock.calls[0][1];
+        expect(forwardedOpts.timeout).toBeUndefined();
+        expect(forwardedOpts.jitter).toBeUndefined();
       });
     });
   });
