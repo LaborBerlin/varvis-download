@@ -35,6 +35,30 @@ echo "$VARVIS_PASSWORD" | node varvis-download.cjs \
   --analysisIds AN00001 --restoreArchived force
 ```
 
+## Bounded-Range Reverse Proxy (S3 Egress Guard)
+
+When performing genomic range downloads from remote AWS S3 pre-signed URLs, HTSlib (< 1.25.0, used by `samtools` and `tabix`) issues open-ended HTTP range requests (such as `Range: bytes=0-` or `Range: bytes=8224425-`). Even when client tools read only a few kilobytes before closing their sockets, remote object stores stream full payloads until TCP buffer exhaustion, incurring massive cloud egress data transfer costs (see [LaborBerlin/varvis-download#22](https://github.com/LaborBerlin/varvis-download/issues/22)).
+
+`varvis-download` includes a built-in, in-process bounded-range reverse proxy that transparently clamps open-ended requests to configurable chunk boundaries (default: 2 MiB) and aborts upstream fetches immediately upon client socket termination, achieving > 99.9% cloud egress savings on ranged queries.
+
+### CLI Options
+
+- `--bounded-range-proxy` (default: `true`): Enable the reverse proxy guard for ranged downloads. Pass `--no-bounded-range-proxy` to disable and query upstream URLs directly.
+- `--bounded-range-chunk-size <bytes>` (default: `2097152` [2 MiB]): Maximum chunk size in bytes requested upstream per range chunk.
+
+### Automatic Tool Version Guard
+
+Installed tool versions are automatically inspected prior to download execution:
+
+- **`samtools` / `tabix` < 1.25.0**: Proxy is active by default to guard against unbounded egress.
+- **`samtools` / `tabix` >= 1.25.0**: Proxy is automatically bypassed because modern HTSlib contains native bounded-range support, unless `--bounded-range-proxy` is explicitly passed.
+
+To benchmark egress savings against a real remote 1000 Genomes S3 dataset (~17.28 GB):
+
+```bash
+node scripts/benchmark-bounded-proxy.mjs
+```
+
 ## Intended Use
 
 This software is provided solely for research, educational, development, interoperability, and bioinformatics workflow
