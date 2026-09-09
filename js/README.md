@@ -101,19 +101,11 @@ Contains functions for making HTTP requests and fetching data from the Varvis AP
 
 ### fileUtils.js
 
-Contains functions for file operations, including downloading files and confirming file overwrites.
+Contains functions for file operations, including downloading files.
 
 #### Functions:
 
-- **confirmOverwrite(file, rl, logger)**
-  - Prompts the user to confirm file overwrite if the file already exists.
-  - Parameters:
-    - `file`: The file path.
-    - `rl`: Readline interface for user input.
-    - `logger`: Logger instance for logging.
-  - Returns: `Promise<boolean>`
-
-- **downloadFile(url, outputPath, overwrite, agent, rl, logger, metrics)**
+- **downloadFile(url, outputPath, overwrite, agent, _rl, logger, metrics)**
   - Downloads a file from the given URL to the specified output path.
   - Parameters:
     - `url`: The URL of the file to download.

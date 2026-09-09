@@ -1,4 +1,5 @@
-const { confirmOverwrite, downloadFile } = require('../../js/fileUtils.cjs');
+const fileUtils = require('../../js/fileUtils.cjs');
+const { downloadFile } = fileUtils;
 const {
   createMockLogger,
   createMockReadline,
@@ -28,77 +29,9 @@ describe('fileUtils', () => {
     await testDir.cleanup();
   });
 
-  describe('confirmOverwrite', () => {
-    test('should return true when user answers y', async () => {
-      const mockRl = createMockReadline({
-        'File test.txt already exists. Overwrite? (y/n): ': 'y',
-      });
-
-      const result = await confirmOverwrite('test.txt', mockRl, mockLogger);
-
-      expect(result).toBe(true);
-      expect(mockRl.question).toHaveBeenCalledWith(
-        'File test.txt already exists. Overwrite? (y/n): ',
-        expect.any(Function),
-      );
-    });
-
-    test('should return true when user answers Y (uppercase)', async () => {
-      const mockRl = createMockReadline({
-        'File test.txt already exists. Overwrite? (y/n): ': 'Y',
-      });
-
-      const result = await confirmOverwrite('test.txt', mockRl, mockLogger);
-
-      expect(result).toBe(true);
-    });
-
-    test('should return false when user answers n', async () => {
-      const mockRl = createMockReadline({
-        'File test.txt already exists. Overwrite? (y/n): ': 'n',
-      });
-
-      const result = await confirmOverwrite('test.txt', mockRl, mockLogger);
-
-      expect(result).toBe(false);
-    });
-
-    test('should return false when user answers N (uppercase)', async () => {
-      const mockRl = createMockReadline({
-        'File test.txt already exists. Overwrite? (y/n): ': 'N',
-      });
-
-      const result = await confirmOverwrite('test.txt', mockRl, mockLogger);
-
-      expect(result).toBe(false);
-    });
-
-    test('should return false for any answer other than y/Y', async () => {
-      const mockRl = createMockReadline({
-        'File test.txt already exists. Overwrite? (y/n): ': 'maybe',
-      });
-
-      const result = await confirmOverwrite('test.txt', mockRl, mockLogger);
-
-      expect(result).toBe(false);
-    });
-
-    test('should handle different file paths', async () => {
-      const mockRl = createMockReadline({
-        'File /path/to/file.bam already exists. Overwrite? (y/n): ': 'y',
-      });
-
-      const result = await confirmOverwrite(
-        '/path/to/file.bam',
-        mockRl,
-        mockLogger,
-      );
-
-      expect(result).toBe(true);
-      expect(mockRl.question).toHaveBeenCalledWith(
-        'File /path/to/file.bam already exists. Overwrite? (y/n): ',
-        expect.any(Function),
-      );
+  describe('confirmOverwrite export', () => {
+    test('is removed as dead code (#154)', () => {
+      expect(fileUtils.confirmOverwrite).toBeUndefined();
     });
   });
 
