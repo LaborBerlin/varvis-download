@@ -128,6 +128,7 @@ export interface FinalConfig {
   version?: boolean;
   boundedRangeProxy: boolean;
   boundedRangeChunkSize: number;
+  boundedRangeProxyExplicit?: boolean;
 }
 
 export interface Credentials {
