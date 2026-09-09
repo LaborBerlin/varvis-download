@@ -4,6 +4,7 @@
 - **Status:** Approved (Adversarially reviewed by Codex GPT-6 Astra)
 - **GitHub Issues:** [#147](https://github.com/LaborBerlin/varvis-download/issues/147), [#148](https://github.com/LaborBerlin/varvis-download/issues/148), [#149](https://github.com/LaborBerlin/varvis-download/issues/149)
 - **Scope:** Ten verified, module-local defects and architectural improvements identified during the security, performance, and concurrency audit of `varvis-download`.
+- **Traceability Note (Post-PR #151):** Follow-up items from #149 and PR #151 are tracked and implemented in dedicated issues: #152 (network timeouts/jitter), #153 (production restoration batching), #154 (confirmOverwrite cleanup), #155 (failure-safe .part overwrite replacement), and #156 (traceability alignment). Tasks 9 & 10 (safe resume fallback, atomic .part downloads, capped stderr buffer) originated from pipeline reliability issue #148.
 - **Public Hygiene Note:** This repository is public/open source. All examples, tests, and documentation use synthetic identifiers (`AN00001`, `sample.bam`, `chr1:100-200`). No internal identifiers, customer identifiers, patient data, or environment credentials appear anywhere in this design.
 
 ---
