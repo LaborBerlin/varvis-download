@@ -124,6 +124,7 @@ describe('archiveUtils.resumeArchivedDownloads ranged restores', () => {
       true,
       false,
       ['chr1:10-20'],
+      { chunkSize: undefined, enabled: undefined },
     );
   });
 
@@ -201,6 +202,7 @@ describe('archiveUtils.resumeArchivedDownloads ranged restores', () => {
       true,
       false,
       ['chr1:10-20'],
+      { chunkSize: undefined, enabled: undefined },
     );
   });
 
@@ -251,6 +253,7 @@ describe('archiveUtils.resumeArchivedDownloads ranged restores', () => {
       true,
       true,
       ['chr1:10-20', 'chr2:30-40'],
+      { chunkSize: undefined, enabled: undefined },
     );
   });
 
@@ -307,6 +310,7 @@ describe('archiveUtils.resumeArchivedDownloads ranged restores', () => {
       mockLogger,
       metrics,
       true,
+      { chunkSize: undefined, enabled: undefined },
     );
   });
 
@@ -364,6 +368,7 @@ describe('archiveUtils.resumeArchivedDownloads ranged restores', () => {
       mockLogger,
       metrics,
       true,
+      { chunkSize: undefined, enabled: undefined },
     );
   });
 });
