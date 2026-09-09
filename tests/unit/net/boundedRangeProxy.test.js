@@ -376,4 +376,18 @@ describe('net/boundedRangeProxy.createBoundedRangeProxy', () => {
     const res = await fetch(proxy.proxyUrl, { method: 'POST' });
     expect(res.status).toBe(405);
   });
+
+  test('handles requests correctly even with spoofed or malformed Host header', async () => {
+    const proxy = await createBoundedRangeProxy(`${upstreamBaseUrl}/file.bam`);
+    activeProxies.push(proxy);
+
+    const res = await fetch(proxy.proxyUrl, {
+      method: 'HEAD',
+      headers: {
+        Host: 'evil.attacker.com',
+      },
+    });
+
+    expect(res.status).toBe(200);
+  });
 });

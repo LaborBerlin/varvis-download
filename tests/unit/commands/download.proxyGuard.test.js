@@ -28,12 +28,15 @@ jest.mock('../../../js/io/urlListing.cjs', () => ({
 
 jest.mock('../../../js/toolChecks.cjs', () => ({
   checkToolAvailability: jest.fn(async () => true),
+  compareVersions: jest.requireActual('../../../js/toolChecks.cjs')
+    .compareVersions,
   getToolVersion: jest.fn(),
   isToolAffectedByUnboundedRangeBug: jest.requireActual(
     '../../../js/toolChecks.cjs',
   ).isToolAffectedByUnboundedRangeBug,
 }));
 
+const { mergeConfig } = require('../../../js/cli/configMerge.cjs');
 const { runDownloadCommand } = require('../../../js/commands/download.cjs');
 const { handleBamFile } = require('../../../js/download/bamHandler.cjs');
 const { handleVcfFile } = require('../../../js/download/vcfHandler.cjs');
@@ -288,5 +291,66 @@ describe('commands/download proxy guard', () => {
     );
     // global finalConfig is not mutated
     expect(finalConfig.boundedRangeProxy).toBe(true);
+  });
+
+  // retain proxy when samtools >= 1.25.0 if proxy was explicitly configured in config file
+  test('retains proxy when samtools version >= 1.25.0 if proxy was configured in config file', async () => {
+    getToolVersion.mockImplementation(async (tool) => {
+      if (tool === 'samtools') return '1.25.0';
+      return '1.24';
+    });
+
+    const finalConfig = mergeConfig({
+      argv: {
+        analysisIds: ['A1'],
+        range: 'chr1:1-100',
+        target: 'demo',
+        username: 'user',
+      },
+      config: {
+        boundedRangeProxy: true,
+      },
+    });
+
+    expect(finalConfig.boundedRangeProxyExplicit).toBe(true);
+
+    await runDownloadCommand({ finalConfig, regions: ['chr1:1-100'] }, deps);
+
+    expect(handleBamFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        finalConfig: expect.objectContaining({ boundedRangeProxy: true }),
+      }),
+      deps,
+    );
+    expect(finalConfig.boundedRangeProxy).toBe(true);
+    expect(mockLogger.info).not.toHaveBeenCalledWith(
+      expect.stringContaining('native bounded range support; proxy bypassed'),
+    );
+  });
+
+  // spawn tool version checks only once per tool without duplicate calls
+  test('spawns tool version checks only once per tool without duplicate calls', async () => {
+    getToolVersion.mockImplementation(async (tool) => {
+      if (tool === 'samtools') return '1.24.0';
+      if (tool === 'tabix') return '1.24.0';
+      return '1.24';
+    });
+
+    const finalConfig = createConfig({
+      boundedRangeProxy: true,
+      boundedRangeProxyExplicit: false,
+    });
+
+    await runDownloadCommand({ finalConfig, regions: ['chr1:1-100'] }, deps);
+
+    const samtoolsCalls = getToolVersion.mock.calls.filter(
+      ([tool]) => tool === 'samtools',
+    );
+    const tabixCalls = getToolVersion.mock.calls.filter(
+      ([tool]) => tool === 'tabix',
+    );
+
+    expect(samtoolsCalls).toHaveLength(1);
+    expect(tabixCalls).toHaveLength(1);
   });
 });

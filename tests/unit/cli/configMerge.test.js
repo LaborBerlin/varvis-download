@@ -499,4 +499,57 @@ describe('bounded-range-proxy configuration merge', () => {
     });
     expect(result.boundedRangeChunkSize).toBe(1048576);
   });
+
+  test('defaults boundedRangeProxyExplicit to false when neither CLI nor config specifies it', () => {
+    const argv = parseArguments([
+      '--username',
+      'u',
+      '--target',
+      't',
+      '--analysisIds',
+      'AN001',
+    ]);
+    const result = mergeConfig({
+      argv,
+      config: {},
+      env: {},
+    });
+    expect(result.boundedRangeProxyExplicit).toBe(false);
+  });
+
+  test('marks boundedRangeProxy as explicit when configured as true in config file', () => {
+    const argv = parseArguments([
+      '--username',
+      'u',
+      '--target',
+      't',
+      '--analysisIds',
+      'AN001',
+    ]);
+    const result = mergeConfig({
+      argv,
+      config: { boundedRangeProxy: true },
+      env: {},
+    });
+    expect(result.boundedRangeProxy).toBe(true);
+    expect(result.boundedRangeProxyExplicit).toBe(true);
+  });
+
+  test('marks boundedRangeProxy as explicit when configured as false in config file', () => {
+    const argv = parseArguments([
+      '--username',
+      'u',
+      '--target',
+      't',
+      '--analysisIds',
+      'AN001',
+    ]);
+    const result = mergeConfig({
+      argv,
+      config: { boundedRangeProxy: false },
+      env: {},
+    });
+    expect(result.boundedRangeProxy).toBe(false);
+    expect(result.boundedRangeProxyExplicit).toBe(true);
+  });
 });

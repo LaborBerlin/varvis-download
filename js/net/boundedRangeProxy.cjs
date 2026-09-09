@@ -122,8 +122,8 @@ async function createBoundedRangeProxy(targetUrl, options = {}) {
   const activeSockets = new Set();
 
   const server = http.createServer(async (req, res) => {
-    const host = req.headers.host || '127.0.0.1';
-    const parsedUrl = new URL(req.url || '/', `http://${host}`);
+    // parse request url with fixed dummy base
+    const parsedUrl = new URL(req.url || '/', 'http://127.0.0.1');
 
     if (parsedUrl.pathname !== `/stream/${token}`) {
       res.writeHead(403, { 'content-type': 'text/plain' });
