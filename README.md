@@ -35,29 +35,29 @@ echo "$VARVIS_PASSWORD" | node varvis-download.cjs \
   --analysisIds AN00001 --restoreArchived force
 ```
 
-## Bounded-Range Reverse Proxy (S3 Egress Guard)
+## Bounded range proxy
 
-When performing genomic range downloads from remote AWS S3 pre-signed URLs, HTSlib (< 1.25.0, used by `samtools` and `tabix`) issues open-ended HTTP range requests (such as `Range: bytes=0-` or `Range: bytes=8224425-`). Even when client tools read only a few kilobytes before closing their sockets, remote object stores stream full payloads until TCP buffer exhaustion, incurring massive cloud egress data transfer costs (see [LaborBerlin/varvis-download#22](https://github.com/LaborBerlin/varvis-download/issues/22)).
+Ranged BAM, VCF and unmapped BAM downloads use a local HTTP proxy by default. It fetches the remote file in requests of at most 2 MiB while presenting the complete requested response to samtools or tabix. Reads can continue across any number of chunks; closing the tool's connection cancels the active upstream request.
 
-`varvis-download` includes a built-in, in-process bounded-range reverse proxy that transparently clamps open-ended requests to configurable chunk boundaries (default: 2 MiB) and aborts upstream fetches immediately upon client socket termination, achieving > 99.9% cloud egress savings on ranged queries.
+- `--no-bounded-range-proxy` connects tools directly to the remote URL.
+- `--bounded-range-chunk-size <bytes>` sets the maximum upstream request size: an integer from 65536 (64 KiB) to 67108864 (64 MiB), default 2097152 (2 MiB).
+- Config files accept `boundedRangeProxy` and `boundedRangeChunkSize`. Archive restoration saves these settings. Explicit settings in the current CLI/config override saved settings; saved settings otherwise override defaults.
 
-### CLI Options
+There is no automatic bypass based on a guessed future tool version. The proxy validates upstream range responses and cancels failed transfers. Servers that ignore Range requests, return changed objects, lack a strong ETag for multiple requests, or cannot complete a requested chunk cause a download error. The CLI exits nonzero for failed downloads.
 
-- `--bounded-range-proxy` (default: `true`): Enable the reverse proxy guard for ranged downloads. Pass `--no-bounded-range-proxy` to disable and query upstream URLs directly.
-- `--bounded-range-chunk-size <bytes>` (default: `2097152` [2 MiB]): Maximum chunk size in bytes requested upstream per range chunk.
+Each upstream request is bounded; the total bytes for a query depend on the records and seeks it needs. Proxy body-byte counters do not measure provider billing or direct-download network traffic. No fixed percentage of egress savings is claimed.
 
-### Automatic Tool Version Guard
-
-Installed tool versions are automatically inspected prior to download execution:
-
-- **`samtools` / `tabix` < 1.25.0**: Proxy is active by default to guard against unbounded egress.
-- **`samtools` / `tabix` >= 1.25.0**: Proxy is automatically bypassed because modern HTSlib contains native bounded-range support, unless `--bounded-range-proxy` is explicitly passed.
-
-To benchmark egress savings against a real remote 1000 Genomes S3 dataset (~17.28 GB):
+To compare a populated region using real tools, provide a BAM/VCF URL and its independently signed index URL through the environment:
 
 ```bash
+export BENCHMARK_URL='https://example.org/sample.bam'
+export BENCHMARK_INDEX_URL='https://example.org/sample.bam.bai'
+export BENCHMARK_TYPE=bam
+export BENCHMARK_REGION='1:10384971-10385971'
 node scripts/benchmark-bounded-proxy.mjs
 ```
+
+The benchmark runs samtools (BAM) or tabix (VCF) directly and through the proxy, compares SHA-256 hashes of decoded records, and reports timings and observed proxy body bytes. It fails on network/tool errors, empty control regions or mismatched records. `BENCHMARK_CHUNK_SIZE` optionally changes the chunk size. It never substitutes simulated results for failed measurements.
 
 ## Intended Use
 

@@ -21,6 +21,7 @@
   "boundedRangeChunkSize": 2097152,
   "boundedRangeProxy": true,
   "boundedRangeProxyExplicit": false,
+  "boundedRangeChunkSizeExplicit": false,
   "unmapped": false,
   "latest": false,
   "list": false,

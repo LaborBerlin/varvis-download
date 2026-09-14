@@ -1,359 +1,282 @@
-/* global fetch, AbortController */
-
+/* global AbortController */
 const http = require('node:http');
 const crypto = require('node:crypto');
+const path = require('node:path');
 const { URL } = require('node:url');
-const { Readable, pipeline } = require('node:stream');
-
-/**
- * Default chunk size (2 MiB).
- */
-const DEFAULT_CHUNK_SIZE = 2 * 1024 * 1024;
+const { once } = require('node:events');
+const { request } = require('undici');
+const {
+  DEFAULT_CHUNK_SIZE,
+  validateChunkSize,
+  isStrongEtag,
+  RangeProtocolError,
+  parseRange,
+  validateResponse,
+} = require('./rangeProtocol.cjs');
 
 /**
  * @typedef {object} BoundedRangeProxyOptions
- * @property {number} [chunkSize=2097152] - Maximum bytes to request per bounded range chunk.
- * @property {any}    [logger]            - Optional logger instance with debug, info, warn, error methods.
+ * @property {number} [chunkSize=2097152] - Maximum upstream range size.
+ * @property {Pick<import('winston').Logger, 'debug' | 'error'>} [logger] - Optional logger.
+ * @property {import('../types').HttpDispatcher} [dispatcher] - Caller-owned upstream dispatcher.
  */
 
 /**
  * @typedef {object} ProxyMetrics
- * @property {number} totalBytesServed   - Total number of bytes served downstream.
- * @property {number} totalChunksFetched - Total number of range chunks fetched from upstream.
+ * @property {number} totalChunksFetched - Upstream range requests attempted.
+ * @property {number} upstreamBytesRead - Raw upstream body bytes consumed.
+ * @property {number} totalBytesServed - Bytes written into downstream responses.
+ * @property {number} upstreamRequestedBytes - Sum of requested bounded span lengths.
  */
 
 /**
  * @typedef {object} BoundedRangeProxyInstance
- * @property {string}              proxyUrl   - Local loopback URL for samtools/tabix to query.
- * @property {string}              token      - Cryptographically random UUID token for route authorization.
- * @property {() => Promise<void>} close      - Closes the proxy server and terminates active upstream requests.
- * @property {() => ProxyMetrics}  getMetrics - Returns current data transfer and request metrics.
+ * @property {string} proxyUrl - Loopback URL preserving the source basename.
+ * @property {string} token - Random route authorization token.
+ * @property {() => Promise<void>} close - Aborts requests and closes the server.
+ * @property {() => ProxyMetrics} getMetrics - Copies observed transfer counters.
  */
 
 /**
- * @typedef {object} ProxyLogger
- * @property {(...args: any[]) => void} debug - Log debug message.
- * @property {(...args: any[]) => void} info  - Log info message.
- * @property {(...args: any[]) => void} warn  - Log warn message.
- * @property {(...args: any[]) => void} error - Log error message.
- */
-
-/**
- * Normalizes an optional logger into an object with debug, info, warn, and error methods.
- *
- * @param   {any}         [logger] - Optional logger or console-like object.
- * @returns {ProxyLogger}          - Normalized logger.
- */
-function normalizeLogger(logger) {
-  const noop = () => {};
-  return {
-    debug:
-      typeof logger?.debug === 'function' ? logger.debug.bind(logger) : noop,
-    info: typeof logger?.info === 'function' ? logger.info.bind(logger) : noop,
-    warn: typeof logger?.warn === 'function' ? logger.warn.bind(logger) : noop,
-    error:
-      typeof logger?.error === 'function' ? logger.error.bind(logger) : noop,
-  };
-}
-
-/**
- * Computes a bounded range string for the upstream request.
- *
- * @param   {string | undefined} rangeHeader - Incoming Range header.
- * @param   {number}             chunkSize   - Maximum chunk size in bytes.
- * @returns {string}                         - Bounded Range header value.
- */
-function computeBoundedRange(rangeHeader, chunkSize) {
-  if (!rangeHeader) {
-    return `bytes=0-${chunkSize - 1}`;
-  }
-
-  const trimmed = rangeHeader.trim();
-  if (!trimmed.startsWith('bytes=')) {
-    return rangeHeader;
-  }
-
-  const parts = trimmed.slice(6).split('-');
-  if (parts.length !== 2 || !/^\d+$/.test(parts[0])) {
-    return rangeHeader;
-  }
-
-  const start = Number.parseInt(parts[0], 10);
-  if (parts[1] === '') {
-    const end = start + chunkSize - 1;
-    return `bytes=${start}-${end}`;
-  }
-
-  if (!/^\d+$/.test(parts[1])) {
-    return rangeHeader;
-  }
-
-  const end = Number.parseInt(parts[1], 10);
-  const clampedEnd = Math.min(end, start + chunkSize - 1);
-  return `bytes=${start}-${clampedEnd}`;
-}
-
-/**
- * Creates an in-process bounded-range reverse proxy for remote ranged downloads.
- *
- * @param   {string}                             targetUrl - Upstream target URL (e.g. presigned S3 URL).
- * @param   {BoundedRangeProxyOptions}           [options] - Proxy configuration options.
- * @returns {Promise<BoundedRangeProxyInstance>}           - Proxy instance controller.
+ * Creates a loopback server that streams complete responses from bounded upstream requests.
+ * @param   {string}                             targetUrl - Signed upstream GET URL.
+ * @param   {BoundedRangeProxyOptions}           [options] - Proxy options.
+ * @returns {Promise<BoundedRangeProxyInstance>}           - Server controller and observed transfer counters.
  */
 async function createBoundedRangeProxy(targetUrl, options = {}) {
-  if (typeof targetUrl !== 'string' || targetUrl.trim() === '') {
+  if (typeof targetUrl !== 'string' || targetUrl.trim() === '')
     throw new TypeError('targetUrl must be a non-empty string');
-  }
-
-  const chunkSize =
-    typeof options.chunkSize === 'number' && options.chunkSize > 0
-      ? options.chunkSize
-      : DEFAULT_CHUNK_SIZE;
-
-  const log = normalizeLogger(options.logger);
+  const target = new URL(targetUrl);
+  if (!['http:', 'https:'].includes(target.protocol))
+    throw new TypeError('targetUrl must use HTTP or HTTPS');
+  const chunkSize = validateChunkSize(
+    options.chunkSize === undefined ? DEFAULT_CHUNK_SIZE : options.chunkSize,
+  );
   const token = crypto.randomUUID();
-
-  let totalBytesServed = 0;
-  let totalChunksFetched = 0;
-
+  const filename = path.posix.basename(target.pathname) || 'data';
+  const route = `/stream/${token}/${filename}`;
   /** @type {Set<AbortController>} */
-  const activeAbortControllers = new Set();
-  /** @type {Set<import('node:net').Socket>} */
-  const activeSockets = new Set();
+  const controllers = new Set();
+  const metrics = {
+    totalChunksFetched: 0,
+    upstreamBytesRead: 0,
+    totalBytesServed: 0,
+    upstreamRequestedBytes: 0,
+  };
+  /** @type {{size?: number, etag?: string}} */
+  const object = {};
 
-  const server = http.createServer(async (req, res) => {
-    // parse request url with fixed dummy base
-    const parsedUrl = new URL(req.url || '/', 'http://127.0.0.1');
-
-    if (parsedUrl.pathname !== `/stream/${token}`) {
-      res.writeHead(403, { 'content-type': 'text/plain' });
-      res.end('Forbidden');
-      return;
+  /**
+   * Requests and validates one bounded range, leaving the body for its consumer.
+   * @param   {number}                                                                                   start  - First byte.
+   * @param   {number}                                                                                   end    - Last byte.
+   * @param   {AbortSignal}                                                                              signal - Downstream cancellation signal.
+   * @returns {Promise<{upstream: import('undici').Dispatcher.ResponseData, size: number, end: number}>}        - Validated range.
+   */
+  async function getChunk(start, end, signal) {
+    signal.throwIfAborted();
+    if (object.size !== undefined && !isStrongEtag(object.etag)) {
+      throw new RangeProtocolError(
+        'A strong ETag is required for additional range requests',
+      );
     }
-
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-      res.writeHead(405, { 'content-type': 'text/plain' });
-      res.end('Method Not Allowed');
-      return;
-    }
-
-    const abortController = new AbortController();
-    activeAbortControllers.add(abortController);
-
-    let finished = false;
-    const cleanup = () => {
-      activeAbortControllers.delete(abortController);
-    };
-
-    const onClose = () => {
-      if (!finished) {
-        abortController.abort();
-      }
-      cleanup();
-    };
-
-    res.on('finish', () => {
-      finished = true;
-      cleanup();
+    metrics.totalChunksFetched++;
+    metrics.upstreamRequestedBytes += end - start + 1;
+    const upstream = await request(targetUrl, {
+      method: 'GET',
+      headers: {
+        range: `bytes=${start}-${end}`,
+        'accept-encoding': 'identity',
+        ...(isStrongEtag(object.etag) ? { 'if-match': object.etag } : {}),
+      },
+      dispatcher: options.dispatcher,
+      signal,
+      headersTimeout: 15000,
+      bodyTimeout: 15000,
     });
-    res.on('close', onClose);
-    req.on('close', onClose);
-
-    if (req.method === 'HEAD') {
-      let upstreamRes;
-      try {
-        upstreamRes = await fetch(targetUrl, {
-          method: 'HEAD',
-          signal: abortController.signal,
-        });
-      } catch (err) {
-        if (abortController.signal.aborted) {
-          return;
-        }
-        log.error(
-          `Upstream HEAD error: ${err instanceof Error ? err.message : String(err)}`,
-        );
-        if (!res.headersSent) {
-          res.writeHead(502, { 'content-type': 'text/plain' });
-          res.end('Bad Gateway');
-        }
-        return;
-      }
-
-      /** @type {Record<string, string>} */
-      const forwardHeaders = {};
-      const cl = upstreamRes.headers.get('content-length');
-      if (cl) forwardHeaders['content-length'] = cl;
-      const ar = upstreamRes.headers.get('accept-ranges');
-      if (ar) forwardHeaders['accept-ranges'] = ar;
-      const ct = upstreamRes.headers.get('content-type');
-      if (ct) forwardHeaders['content-type'] = ct;
-
-      res.writeHead(upstreamRes.status, forwardHeaders);
-      res.end();
-      return;
-    }
-
-    // Handle GET request
-    const rangeHeader = req.headers.range;
-    const upstreamRange = computeBoundedRange(rangeHeader, chunkSize);
-
-    totalChunksFetched += 1;
-
-    let upstreamRes;
+    // Rejected responses must still have their body destroyed without an unhandled error.
+    upstream.body.on('error', () => {});
     try {
-      upstreamRes = await fetch(targetUrl, {
-        method: 'GET',
-        headers: {
-          range: upstreamRange,
-        },
-        signal: abortController.signal,
-      });
-    } catch (err) {
-      if (abortController.signal.aborted) {
-        log.debug('Upstream GET request aborted');
-        return;
-      }
-      log.error(
-        `Upstream GET error: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      if (!res.headersSent) {
-        res.writeHead(502, { 'content-type': 'text/plain' });
-        res.end('Bad Gateway');
-      }
-      return;
+      const metadata = validateResponse(upstream, start, end, object);
+      object.size = metadata.size;
+      object.etag = metadata.etag;
+      return { upstream, size: metadata.size, end: metadata.end };
+    } catch (error) {
+      upstream.body.destroy();
+      throw error;
     }
-
-    /** @type {Record<string, string>} */
-    const forwardHeaders = {};
-    const cl = upstreamRes.headers.get('content-length');
-    if (cl) forwardHeaders['content-length'] = cl;
-    const cr = upstreamRes.headers.get('content-range');
-    if (cr) forwardHeaders['content-range'] = cr;
-    const ct = upstreamRes.headers.get('content-type');
-    if (ct) forwardHeaders['content-type'] = ct;
-    forwardHeaders['accept-ranges'] =
-      upstreamRes.headers.get('accept-ranges') || 'bytes';
-
-    res.writeHead(upstreamRes.status, forwardHeaders);
-
-    if (upstreamRes.body) {
-      const nodeStream = Readable.fromWeb(
-        /** @type {import('node:stream/web').ReadableStream} */ (
-          upstreamRes.body
-        ),
-      );
-
-      nodeStream.on('data', (chunk) => {
-        totalBytesServed += chunk.length;
-      });
-
-      pipeline(nodeStream, res, (err) => {
-        if (err) {
-          const errCode = /** @type {{ code?: string }} */ (err).code;
-          if (
-            err.name === 'AbortError' ||
-            errCode === 'ABORT_ERR' ||
-            errCode === 'ERR_STREAM_PREMATURE_CLOSE'
-          ) {
-            log.debug('Streaming ended early or aborted');
-          } else {
-            log.warn(`Streaming pipeline error: ${err.message}`);
-          }
-        }
-      });
-    } else {
-      res.end();
-    }
-  });
-
-  server.on('connection', (socket) => {
-    activeSockets.add(socket);
-    socket.on('close', () => {
-      activeSockets.delete(socket);
-    });
-  });
-
-  /** @type {Promise<void>} */
-  const listenPromise = new Promise((resolve, reject) => {
-    server.listen(0, '127.0.0.1', () => {
-      resolve();
-    });
-    server.on('error', reject);
-  });
-  await listenPromise;
-
-  const addr = server.address();
-  if (!addr || typeof addr === 'string') {
-    throw new Error('Failed to obtain server address');
   }
 
-  const proxyUrl = `http://127.0.0.1:${addr.port}/stream/${token}`;
-
-  let isClosed = false;
   /**
-   * Closes the proxy server and aborts any in-flight upstream requests.
-   *
-   * @returns {Promise<void>} Resolves when server is closed.
+   * Reads a chunk under backpressure and verifies its complete body length.
+   * @param   {Awaited<ReturnType<typeof getChunk>>} chunk        - Validated range.
+   * @param   {number}                               start        - First byte.
+   * @param   {AbortSignal}                          signal       - Cancellation signal.
+   * @param   {import('node:http').ServerResponse}   [downstream] - Omit for metadata probes.
+   * @returns {Promise<void>}                                     - Resolves after complete validated consumption.
    */
-  const close = async () => {
-    if (isClosed) {
+  async function consumeChunk(chunk, start, signal, downstream) {
+    const expected = chunk.end - start + 1;
+    let received = 0;
+    /** @type {Buffer | undefined} */
+    let lastByte;
+    /**
+     * Writes bytes after respecting downstream backpressure.
+     * @param   {Buffer}        bytes - Bytes to write.
+     * @returns {Promise<void>}       - Resolves after backpressure.
+     */
+    const write = async (bytes) => {
+      if (!downstream || bytes.length === 0) return;
+      signal.throwIfAborted();
+      metrics.totalBytesServed += bytes.length;
+      if (!downstream.write(bytes)) await once(downstream, 'drain', { signal });
+    };
+    for await (const bytes of chunk.upstream.body) {
+      signal.throwIfAborted();
+      received += bytes.length;
+      metrics.upstreamBytesRead += bytes.length;
+      if (received > expected)
+        throw new RangeProtocolError('Upstream exceeded requested range');
+      // Keep the final byte until EOF validation so incomplete framing cannot look complete.
+      if (received === expected) {
+        lastByte = bytes.subarray(bytes.length - 1);
+        await write(bytes.subarray(0, bytes.length - 1));
+      } else await write(bytes);
+    }
+    if (received !== expected)
+      throw new RangeProtocolError('Truncated upstream chunk');
+    if (lastByte) await write(lastByte);
+  }
+
+  const server = http.createServer(async (incoming, downstream) => {
+    if (incoming.url?.split('?')[0] !== route) {
+      downstream.writeHead(403).end();
       return;
     }
-
-    for (const ac of activeAbortControllers) {
-      ac.abort();
+    if (incoming.method !== 'GET' && incoming.method !== 'HEAD') {
+      downstream.writeHead(405, { allow: 'GET, HEAD' }).end();
+      return;
     }
-    activeAbortControllers.clear();
-
-    if (typeof server.closeIdleConnections === 'function') {
-      server.closeIdleConnections();
-    }
-    if (typeof server.closeAllConnections === 'function') {
-      server.closeAllConnections();
-    }
-
-    for (const socket of activeSockets) {
-      socket.destroy();
-    }
-    activeSockets.clear();
-
-    /** @type {Promise<void>} */
-    const closePromise = new Promise((resolve, reject) => {
-      server.close((err) => {
-        if (
-          err &&
-          /** @type {{ code?: string }} */ (err).code !==
-            'ERR_SERVER_NOT_RUNNING'
-        ) {
-          reject(err);
-          return;
+    const controller = new AbortController();
+    const { signal } = controller;
+    controllers.add(controller);
+    const abort = () => controller.abort();
+    downstream.on('close', abort);
+    incoming.on('aborted', abort);
+    /** @type {Awaited<ReturnType<typeof getChunk>> | undefined} */
+    let current;
+    const head = incoming.method === 'HEAD';
+    const range = head ? undefined : incoming.headers.range;
+    try {
+      const span = parseRange(range);
+      let start = span.start;
+      if (span.suffix !== undefined) {
+        if (object.size === undefined) {
+          current = await getChunk(0, 0, signal);
+          await consumeChunk(current, 0, signal);
         }
-        isClosed = true;
-        resolve();
+        start = Math.max(0, (object.size ?? 0) - span.suffix);
+      }
+      const boundedEnd = Math.min(
+        span.end ?? Number.MAX_SAFE_INTEGER,
+        start + Math.min(chunkSize - 1, Number.MAX_SAFE_INTEGER - start),
+      );
+      current = await getChunk(start, head ? 0 : boundedEnd, signal);
+      const finalEnd = Math.min(span.end ?? current.size - 1, current.size - 1);
+      if (!head && finalEnd > current.end && !isStrongEtag(object.etag)) {
+        throw new RangeProtocolError(
+          'A strong ETag is required to combine upstream ranges',
+        );
+      }
+      const contentType = current.upstream.headers['content-type'];
+      if (head) await consumeChunk(current, 0, signal);
+      downstream.writeHead(range === undefined ? 200 : 206, {
+        'content-length': head ? current.size : finalEnd - start + 1,
+        'accept-ranges': 'bytes',
+        'content-type':
+          typeof contentType === 'string'
+            ? contentType
+            : 'application/octet-stream',
+        ...(range !== undefined
+          ? { 'content-range': `bytes ${start}-${finalEnd}/${current.size}` }
+          : {}),
+        ...(object.etag ? { etag: object.etag } : {}),
       });
-    });
-    await closePromise;
-  };
-
-  /**
-   * Returns current proxy metrics.
-   *
-   * @returns {ProxyMetrics} Transfer and chunk count metrics.
-   */
-  const getMetrics = () => ({
-    totalBytesServed,
-    totalChunksFetched,
+      if (!head) {
+        while (true) {
+          await consumeChunk(current, start, signal, downstream);
+          start = current.end + 1;
+          if (start > finalEnd) break;
+          current = await getChunk(
+            start,
+            Math.min(
+              finalEnd,
+              start + Math.min(chunkSize - 1, Number.MAX_SAFE_INTEGER - start),
+            ),
+            signal,
+          );
+        }
+      }
+      downstream.end();
+    } catch (error) {
+      if (!signal.aborted && !downstream.destroyed) {
+        if (downstream.headersSent) downstream.destroy();
+        else if (
+          error instanceof RangeProtocolError &&
+          error.status === 416 &&
+          error.size === 0 &&
+          range === undefined
+        ) {
+          object.size = 0;
+          downstream
+            .writeHead(200, { 'content-length': '0', 'accept-ranges': 'bytes' })
+            .end();
+        } else {
+          const status =
+            error instanceof RangeProtocolError ? error.status : 502;
+          const size =
+            error instanceof RangeProtocolError ? error.size : undefined;
+          downstream
+            .writeHead(
+              status,
+              size !== undefined ? { 'content-range': `bytes */${size}` } : {},
+            )
+            .end();
+          // Transport errors may contain signed URLs; only log a fixed diagnostic.
+          if (status === 502)
+            options.logger?.error(
+              'Bounded range proxy upstream request failed',
+            );
+        }
+      }
+    } finally {
+      current?.upstream.body.destroy();
+      controller.abort();
+      controllers.delete(controller);
+    }
   });
-
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const address = server.address();
+  if (!address || typeof address === 'string')
+    throw new Error('Failed to obtain proxy address');
+  /** @type {Promise<void> | undefined} */
+  let closing;
   return {
-    proxyUrl,
+    proxyUrl: `http://127.0.0.1:${address.port}${route}`,
     token,
-    close,
-    getMetrics,
+    getMetrics: () => ({ ...metrics }),
+    close: () =>
+      (closing ??= (async () => {
+        for (const controller of controllers) controller.abort();
+        /** @type {Promise<void>} */
+        const closed = new Promise((resolve, reject) =>
+          server.close((error) => (error ? reject(error) : resolve())),
+        );
+        server.closeAllConnections();
+        await closed;
+      })()),
   };
 }
 
-module.exports = {
-  createBoundedRangeProxy,
-};
+module.exports = { createBoundedRangeProxy };

@@ -4,6 +4,24 @@ This folder contains modularized JavaScript files used by the Varvis Download CL
 
 ## Files
 
+### Ranged download modules
+
+| Module                                               | Responsibility                                                                                           |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `net/boundedRangeProxy.cjs`                          | Loopback server, continuous responses from bounded upstream requests, cancellation and transfer counters |
+| `net/rangeProtocol.cjs`                              | Chunk-size, HTTP range and upstream response validation                                                  |
+| `rangedUtils.cjs`                                    | BAM/VCF extraction orchestration and local index preparation                                             |
+| `download/bamHandler.cjs`, `download/vcfHandler.cjs` | File selection, proxy configuration, output indexing and download results                                |
+| `commands/download.cjs`, `commands/resume.cjs`       | Normal/resumed execution, saved proxy settings and failure propagation                                   |
+
+`download/vcfPipeline.cjs` coordinates tabix, bgzip and their streams.
+`download/toolDiagnostics.cjs` caps diagnostics and redacts URLs.
+`download/atomicOutput.cjs` stages extraction and indexing and rolls back failed
+publication of the output pair.
+
+The proxy receives the existing HTTP dispatcher. Its owner closes the local
+server after tool execution; the proxy never closes the shared dispatcher.
+
 ### authService.js
 
 Handles authentication with the Varvis API.

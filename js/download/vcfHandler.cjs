@@ -1,3 +1,4 @@
+const { withStagedOutput } = require('./atomicOutput.cjs');
 const path = require('node:path');
 
 const { fullDownloadWithOptionalIndex } = require('./commonDownload.cjs');
@@ -133,20 +134,28 @@ async function handleVcfFile(args, deps) {
       logger.info(
         `Performing ranged download for VCF file: ${fileName} with region: ${region}`,
       );
-      await rangedDownloadVCF(
-        downloadLink,
-        region,
+      await withStagedOutput(
         regionSpecificOutputFile,
-        indexFilePath,
-        logger,
-        metrics,
         overwrite,
-        {
-          enabled: boundedRangeProxy,
-          chunkSize: boundedRangeChunkSize,
+        '.tbi',
+        async (stagedFile) => {
+          await rangedDownloadVCF(
+            downloadLink,
+            region,
+            stagedFile,
+            indexFilePath,
+            logger,
+            metrics,
+            overwrite,
+            {
+              enabled: boundedRangeProxy,
+              chunkSize: boundedRangeChunkSize,
+              dispatcher: agent,
+            },
+          );
+          await indexVCF(stagedFile, logger, overwrite);
         },
       );
-      await indexVCF(regionSpecificOutputFile, logger, overwrite);
     } catch (error) {
       ok = false;
       logger.error(

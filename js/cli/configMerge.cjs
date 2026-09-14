@@ -1,4 +1,8 @@
 const path = require('node:path');
+const {
+  DEFAULT_CHUNK_SIZE,
+  validateChunkSize,
+} = require('../net/rangeProtocol.cjs');
 
 const {
   normalizeArrayInput,
@@ -320,14 +324,19 @@ function mergeConfig({ argv = {}, config = {}, env = {} } = {}) {
     explicitChunkSize !== undefined
       ? explicitChunkSize
       : config.boundedRangeChunkSize;
-  const boundedRangeChunkSize =
-    typeof rawChunkSize === 'number' && !Number.isNaN(rawChunkSize)
-      ? rawChunkSize
-      : typeof rawChunkSize === 'string' &&
-          !Number.isNaN(Number(rawChunkSize)) &&
-          rawChunkSize.trim() !== ''
-        ? Number(rawChunkSize)
-        : 2097152;
+  let boundedRangeChunkSize;
+  try {
+    boundedRangeChunkSize = validateChunkSize(
+      rawChunkSize === undefined ? DEFAULT_CHUNK_SIZE : Number(rawChunkSize),
+    );
+  } catch {
+    throw new ConfigurationError(
+      '--bounded-range-chunk-size must be an integer between 65536 and 67108864 bytes.',
+    );
+  }
+  const boundedRangeChunkSizeExplicit =
+    hasExplicitOption(argv, 'boundedRangeChunkSize') ||
+    config.boundedRangeChunkSize !== undefined;
 
   /** @type {import('../types').FinalConfig} */
   const finalConfig = {
@@ -408,6 +417,7 @@ function mergeConfig({ argv = {}, config = {}, env = {} } = {}) {
     boundedRangeProxy,
     boundedRangeChunkSize,
     boundedRangeProxyExplicit,
+    boundedRangeChunkSizeExplicit,
   };
 
   if (configPath) {

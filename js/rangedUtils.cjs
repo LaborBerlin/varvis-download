@@ -1,18 +1,17 @@
-const { spawn } = require('node:child_process');
+const { runVcfPipeline } = require('./download/vcfPipeline.cjs');
+const { redactToolText } = require('./download/toolDiagnostics.cjs');
 const fs = require('node:fs');
+const { randomUUID } = require('node:crypto');
 const path = require('node:path');
 const { downloadFile } = require('./fileUtils.cjs');
 const { createBoundedRangeProxy } = require('./net/boundedRangeProxy.cjs');
-const {
-  spawnPromise,
-  compareVersions,
-  checkToolAvailability,
-} = require('./toolChecks.cjs');
+const { spawnPromise } = require('./toolChecks.cjs');
 const { getErrorMessage } = require('./errorUtils.cjs');
 
 /**
  * @typedef {object} ProxyOptions
  * @property {boolean} [enabled] - Whether bounded range reverse proxy is enabled.
+ * @property {import('./types').HttpDispatcher} [dispatcher] - Configured upstream dispatcher.
  * @property {number}  [chunkSize] - Maximum chunk size in bytes for bounded range requests.
  */
 
@@ -49,6 +48,8 @@ async function rangedDownloadBAM(
     return;
   }
 
+  const temporaryOutput = `${outputFile}.${randomUUID()}.partial`;
+
   /** @type {import('./net/boundedRangeProxy.cjs').BoundedRangeProxyInstance | undefined} */
   let proxy;
   try {
@@ -57,6 +58,7 @@ async function rangedDownloadBAM(
     if (proxyOptions?.enabled !== false) {
       proxy = await createBoundedRangeProxy(url, {
         chunkSize: proxyOptions?.chunkSize,
+        dispatcher: proxyOptions?.dispatcher,
         logger,
       });
       effectiveUrl = proxy.proxyUrl;
@@ -82,7 +84,7 @@ async function rangedDownloadBAM(
         ...regions,
         '*',
         '-o',
-        outputFile,
+        temporaryOutput,
       ];
     } else {
       // standard ranged download using BED file
@@ -97,20 +99,21 @@ async function rangedDownloadBAM(
         bedFile,
         '-M',
         '-o',
-        outputFile,
+        temporaryOutput,
       ];
     }
 
-    logger.info(`Running command: samtools ${args.join(' ')}`);
+    logger.info(redactToolText(`Running command: samtools ${args.join(' ')}`));
 
     await spawnPromise('samtools', args, logger);
+    fs.renameSync(temporaryOutput, outputFile);
     logger.info(`Downloaded BAM file to ${outputFile}`);
     metrics.totalFilesDownloaded += 1;
   } catch (error) {
     // clean up partial output file on failure
-    if (fs.existsSync(outputFile)) {
+    if (fs.existsSync(temporaryOutput)) {
       try {
-        fs.unlinkSync(outputFile);
+        fs.unlinkSync(temporaryOutput);
         logger.debug(`Cleaned up partial file: ${outputFile}`);
       } catch {
         /* ignore cleanup errors */
@@ -161,6 +164,8 @@ async function rangedDownloadVCF(
     return;
   }
 
+  const temporaryOutput = `${outputFile}.${randomUUID()}.partial`;
+
   /** @type {import('./net/boundedRangeProxy.cjs').BoundedRangeProxyInstance | undefined} */
   let proxy;
   let effectiveUrl = url;
@@ -168,6 +173,7 @@ async function rangedDownloadVCF(
   if (proxyOptions?.enabled !== false) {
     proxy = await createBoundedRangeProxy(url, {
       chunkSize: proxyOptions?.chunkSize,
+      dispatcher: proxyOptions?.dispatcher,
       logger,
     });
     effectiveUrl = proxy.proxyUrl;
@@ -187,129 +193,19 @@ async function rangedDownloadVCF(
   };
 
   try {
-    return await new Promise((resolve, reject) => {
-      // for tabix to work with remote URLs:
-      // 1. The index file must already be downloaded (handled by ensureIndexFile)
-      // 2. Execute tabix in the directory containing the index file
-      // 3. The index file must be named exactly as expected by tabix (basename.vcf.gz.tbi)
-
-      // get directory where the index file is located
-      const indexDir = path.dirname(indexFile);
-
-      // spawn tabix directly to extract the region with header
-      logger.info(
-        `Executing in ${indexDir}: tabix -h ${effectiveUrl} ${range}`,
-      );
-      const tabixProcess = spawn('tabix', ['-h', effectiveUrl, range], {
-        cwd: indexDir,
-      });
-
-      // spawn bgzip to compress the output
-      const bgzipArgs = ['-c'];
-      logger.info(`Piping to: bgzip -c`);
-      const bgzipProcess = spawn('bgzip', bgzipArgs);
-
-      // create write stream for the final output file
-      const outputStream = fs.createWriteStream(outputFile);
-
-      // track completion states to avoid race conditions
-      /** @type {string|null} */
-      let processError = null;
-      let bgzipClosed = false;
-      let streamFinished = false;
-      let resolved = false;
-
-      // clean up partial output file on error
-      const cleanup = () => {
-        if (fs.existsSync(outputFile) && processError) {
-          try {
-            fs.unlinkSync(outputFile);
-          } catch {
-            // ignore cleanup errors
-          }
-        }
-      };
-
-      // try resolving promise when all stream and process stages finish
-      const tryResolve = async () => {
-        if (resolved) return;
-        if (bgzipClosed && streamFinished) {
-          resolved = true;
-          await closeProxy();
-          if (processError) {
-            cleanup();
-            reject(new Error(processError));
-          } else {
-            logger.info(`Ranged VCF download complete: ${outputFile}`);
-            metrics.totalFilesDownloaded += 1;
-            resolve();
-          }
-        }
-      };
-
-      /**
-       * Abort pipeline and reject immediately on process or stream error.
-       *
-       * @param   {string}                  procName - Name of the failing process/stream.
-       * @param   {Error|{message: string}} err      - Failure error.
-       * @returns {Promise<void>}
-       */
-      const failImmediately = async (procName, err) => {
-        if (resolved) return;
-        resolved = true;
-        if (!processError)
-          processError = `Error in ${procName}: ${err.message}`;
-        await closeProxy();
-        cleanup();
-        reject(new Error(processError));
-      };
-
-      // pipe stdout of tabix to stdin of bgzip
-      tabixProcess.stdout.pipe(bgzipProcess.stdin);
-
-      // pipe stdout of bgzip to output file stream
-      bgzipProcess.stdout.pipe(outputStream);
-
-      const MAX_STDERR_BUFFER = 65536;
-      let tabixError = '';
-      tabixProcess.stderr.on('data', (data) => {
-        tabixError += data.toString().slice(0, Math.max(0, MAX_STDERR_BUFFER - tabixError.length));
-        logger.debug(`[tabix stderr]: ${data.toString().trim()}`);
-      });
-
-      let bgzipError = '';
-      bgzipProcess.stderr.on('data', (data) => {
-        bgzipError += data.toString().slice(0, Math.max(0, MAX_STDERR_BUFFER - bgzipError.length));
-        logger.debug(`[bgzip stderr]: ${data.toString().trim()}`);
-      });
-
-      // listen for process and stream errors
-      tabixProcess.on('error', (err) => failImmediately('tabix', err));
-      bgzipProcess.on('error', (err) => failImmediately('bgzip', err));
-      outputStream.on('error', (err) => failImmediately('outputStream', err));
-
-      // register finish handler before piping finishes
-      outputStream.on('finish', () => {
-        streamFinished = true;
-        tryResolve();
-      });
-
-      // handle process exits
-      bgzipProcess.on('close', (code) => {
-        if (code !== 0 && !processError) {
-          processError = `bgzip process exited with code ${code}. Stderr: ${bgzipError}`;
-        }
-        bgzipClosed = true;
-        tryResolve();
-      });
-
-      tabixProcess.on('close', (code) => {
-        if (code !== 0 && !processError) {
-          processError = `tabix process exited with code ${code}. Stderr: ${tabixError}`;
-        }
-        // don't resolve here; wait for bgzip and stream to finish
-      });
-    });
+    await runVcfPipeline(
+      effectiveUrl,
+      range,
+      temporaryOutput,
+      indexFile,
+      logger,
+    );
+    fs.renameSync(temporaryOutput, outputFile);
+    logger.info(`Ranged VCF download complete: ${outputFile}`);
+    metrics.totalFilesDownloaded += 1;
+  } catch (error) {
+    if (fs.existsSync(temporaryOutput)) fs.unlinkSync(temporaryOutput);
+    throw error;
   } finally {
     await closeProxy();
   }
@@ -347,6 +243,8 @@ async function unmappedDownloadBAM(
     return;
   }
 
+  const temporaryOutput = `${outputFile}.${randomUUID()}.partial`;
+
   /** @type {import('./net/boundedRangeProxy.cjs').BoundedRangeProxyInstance | undefined} */
   let proxy;
   try {
@@ -355,6 +253,7 @@ async function unmappedDownloadBAM(
     if (proxyOptions?.enabled !== false) {
       proxy = await createBoundedRangeProxy(url, {
         chunkSize: proxyOptions?.chunkSize,
+        dispatcher: proxyOptions?.dispatcher,
         logger,
       });
       effectiveUrl = proxy.proxyUrl;
@@ -369,18 +268,19 @@ async function unmappedDownloadBAM(
       indexFile,
       '*',
       '-o',
-      outputFile,
+      temporaryOutput,
     ];
-    logger.info(`Running command: samtools ${args.join(' ')}`);
+    logger.info(redactToolText(`Running command: samtools ${args.join(' ')}`));
 
     await spawnPromise('samtools', args, logger);
+    fs.renameSync(temporaryOutput, outputFile);
     logger.info(`Extracted unmapped reads to ${outputFile}`);
     metrics.totalFilesDownloaded += 1;
   } catch (error) {
     // clean up partial output file on failure
-    if (fs.existsSync(outputFile)) {
+    if (fs.existsSync(temporaryOutput)) {
       try {
-        fs.unlinkSync(outputFile);
+        fs.unlinkSync(temporaryOutput);
         logger.debug(`Cleaned up partial file: ${outputFile}`);
       } catch {
         /* ignore cleanup errors */
@@ -420,6 +320,7 @@ async function indexBAM(bamFile, logger, overwrite = false) {
     await spawnPromise('samtools', args, logger);
     logger.info(`Indexed BAM file: ${bamFile}`);
   } catch (error) {
+    if (fs.existsSync(indexFile)) fs.unlinkSync(indexFile);
     logger.error(`Error indexing BAM file: ${getErrorMessage(error)}`);
     throw error;
   }
@@ -445,6 +346,7 @@ async function indexVCF(vcfGzFile, logger, overwrite = false) {
     await spawnPromise('tabix', args, logger);
     logger.info(`Indexed VCF.gz file: ${vcfGzFile}`);
   } catch (error) {
+    if (fs.existsSync(indexFile)) fs.unlinkSync(indexFile);
     logger.error(`Error indexing VCF.gz file: ${getErrorMessage(error)}`);
     throw error;
   }
@@ -478,7 +380,7 @@ async function ensureIndexFile(
   }
 
   try {
-    logger.info(`Downloading index file from ${indexUrl} to ${indexFilePath}`);
+    logger.info(`Downloading index file to ${indexFilePath}`);
     await downloadFile(
       indexUrl,
       indexFilePath,
@@ -554,9 +456,6 @@ function generateOutputFileName(fileName, regions, logger) {
 }
 
 module.exports = {
-  // Re-export from toolChecks for backwards compatibility
-  checkToolAvailability,
-  compareVersions,
   // Core ranged download functions
   rangedDownloadBAM,
   rangedDownloadVCF,

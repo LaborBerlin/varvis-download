@@ -1,3 +1,8 @@
+const {
+  createMockToolProcess,
+  createMockToolOutput,
+} = require('../helpers/toolProcesses');
+const { compareVersions } = require('../../js/toolChecks.cjs');
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 
@@ -8,12 +13,7 @@ jest.mock('fs');
 // Mock fileUtils
 jest.mock('../../js/fileUtils');
 
-const {
-  compareVersions,
-  rangedDownloadVCF,
-  indexVCF,
-  generateOutputFileName,
-} = require('../../js/rangedUtils');
+const { rangedDownloadVCF, indexVCF } = require('../../js/rangedUtils');
 
 describe('rangedUtils', () => {
   let mockLogger;
@@ -240,28 +240,9 @@ describe('rangedUtils', () => {
       fs.existsSync.mockReturnValue(true); // File exists
 
       // Mock spawn to return a process-like object with proper event handling
-      const mockTabixProcess = {
-        stdout: { pipe: jest.fn() },
-        stderr: { on: jest.fn() },
-        on: jest.fn(),
-      };
-      const mockBgzipProcess = {
-        stdin: {},
-        stdout: { pipe: jest.fn() },
-        stderr: { on: jest.fn() },
-        on: jest.fn((event, callback) => {
-          if (event === 'close') {
-            setTimeout(() => callback(0), 0); // Exit code 0 = success
-          }
-        }),
-      };
-      const mockOutputStream = {
-        on: jest.fn((event, callback) => {
-          if (event === 'finish') {
-            setTimeout(() => callback(), 0);
-          }
-        }),
-      };
+      const mockTabixProcess = createMockToolProcess();
+      const mockBgzipProcess = createMockToolProcess(0);
+      const mockOutputStream = createMockToolOutput();
 
       spawn
         .mockReturnValueOnce(mockTabixProcess)
@@ -300,29 +281,10 @@ describe('rangedUtils', () => {
       fs.existsSync.mockReturnValue(false);
 
       // Mock spawn to return process-like objects
-      const mockTabixProcess = {
-        stdout: { pipe: jest.fn() },
-        stderr: { on: jest.fn() },
-        on: jest.fn(),
-      };
-      const mockBgzipProcess = {
-        stdin: {},
-        stdout: { pipe: jest.fn() },
-        stderr: { on: jest.fn() },
-        on: jest.fn((event, callback) => {
-          if (event === 'close') {
-            setTimeout(() => callback(1), 0); // Exit code 1 = failure
-          }
-        }),
-      };
+      const mockTabixProcess = createMockToolProcess();
+      const mockBgzipProcess = createMockToolProcess(1);
       // Mock output stream that triggers finish event (needed for completion check)
-      const mockOutputStream = {
-        on: jest.fn((event, callback) => {
-          if (event === 'finish') {
-            setTimeout(() => callback(), 10); // Trigger finish after bgzip close
-          }
-        }),
-      };
+      const mockOutputStream = createMockToolOutput();
 
       spawn
         .mockReturnValueOnce(mockTabixProcess)
@@ -350,28 +312,9 @@ describe('rangedUtils', () => {
       fs.existsSync.mockReturnValue(false);
 
       // Mock spawn to return process-like objects
-      const mockTabixProcess = {
-        stdout: { pipe: jest.fn() },
-        stderr: { on: jest.fn() },
-        on: jest.fn(),
-      };
-      const mockBgzipProcess = {
-        stdin: {},
-        stdout: { pipe: jest.fn() },
-        stderr: { on: jest.fn() },
-        on: jest.fn((event, callback) => {
-          if (event === 'close') {
-            setTimeout(() => callback(0), 0); // Exit code 0 = success
-          }
-        }),
-      };
-      const mockOutputStream = {
-        on: jest.fn((event, callback) => {
-          if (event === 'finish') {
-            setTimeout(() => callback(), 0);
-          }
-        }),
-      };
+      const mockTabixProcess = createMockToolProcess();
+      const mockBgzipProcess = createMockToolProcess(0);
+      const mockOutputStream = createMockToolOutput();
 
       spawn
         .mockReturnValueOnce(mockTabixProcess)
@@ -408,9 +351,11 @@ describe('rangedUtils', () => {
       // Verify piping is set up correctly
       expect(mockTabixProcess.stdout.pipe).toHaveBeenCalledWith(
         mockBgzipProcess.stdin,
+        expect.any(Object),
       );
       expect(mockBgzipProcess.stdout.pipe).toHaveBeenCalledWith(
         mockOutputStream,
+        expect.any(Object),
       );
     });
   });

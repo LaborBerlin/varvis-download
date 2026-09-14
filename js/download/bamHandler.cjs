@@ -1,3 +1,4 @@
+const { withStagedOutput } = require('./atomicOutput.cjs');
 const path = require('node:path');
 
 const { fullDownloadWithOptionalIndex } = require('./commonDownload.cjs');
@@ -135,22 +136,30 @@ async function handleBamFile(args, deps) {
     try {
       const modeLabel = unmapped ? 'ranged + unmapped' : 'ranged';
       logger.info(`Performing ${modeLabel} download for BAM file: ${fileName}`);
-      await rangedDownloadBAM(
-        downloadLink,
-        tempBedPath,
+      await withStagedOutput(
         outputFile,
-        indexFilePath,
-        logger,
-        metrics,
         overwrite,
-        unmapped,
-        regions,
-        {
-          enabled: boundedRangeProxy,
-          chunkSize: boundedRangeChunkSize,
+        '.bai',
+        async (stagedFile) => {
+          await rangedDownloadBAM(
+            downloadLink,
+            tempBedPath,
+            stagedFile,
+            indexFilePath,
+            logger,
+            metrics,
+            overwrite,
+            unmapped,
+            regions,
+            {
+              enabled: boundedRangeProxy,
+              chunkSize: boundedRangeChunkSize,
+              dispatcher: agent,
+            },
+          );
+          await indexBAM(stagedFile, logger, overwrite);
         },
       );
-      await indexBAM(outputFile, logger, overwrite);
     } catch (error) {
       ok = false;
       logger.error(
@@ -166,19 +175,27 @@ async function handleBamFile(args, deps) {
   );
   try {
     logger.info(`Extracting unmapped reads from BAM file: ${fileName}`);
-    await unmappedDownloadBAM(
-      downloadLink,
+    await withStagedOutput(
       unmappedOutputFile,
-      indexFilePath,
-      logger,
-      metrics,
       overwrite,
-      {
-        enabled: boundedRangeProxy,
-        chunkSize: boundedRangeChunkSize,
+      '.bai',
+      async (stagedFile) => {
+        await unmappedDownloadBAM(
+          downloadLink,
+          stagedFile,
+          indexFilePath,
+          logger,
+          metrics,
+          overwrite,
+          {
+            enabled: boundedRangeProxy,
+            chunkSize: boundedRangeChunkSize,
+            dispatcher: agent,
+          },
+        );
+        await indexBAM(stagedFile, logger, overwrite);
       },
     );
-    await indexBAM(unmappedOutputFile, logger, overwrite);
   } catch (error) {
     ok = false;
     logger.error(

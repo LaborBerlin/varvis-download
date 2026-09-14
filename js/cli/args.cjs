@@ -178,13 +178,13 @@ function buildParser(argv) {
     })
     .option('bounded-range-proxy', {
       describe:
-        'Enable local bounded-range reverse proxy for remote ranged downloads (guards against excessive S3 egress).',
+        'Enable local proxy with bounded upstream requests for remote ranged downloads.',
       type: 'boolean',
       default: true,
     })
     .option('bounded-range-chunk-size', {
       describe:
-        'Chunk size in bytes for the bounded-range reverse proxy (default: 2097152 [2 MiB]).',
+        'Maximum upstream request size, integer 65536–67108864 bytes (default: 2097152 [2 MiB]).',
       type: 'number',
       default: 2097152,
     })

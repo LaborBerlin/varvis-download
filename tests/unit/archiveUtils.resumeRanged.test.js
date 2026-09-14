@@ -1,3 +1,8 @@
+jest.mock('../../js/download/atomicOutput.cjs', () => ({
+  withStagedOutput: jest.fn(async (file, _overwrite, _suffix, action) =>
+    action(file),
+  ),
+}));
 const fs = require('node:fs');
 const path = require('node:path');
 const { resumeArchivedDownloads } = require('../../js/commands/resume.cjs');
@@ -124,7 +129,7 @@ describe('archiveUtils.resumeArchivedDownloads ranged restores', () => {
       true,
       false,
       ['chr1:10-20'],
-      { chunkSize: undefined, enabled: undefined },
+      { chunkSize: 2097152, enabled: true, dispatcher: mockAgent },
     );
   });
 
@@ -202,7 +207,7 @@ describe('archiveUtils.resumeArchivedDownloads ranged restores', () => {
       true,
       false,
       ['chr1:10-20'],
-      { chunkSize: undefined, enabled: undefined },
+      { chunkSize: 2097152, enabled: true, dispatcher: mockAgent },
     );
   });
 
@@ -253,7 +258,7 @@ describe('archiveUtils.resumeArchivedDownloads ranged restores', () => {
       true,
       true,
       ['chr1:10-20', 'chr2:30-40'],
-      { chunkSize: undefined, enabled: undefined },
+      { chunkSize: 2097152, enabled: true, dispatcher: mockAgent },
     );
   });
 
@@ -310,7 +315,7 @@ describe('archiveUtils.resumeArchivedDownloads ranged restores', () => {
       mockLogger,
       metrics,
       true,
-      { chunkSize: undefined, enabled: undefined },
+      { chunkSize: 2097152, enabled: true, dispatcher: mockAgent },
     );
   });
 
@@ -368,7 +373,7 @@ describe('archiveUtils.resumeArchivedDownloads ranged restores', () => {
       mockLogger,
       metrics,
       true,
-      { chunkSize: undefined, enabled: undefined },
+      { chunkSize: 2097152, enabled: true, dispatcher: mockAgent },
     );
   });
 });

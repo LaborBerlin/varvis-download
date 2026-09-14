@@ -1,5 +1,10 @@
 const path = require('node:path');
 
+jest.mock('../../../js/download/atomicOutput.cjs', () => ({
+  withStagedOutput: jest.fn(async (file, _overwrite, _suffix, action) =>
+    action(file),
+  ),
+}));
 jest.mock('../../../js/download/urlRefresh.cjs', () => ({
   getValidDownloadUrl: jest.fn(async (_fileDict, name) => `https://${name}`),
 }));
@@ -142,6 +147,7 @@ describe('download/bamHandler.handleBamFile', () => {
       {
         enabled: undefined,
         chunkSize: undefined,
+        dispatcher: deps.agent,
       },
     );
     expect(indexBAM).toHaveBeenCalledWith(
@@ -185,6 +191,7 @@ describe('download/bamHandler.handleBamFile', () => {
       {
         enabled: false,
         chunkSize: 1048576,
+        dispatcher: deps.agent,
       },
     );
 
@@ -215,6 +222,7 @@ describe('download/bamHandler.handleBamFile', () => {
       {
         enabled: false,
         chunkSize: 1048576,
+        dispatcher: deps.agent,
       },
     );
   });

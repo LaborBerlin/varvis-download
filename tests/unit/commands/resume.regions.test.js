@@ -1,3 +1,8 @@
+jest.mock('../../../js/download/atomicOutput.cjs', () => ({
+  withStagedOutput: jest.fn(async (file, _overwrite, _suffix, action) =>
+    action(file),
+  ),
+}));
 const fs = require('node:fs');
 const path = require('node:path');
 const { resumeArchivedDownloads } = require('../../../js/commands/resume.cjs');
@@ -111,7 +116,7 @@ describe('commands/resume ranged/region handling', () => {
       mockLogger,
       metrics,
       true,
-      { chunkSize: undefined, enabled: undefined },
+      { chunkSize: 2097152, enabled: true, dispatcher: mockAgent },
     );
     expect(rangedDownloadVCF).toHaveBeenCalledWith(
       'https://example.test/sample.vcf.gz',
@@ -121,7 +126,7 @@ describe('commands/resume ranged/region handling', () => {
       mockLogger,
       metrics,
       true,
-      { chunkSize: undefined, enabled: undefined },
+      { chunkSize: 2097152, enabled: true, dispatcher: mockAgent },
     );
     expect(indexVCF).toHaveBeenCalledTimes(2);
   });
@@ -289,7 +294,7 @@ describe('commands/resume ranged/region handling', () => {
       mockLogger,
       metrics,
       true,
-      { chunkSize: undefined, enabled: undefined },
+      { chunkSize: 2097152, enabled: true, dispatcher: mockAgent },
     );
   });
 });

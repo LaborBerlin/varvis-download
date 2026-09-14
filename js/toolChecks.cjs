@@ -1,4 +1,8 @@
 const { spawn } = require('node:child_process');
+const {
+  createToolDiagnostic,
+  redactToolText,
+} = require('./download/toolDiagnostics.cjs');
 const { getErrorMessage } = require('./errorUtils.cjs');
 
 /**
@@ -13,30 +17,38 @@ function spawnPromise(command, args, logger, captureOutput = false) {
   return new Promise((resolve, reject) => {
     const childProcess = spawn(command, args);
     let stdout = '';
+    const stderr = createToolDiagnostic();
+    const stdoutDiagnostic = createToolDiagnostic();
 
     childProcess.stdout.on('data', (data) => {
       const output = data.toString();
       if (captureOutput) {
         stdout += output;
       }
-      logger.debug(`[${command}] stdout: ${output.trim()}`);
+      stdoutDiagnostic.append(output);
     });
 
     childProcess.stderr.on('data', (data) => {
-      const output = data.toString();
-      logger.debug(`[${command}] stderr: ${output.trim()}`);
+      stderr.append(data);
     });
 
     childProcess.on('close', (code) => {
+      if (stdoutDiagnostic.text())
+        logger.debug(`[${command}] stdout: ${stdoutDiagnostic.text()}`);
+      if (stderr.text()) logger.debug(`[${command}] stderr: ${stderr.text()}`);
       if (code === 0) {
         resolve(captureOutput ? { stdout } : {});
       } else {
-        reject(new Error(`Process ${command} exited with code ${code}`));
+        reject(
+          new Error(
+            `Process ${command} exited with code ${code}${stderr.text() ? `. Stderr: ${stderr.text()}` : ''}`,
+          ),
+        );
       }
     });
 
     childProcess.on('error', (err) => {
-      reject(err);
+      reject(new Error(redactToolText(getErrorMessage(err))));
     });
   });
 }
@@ -158,31 +170,9 @@ async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
   return false;
 }
 
-// set of tools affected by the htslib unbounded range bug
-const AFFECTED_TOOLS = new Set(['samtools', 'tabix']);
-
-/**
- * Checks whether a tool is affected by the HTSlib unbounded range request bug.
- * Tools using HTSlib (such as samtools and tabix) before version 1.25.0 send unbounded HTTP range requests.
- * @param   {string}  toolName      - The name of the tool (e.g., 'samtools' or 'tabix').
- * @param   {string}  versionString - The version string of the tool.
- * @returns {boolean}               - True if the tool version is affected (< 1.25.0), false otherwise.
- */
-function isToolAffectedByUnboundedRangeBug(toolName, versionString) {
-  // return false for tools not affected by the htslib range bug
-  if (toolName && !AFFECTED_TOOLS.has(toolName.toLowerCase())) {
-    return false;
-  }
-
-  // check whether version is 1.25.0 or higher where the bug is fixed
-  const isFixedVersion = compareVersions(versionString, '1.25.0');
-  return !isFixedVersion;
-}
-
 module.exports = {
   spawnPromise,
   compareVersions,
   getToolVersion,
   checkToolAvailability,
-  isToolAffectedByUnboundedRangeBug,
 };

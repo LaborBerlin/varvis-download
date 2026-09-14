@@ -1,3 +1,8 @@
+jest.mock('../../../js/download/atomicOutput.cjs', () => ({
+  withStagedOutput: jest.fn(async (file, _overwrite, _suffix, action) =>
+    action(file),
+  ),
+}));
 jest.mock('../../../js/download/urlRefresh.cjs', () => ({
   getValidDownloadUrl: jest.fn(async (_fileDict, name) => `https://${name}`),
 }));
@@ -109,6 +114,7 @@ describe('download/vcfHandler.handleVcfFile', () => {
       {
         enabled: false,
         chunkSize: 1048576,
+        dispatcher: deps.agent,
       },
     );
   });

@@ -1,3 +1,8 @@
+const path = require('node:path');
+const {
+  createMockToolProcess: createMockProcess,
+  createMockToolOutput: createMockOutputStream,
+} = require('../helpers/toolProcesses');
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const { createMockLogger } = require('../helpers/mockFactories');
@@ -34,30 +39,6 @@ describe('rangedUtils proxy integration', () => {
   let mockLogger;
   let mockMetrics;
 
-  const createMockProcess = (exitCode = 0) => ({
-    stdout: {
-      on: jest.fn(),
-      pipe: jest.fn(),
-    },
-    stderr: {
-      on: jest.fn(),
-    },
-    stdin: {},
-    on: jest.fn((event, cb) => {
-      if (event === 'close') {
-        setTimeout(() => cb(exitCode), 0);
-      }
-    }),
-  });
-
-  const createMockOutputStream = () => ({
-    on: jest.fn((event, cb) => {
-      if (event === 'finish') {
-        setTimeout(() => cb(), 0);
-      }
-    }),
-  });
-
   beforeEach(() => {
     jest.clearAllMocks();
     mockLogger = createMockLogger();
@@ -90,6 +71,7 @@ describe('rangedUtils proxy integration', () => {
       expect(mockCreateBoundedRangeProxy).toHaveBeenCalledTimes(1);
       expect(mockCreateBoundedRangeProxy).toHaveBeenCalledWith(rawUrl, {
         chunkSize: undefined,
+        dispatcher: undefined,
         logger: mockLogger,
       });
 
@@ -189,6 +171,7 @@ describe('rangedUtils proxy integration', () => {
       expect(mockCreateBoundedRangeProxy).toHaveBeenCalledTimes(1);
       expect(mockCreateBoundedRangeProxy).toHaveBeenCalledWith(rawUrl, {
         chunkSize: undefined,
+        dispatcher: undefined,
         logger: mockLogger,
       });
 
@@ -262,12 +245,17 @@ describe('rangedUtils proxy integration', () => {
       expect(mockCreateBoundedRangeProxy).toHaveBeenCalledTimes(1);
       expect(mockCreateBoundedRangeProxy).toHaveBeenCalledWith(rawUrl, {
         chunkSize: undefined,
+        dispatcher: undefined,
         logger: mockLogger,
       });
 
       expect(spawn).toHaveBeenCalledWith(
         'tabix',
-        ['-h', 'http://127.0.0.1:54321/stream/mock-token', range],
+        [
+          '-h',
+          `http://127.0.0.1:54321/stream/mock-token##idx##${path.resolve(indexFile)}`,
+          range,
+        ],
         { cwd: '/tmp' },
       );
 
@@ -316,9 +304,62 @@ describe('rangedUtils proxy integration', () => {
       expect(mockCreateBoundedRangeProxy).not.toHaveBeenCalled();
       expect(mockProxyClose).not.toHaveBeenCalled();
 
-      expect(spawn).toHaveBeenCalledWith('tabix', ['-h', rawUrl, range], {
-        cwd: '/tmp',
-      });
+      expect(spawn).toHaveBeenCalledWith(
+        'tabix',
+        ['-h', `${rawUrl}##idx##${path.resolve(indexFile)}`, range],
+        {
+          cwd: '/tmp',
+        },
+      );
     });
   });
+  test.each(['bam', 'unmapped', 'vcf'])(
+    'forwards the caller dispatcher through %s extraction',
+    async (kind) => {
+      const dispatcher = { dispatch: jest.fn() };
+      const options = { enabled: true, chunkSize: 65536, dispatcher };
+      spawn.mockReturnValueOnce(createMockProcess());
+      if (kind === 'vcf') {
+        spawn.mockReturnValueOnce(createMockProcess());
+        fs.createWriteStream.mockReturnValue(createMockOutputStream());
+        await rangedDownloadVCF(
+          'https://example.test/data.vcf.gz',
+          '1:1-9',
+          '/tmp/output.vcf.gz',
+          '/tmp/data.vcf.gz.tbi',
+          mockLogger,
+          mockMetrics,
+          false,
+          options,
+        );
+      } else if (kind === 'bam') {
+        await rangedDownloadBAM(
+          'https://example.test/data.bam',
+          '/tmp/range.bed',
+          '/tmp/output.bam',
+          '/tmp/data.bam.bai',
+          mockLogger,
+          mockMetrics,
+          false,
+          false,
+          [],
+          options,
+        );
+      } else {
+        await unmappedDownloadBAM(
+          'https://example.test/data.bam',
+          '/tmp/output.bam',
+          '/tmp/data.bam.bai',
+          mockLogger,
+          mockMetrics,
+          false,
+          options,
+        );
+      }
+      expect(mockCreateBoundedRangeProxy).toHaveBeenCalledWith(
+        expect.any(String),
+        { chunkSize: 65536, dispatcher, logger: mockLogger },
+      );
+    },
+  );
 });

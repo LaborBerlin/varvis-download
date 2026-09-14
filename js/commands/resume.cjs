@@ -1,4 +1,8 @@
 const fs = require('node:fs');
+const {
+  DEFAULT_CHUNK_SIZE,
+  validateChunkSize,
+} = require('../net/rangeProtocol.cjs');
 const os = require('node:os');
 const path = require('node:path');
 const { getDownloadLinks, metrics } = require('../fetchUtils.cjs');
@@ -17,14 +21,15 @@ const { handleVcfFile } = require('../download/vcfHandler.cjs');
  * Resumes downloads for archived files as specified in the awaiting-restoration JSON file.
  * For each entry, if the current time is past the restoreEstimation, it attempts to download the file
  * using the restored context options. On success, the entry is removed; otherwise, it is kept for later resumption.
- * @param   {string}                            restorationFile - The path/name of the awaiting-restoration JSON file.
- * @param   {string}                            destination     - The destination folder for downloads.
- * @param   {string}                            target          - The Varvis API target.
- * @param   {string}                            token           - The CSRF token for authentication.
- * @param   {import('../types').HttpDispatcher} agent           - The HTTP agent instance.
- * @param   {import('winston').Logger}          logger          - The logger instance.
- * @param   {boolean}                           overwrite       - Flag indicating whether to overwrite existing files.
- * @returns {Promise<void>}
+ * @param   {string}                                  restorationFile     - The path/name of the awaiting-restoration JSON file.
+ * @param   {string}                                  destination         - The destination folder for downloads.
+ * @param   {string}                                  target              - The Varvis API target.
+ * @param   {string}                                  token               - The CSRF token for authentication.
+ * @param   {import('../types').HttpDispatcher}       agent               - The HTTP agent instance.
+ * @param   {import('winston').Logger}                logger              - The logger instance.
+ * @param   {boolean}                                 overwrite           - Flag indicating whether to overwrite existing files.
+ * @param   {Partial<import('../types').FinalConfig>} [currentOptions={}] - Current proxy configuration and explicit-setting metadata.
+ * @returns {Promise<number>}                                             - Number of failed downloads; pending restorations are not failures.
  */
 async function resumeArchivedDownloads(
   restorationFile,
@@ -34,18 +39,20 @@ async function resumeArchivedDownloads(
   agent,
   logger,
   overwrite,
+  currentOptions = {},
 ) {
   const data = readRestorationState(restorationFile, logger);
   if (!data) {
     logger.info(
       `No restoration entries could be loaded from ${restorationFile}. Nothing to resume.`,
     );
-    return;
+    return 0;
   }
 
   /** @type {import('../types').RestorationEntry[]} */
   let updatedData = [];
   const now = new Date();
+  let failedDownloads = 0;
 
   for (const entry of data) {
     // Check if restoration time has passed (unknown ETA is treated as ready)
@@ -62,6 +69,14 @@ async function resumeArchivedDownloads(
     try {
       // Re-hydrate context from saved options
       const restoredOptions = entry.options || {};
+      const boundedRangeProxy = currentOptions.boundedRangeProxyExplicit
+        ? (currentOptions.boundedRangeProxy ?? true)
+        : (restoredOptions.boundedRangeProxy ?? true);
+      const boundedRangeChunkSize = validateChunkSize(
+        (currentOptions.boundedRangeChunkSizeExplicit
+          ? currentOptions.boundedRangeChunkSize
+          : restoredOptions.boundedRangeChunkSize) ?? DEFAULT_CHUNK_SIZE,
+      );
       const effectiveDestination = restoredOptions.destination || destination;
       const effectiveOverwrite =
         restoredOptions.overwrite !== undefined
@@ -155,6 +170,7 @@ async function resumeArchivedDownloads(
           logger.error(
             `Index file for BAM ${entry.fileName} not found for analysis ${entry.analysisId}. Ranged/unmapped download requires .bai index. Keeping for retry.`,
           );
+          failedDownloads++;
           updatedData.push(entry);
           continue;
         }
@@ -165,6 +181,7 @@ async function resumeArchivedDownloads(
           logger.error(
             `Index file for VCF ${entry.fileName} not found for analysis ${entry.analysisId}. Ranged download requires .tbi index. Keeping for retry.`,
           );
+          failedDownloads++;
           updatedData.push(entry);
           continue;
         }
@@ -198,6 +215,8 @@ async function resumeArchivedDownloads(
               fileDict,
               fileName: entry.fileName,
               finalConfig: {
+                boundedRangeProxy,
+                boundedRangeChunkSize,
                 destination: effectiveDestination,
                 overwrite: effectiveOverwrite,
                 unmapped: includeUnmapped,
@@ -222,6 +241,8 @@ async function resumeArchivedDownloads(
             fileDict,
             fileName: entry.fileName,
             finalConfig: {
+              boundedRangeProxy,
+              boundedRangeChunkSize,
               destination: effectiveDestination,
               overwrite: effectiveOverwrite,
               unmapped: false,
@@ -252,9 +273,11 @@ async function resumeArchivedDownloads(
           `Successfully resumed download for analysis ${entry.analysisId}, file ${entry.fileName}`,
         );
       } else {
+        failedDownloads++;
         updatedData.push(entry);
       }
     } catch (error) {
+      failedDownloads++;
       logger.error(
         `Error during resume download for ${entry.fileName}: ${getErrorMessage(error)}`,
       );
@@ -268,6 +291,7 @@ async function resumeArchivedDownloads(
   logger.info(
     `Updated restoration file ${restorationFile} - ${updatedData.length} entries remaining`,
   );
+  return failedDownloads;
 }
 
 module.exports = {

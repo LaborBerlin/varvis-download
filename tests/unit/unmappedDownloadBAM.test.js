@@ -58,7 +58,7 @@ describe('unmappedDownloadBAM', () => {
       '/output/sample.bam.bai',
       '*',
       '-o',
-      '/output/sample.unmapped.bam',
+      expect.stringContaining('/output/sample.unmapped.bam.'),
     ]);
     expect(mockMetrics.totalFilesDownloaded).toBe(1);
   });
@@ -198,7 +198,7 @@ describe('rangedDownloadBAM with includeUnmapped', () => {
       'chr1:155184000-155194000',
       '*',
       '-o',
-      '/output/sample.region.bam',
+      expect.stringContaining('/output/sample.region.bam.'),
     ]);
     expect(mockMetrics.totalFilesDownloaded).toBe(1);
   });
@@ -241,7 +241,7 @@ describe('rangedDownloadBAM with includeUnmapped', () => {
       '/tmp/regions.bed',
       '-M',
       '-o',
-      '/output/sample.region.bam',
+      expect.stringContaining('/output/sample.region.bam.'),
     ]);
   });
 
@@ -284,7 +284,7 @@ describe('rangedDownloadBAM with includeUnmapped', () => {
       'chr2:3000-4000',
       '*',
       '-o',
-      '/output/sample.region.bam',
+      expect.stringContaining('/output/sample.region.bam.'),
     ]);
   });
 });
