@@ -10,6 +10,9 @@ const DEFAULT_HEADERS = {
   'Sec-Fetch-Mode': 'same-origin',
 };
 
+// default request timeout in milliseconds for auth calls
+const DEFAULT_AUTH_TIMEOUT_MS = 30_000;
+
 /**
  * AuthService class handles authentication with the Varvis API.
  */
@@ -35,12 +38,14 @@ class AuthService {
       this.logger.debug(
         `Fetching CSRF token from https://${target}.varvis.com/authenticate`,
       );
+      // fetch initial csrf token with deadline
       const response = await fetch(
         `https://${target}.varvis.com/authenticate`,
         {
           method: 'HEAD',
           headers: { ...DEFAULT_HEADERS },
           dispatcher: this.agent,
+          signal: AbortSignal.timeout(DEFAULT_AUTH_TIMEOUT_MS),
         },
       );
       const csrfToken = response.headers.get('x-csrf-token');
@@ -73,6 +78,7 @@ class AuthService {
       this.logger.debug(
         `Logging in to https://${target}.varvis.com/login with username: ${user.username}`,
       );
+      // post credentials with request deadline
       const loginResponse = await fetch(`https://${target}.varvis.com/login`, {
         method: 'POST',
         headers: {
@@ -81,6 +87,7 @@ class AuthService {
         },
         body: params,
         dispatcher: this.agent,
+        signal: AbortSignal.timeout(DEFAULT_AUTH_TIMEOUT_MS),
       });
 
       if (loginResponse.status !== 200) {
@@ -90,12 +97,14 @@ class AuthService {
         throw new Error(`Login failed with status ${loginResponse.status}`);
       }
 
+      // retrieve post-login csrf token with deadline
       const csrfToken2Response = await fetch(
         `https://${target}.varvis.com/authenticate`,
         {
           method: 'HEAD',
           headers: { ...DEFAULT_HEADERS },
           dispatcher: this.agent,
+          signal: AbortSignal.timeout(DEFAULT_AUTH_TIMEOUT_MS),
         },
       );
 

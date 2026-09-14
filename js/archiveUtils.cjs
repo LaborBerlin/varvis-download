@@ -3,15 +3,16 @@ const { getErrorMessage } = require('./errorUtils.cjs');
 
 /**
  * Triggers restoration for an archived analysis file using the internal restore endpoint.
- * @param   {string}                                        analysisId                                    - The analysis ID of the archived file.
- * @param   {import('./types').AnalysisFile}                file                                          - The file object from the API response (should include fileName).
- * @param   {string}                                        target                                        - The target for the Varvis API.
- * @param   {string}                                        token                                         - The CSRF token for authentication.
- * @param   {import('./types').HttpDispatcher}              agent                                         - The HTTP agent instance.
- * @param   {import('winston').Logger}                      logger                                        - The logger instance.
- * @param   {string}                                        [restorationFile="awaiting-restoration.json"] - Optional path/name for the awaiting restoration JSON file.
- * @param   {Partial<import('./types').RestorationOptions>} [options={}]                                  - Options object for restoration context.
- * @returns {Promise<void>}
+ * @param   {string}                                           analysisId                                    - The analysis ID of the archived file.
+ * @param   {import('./types').AnalysisFile}                   file                                          - The file object from the API response (should include fileName).
+ * @param   {string}                                           target                                        - The target for the Varvis API.
+ * @param   {string}                                           token                                         - The CSRF token for authentication.
+ * @param   {import('./types').HttpDispatcher}                 agent                                         - The HTTP agent instance.
+ * @param   {import('winston').Logger}                         logger                                        - The logger instance.
+ * @param   {string}                                           [restorationFile="awaiting-restoration.json"] - Optional path/name for the awaiting restoration JSON file.
+ * @param   {Partial<import('./types').RestorationOptions>}    [options={}]                                  - Options object for restoration context.
+ * @param   {boolean}                                          [persistState=true]                           - Whether to write entry immediately to state file.
+ * @returns {Promise<import('./types').RestorationEntry|null>}                                               - The restoration entry if successfully triggered, otherwise null.
  */
 async function triggerRestoreArchivedFile(
   analysisId,
@@ -22,6 +23,7 @@ async function triggerRestoreArchivedFile(
   logger,
   restorationFile = 'awaiting-restoration.json',
   options = {},
+  persistState = true,
 ) {
   try {
     logger.info(
@@ -60,25 +62,27 @@ async function triggerRestoreArchivedFile(
       logger.info(
         `Restoration initiated for analysis ${analysisId}. Expected availability: ${restoreEstimation}`,
       );
-      await appendToAwaitingRestoration(
-        {
-          analysisId,
-          fileName: file.fileName,
-          restoreEstimation,
-          options,
-        },
-        logger,
-        restorationFile,
-      );
-    } else {
-      logger.error(
-        `Failed to initiate restoration for analysis ${analysisId}: ${result.errorMessageId}`,
-      );
+      /** @type {import('./types').RestorationEntry} */
+      const entry = {
+        analysisId,
+        fileName: file.fileName,
+        restoreEstimation,
+        options,
+      };
+      if (persistState) {
+        await appendToAwaitingRestoration(entry, logger, restorationFile);
+      }
+      return entry;
     }
+    logger.error(
+      `Failed to initiate restoration for analysis ${analysisId}: ${result.errorMessageId}`,
+    );
+    return null;
   } catch (error) {
     logger.error(
       `Error triggering restoration for analysis ${analysisId}: ${getErrorMessage(error)}`,
     );
+    return null;
   }
 }
 

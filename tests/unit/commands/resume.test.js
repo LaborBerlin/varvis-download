@@ -96,6 +96,37 @@ describe('commands/resume.resumeArchivedDownloads', () => {
     );
   });
 
+  test('processes entries with missing or null restore estimation as ready (#153)', async () => {
+    const entry = {
+      analysisId: 'A1',
+      fileName: 'sample.bam',
+      restoreEstimation: null,
+      options: { destination: '/tmp', overwrite: false },
+    };
+    readRestorationState.mockReturnValue([entry]);
+    getDownloadLinks.mockResolvedValue({
+      'sample.bam': {
+        currentlyArchived: false,
+        downloadLink: 'https://example.test/sample.bam',
+      },
+    });
+    handleBamFile.mockResolvedValueOnce({ ok: true });
+
+    await resumeArchivedDownloads(
+      'awaiting-restoration.json',
+      '/tmp',
+      'demo',
+      'tok',
+      {},
+      mockLogger,
+      false,
+    );
+
+    expect(handleBamFile).toHaveBeenCalled();
+    const writtenData = writeRestorationState.mock.calls[0][0];
+    expect(writtenData).toHaveLength(0);
+  });
+
   test('requeues the entry when handleBamFile resolves { ok: false }', async () => {
     const entry = {
       analysisId: 'A1',

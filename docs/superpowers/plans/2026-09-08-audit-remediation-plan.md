@@ -6,8 +6,8 @@
 
 **GitHub Issues:**
 - Issue [#147](https://github.com/LaborBerlin/varvis-download/issues/147): Security (SSRF, Path Traversal, Dotenv, File Permissions)
-- Issue [#148](https://github.com/LaborBerlin/varvis-download/issues/148): Pipeline Reliability (Deadlock, S3 Expiration, Re-indexing, Silent Fallback, Atomic Writes)
-- Issue [#149](https://github.com/LaborBerlin/varvis-download/issues/149): Performance & Hygiene (Batch Restoration, Undici Timeouts, Jitter, Dead Code)
+- Issue [#148](https://github.com/LaborBerlin/varvis-download/issues/148): Pipeline Reliability (Deadlock, S3 Expiration, Re-indexing, Silent Fallback, Atomic Writes, Capped Stderr)
+- Issue [#149](https://github.com/LaborBerlin/varvis-download/issues/149): Performance Foundation (Batch Restoration Helper; Network Timeouts/Jitter deferred to #152, Restoration Caller Batching to #153, Overwrite Helper to #154, Failure-Safe Replacement to #155, Traceability to #156)
 
 **Architecture:** Modular CommonJS implementations across domain modules (`js/cli/configMerge.cjs`, `js/rangedUtils.cjs`, `js/download/`, `js/fileUtils.cjs`, `js/restorationState.cjs`), backed by focused unit test coverage in `tests/unit/`. Preserves strict error-boundary contracts, typed JSDoc, and architecture line budget (<600 lines per file).
 

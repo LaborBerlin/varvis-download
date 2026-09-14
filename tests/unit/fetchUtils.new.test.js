@@ -355,6 +355,7 @@ describe('fetchUtils (new)', () => {
         mockLogger,
         undefined,
         undefined,
+        false,
       );
       expect(mockLogger.info).toHaveBeenCalledWith(
         'Force restoring archived file sample.bam due to --restoreArchived=force',

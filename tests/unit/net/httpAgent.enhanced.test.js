@@ -12,24 +12,32 @@ const { Agent, ProxyAgent } = require('undici');
 const { createHttpAgent } = require('../../../js/net/httpAgent.cjs');
 
 describe('net/httpAgent.createHttpAgent construction', () => {
-  test('uses a plain Agent (not a ProxyAgent) when no proxy is configured', () => {
+  test('uses a plain Agent (not a ProxyAgent) configured with pool timeouts when no proxy is configured', () => {
     createHttpAgent({});
 
     expect(Agent).toHaveBeenCalledTimes(1);
+    expect(Agent).toHaveBeenCalledWith({
+      connectTimeout: 15_000,
+      keepAliveTimeout: 30_000,
+      keepAliveMaxTimeout: 60_000,
+    });
     expect(ProxyAgent).not.toHaveBeenCalled();
   });
 
-  test('uses a ProxyAgent with the proxy URI when a proxy is configured', () => {
+  test('uses a ProxyAgent with the proxy URI and pool timeouts when a proxy is configured', () => {
     createHttpAgent({ proxy: 'http://example.test:8080' });
 
     expect(ProxyAgent).toHaveBeenCalledTimes(1);
     expect(ProxyAgent).toHaveBeenCalledWith({
       uri: 'http://example.test:8080',
+      connectTimeout: 15_000,
+      keepAliveTimeout: 30_000,
+      keepAliveMaxTimeout: 60_000,
     });
     expect(Agent).not.toHaveBeenCalled();
   });
 
-  test('passes basic-auth credentials to the ProxyAgent when both are set', () => {
+  test('passes basic-auth credentials and pool timeouts to the ProxyAgent when both are set', () => {
     createHttpAgent({
       proxy: 'http://example.test:8080',
       proxyUsername: 'user',
@@ -39,10 +47,13 @@ describe('net/httpAgent.createHttpAgent construction', () => {
     expect(ProxyAgent).toHaveBeenCalledWith({
       uri: 'http://example.test:8080',
       token: 'Basic dXNlcjpwYXNz', // base64('user:pass')
+      connectTimeout: 15_000,
+      keepAliveTimeout: 30_000,
+      keepAliveMaxTimeout: 60_000,
     });
   });
 
-  test('omits auth when only one credential half is present', () => {
+  test('omits auth but retains pool timeouts when only one credential half is present', () => {
     createHttpAgent({
       proxy: 'http://example.test:8080',
       proxyUsername: 'user',
@@ -50,6 +61,9 @@ describe('net/httpAgent.createHttpAgent construction', () => {
 
     expect(ProxyAgent).toHaveBeenCalledWith({
       uri: 'http://example.test:8080',
+      connectTimeout: 15_000,
+      keepAliveTimeout: 30_000,
+      keepAliveMaxTimeout: 60_000,
     });
   });
 });

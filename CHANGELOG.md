@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- **Removed `confirmOverwrite` export**: Removed unused `confirmOverwrite` helper from `js/fileUtils.cjs` as file overwrites are controlled explicitly via the `--overwrite` flag (#154).
+
+### Performance
+
+- **Undici connection pool timeouts**: Configured explicit Undici Agent `connectTimeout` (15s), `keepAliveTimeout` (30s), and `keepAliveMaxTimeout` (60s) for connection reuse during batch operations (#152).
+- **Request deadlines & retry jitter**: Added fresh per-attempt `AbortSignal.timeout` (30s default) to API requests, body cancellation on retry, and Equal Jitter backoff (#152).
+- **Batch restoration state updates in production flow**: Grouped archived file restorations by analysis in `getDownloadLinks`, invoking restore once per analysis and writing state file in a single batch (#153).
+
+### Fixed
+
+- **Failure-safe `.part` replacement on overwrite**: Replaced naive unlink-then-rename with staged backup and rollback to prevent data loss on overwrite failure (#155).
+- **Readiness check on unknown-ETA restoration entries**: Aligned `resume.cjs` with `getReadyEntries` so entries with missing or null restoration estimates are checked rather than indefinitely skipped (#153).
+- **CLI failure exit on download errors**: Propagates download errors to command exit status to ensure automation never treats failed downloads as successful (#155).
+
+### Documentation
+
+- **Remediation traceability alignment**: Corrected originating issue cross-references across #147, #148, #149, PR #151, and follow-up issues #152–#156 (#156).
+
 ## [0.34.0] - 2026-09-08
 
 ### Security
@@ -21,14 +41,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Invert BAM download sequence**: Downloads the small `.bai` index file before the primary BAM file, protecting against 1-hour presigned S3 URL expiration during long downloads (#148).
 - **Skip redundant `samtools index`**: When a valid index file is successfully downloaded from the server, skips redundant local indexing, saving CPU and disk I/O (#148).
-- **Batch restoration state writes**: Consolidates multi-file restoration updates into a single read-modify-write cycle, eliminating $O(N^2)$ disk I/O (#148).
+- **Batch restoration state writes**: Consolidates multi-file restoration updates into a single read-modify-write helper `appendBatchToAwaitingRestoration`, laying the foundation for eliminating $O(N^2)$ disk I/O (#149).
 
 ### Fixed
 
 - **VCF pipeline deadlock on outputStream write errors**: Properly terminates `tabix` and `bgzip` child processes and immediately rejects upon write errors in `rangedDownloadVCF` (#148).
-- **Prevent silent whole-genome download in resume**: If a BED file cannot be read during `--resumeArchivedDownloads`, logs an error and requeues the entry rather than silently falling back to a full whole-genome download (#149).
-- **Atomic file writes**: Downloads stream to `.part` temporary files and are atomically replaced upon completion, preventing corruption of existing files on failure (#149).
-- **Bounded stderr buffers**: Capped process stderr accumulation at 64KB to prevent unbounded memory growth on verbose tool output (#149).
+- **Prevent silent whole-genome download in resume**: If a BED file cannot be read during `--resumeArchivedDownloads`, logs an error and requeues the entry rather than silently falling back to a full whole-genome download (#148).
+- **Atomic file writes**: Downloads stream to `.part` temporary files before replacing the destination upon completion, preventing corruption of existing files on transfer failure (#148).
+- **Bounded stderr buffers**: Capped process stderr accumulation at 64KB to prevent unbounded memory growth on verbose tool output (#148).
 
 ## [0.33.1] - 2026-07-20
 

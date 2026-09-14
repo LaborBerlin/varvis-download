@@ -13,6 +13,8 @@ export type HttpDispatcher = Dispatcher;
 export interface UndiciRequestOptions extends RequestInit {
   headers?: Record<string, string>;
   dispatcher?: HttpDispatcher;
+  timeout?: number | null;
+  jitter?: boolean;
 }
 
 export interface Analysis {
@@ -49,6 +51,7 @@ export interface Metrics {
   startTime: number;
   totalFilesDownloaded: number;
   totalFilesSkipped: number;
+  totalFilesFailed: number;
   totalBytesDownloaded: number;
   downloadSpeeds: number[];
 }
