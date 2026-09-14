@@ -1,3 +1,8 @@
+jest.mock('../../../js/download/atomicOutput.cjs', () => ({
+  withStagedOutput: jest.fn(async (file, _overwrite, _suffix, action) =>
+    action(file),
+  ),
+}));
 jest.mock('../../../js/download/urlRefresh.cjs', () => ({
   getValidDownloadUrl: jest.fn(async (_fileDict, name) => `https://${name}`),
 }));
@@ -19,6 +24,7 @@ jest.mock('../../../js/download/commonDownload.cjs', () => ({
   fullDownloadWithOptionalIndex: jest.fn(),
 }));
 
+const path = require('node:path');
 const { handleVcfFile } = require('../../../js/download/vcfHandler.cjs');
 const {
   ensureIndexFile,
@@ -78,6 +84,39 @@ describe('download/vcfHandler.handleVcfFile', () => {
     expect(rangedDownloadVCF).toHaveBeenCalledTimes(2);
     expect(indexVCF).toHaveBeenCalledTimes(2);
     expect(fullDownloadWithOptionalIndex).not.toHaveBeenCalled();
+  });
+
+  test('forwards custom boundedRangeProxy configuration to rangedDownloadVCF', async () => {
+    await handleVcfFile(
+      {
+        fileDict: { ...baseFileDict },
+        fileName: 'sample.vcf.gz',
+        finalConfig: {
+          destination: '/tmp',
+          overwrite: false,
+          boundedRangeProxy: false,
+          boundedRangeChunkSize: 1048576,
+        },
+        regions: ['chr1:1-10'],
+        target: 'demo',
+      },
+      deps,
+    );
+
+    expect(rangedDownloadVCF).toHaveBeenCalledWith(
+      'https://sample.vcf.gz',
+      'chr1:1-10',
+      path.join('/tmp', 'out_sample.vcf.gz_chr1:1-10'),
+      path.join('/tmp', 'sample.vcf.gz.tbi'),
+      mockLogger,
+      deps.metrics,
+      false,
+      {
+        enabled: false,
+        chunkSize: 1048576,
+        dispatcher: deps.agent,
+      },
+    );
   });
 
   test('full download delegates primary and optional index to common helper', async () => {

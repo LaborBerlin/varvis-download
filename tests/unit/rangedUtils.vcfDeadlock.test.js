@@ -1,4 +1,5 @@
 const { EventEmitter } = require('node:events');
+const { PassThrough, Writable } = require('node:stream');
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const { rangedDownloadVCF } = require('../../js/rangedUtils.cjs');
@@ -8,176 +9,102 @@ jest.mock('node:child_process');
 jest.mock('node:fs');
 jest.mock('../../js/fileUtils.cjs');
 
-/**
- * Creates a mock child process for testing stream piping.
- *
- * @returns {object} Mock child process with EventEmitter streams and kill spy.
- */
 function createMockProcess() {
   const proc = new EventEmitter();
-  proc.stdout = new EventEmitter();
-  proc.stdout.pipe = jest.fn();
-  proc.stderr = new EventEmitter();
-  proc.stdin = new EventEmitter();
-  proc.killed = false;
+  proc.stdout = new PassThrough();
+  proc.stderr = new PassThrough();
+  proc.stdin = new PassThrough();
+  proc.exitCode = null;
+  proc.signalCode = null;
   proc.kill = jest.fn(() => {
-    proc.killed = true;
+    proc.stdout.destroy();
+    proc.stderr.destroy();
+    proc.stdin.destroy();
+    proc.signalCode = 'SIGTERM';
+    process.nextTick(() => proc.emit('close', null, 'SIGTERM'));
     return true;
   });
   return proc;
 }
 
-/**
- * Creates a mock write stream.
- *
- * @returns {EventEmitter} Mock write stream.
- */
-function createMockStream() {
-  return new EventEmitter();
-}
-
-describe('rangedDownloadVCF - pipe deadlock prevention on outputStream error', () => {
-  let mockLogger;
-  let mockMetrics;
+describe('rangedDownloadVCF pipeline failure cleanup', () => {
+  let tabix, bgzip, output, logger, metrics;
 
   beforeEach(() => {
-    mockLogger = createMockLogger();
-    mockMetrics = {
-      totalFilesDownloaded: 0,
-      totalFilesSkipped: 0,
-    };
-    jest.clearAllMocks();
-  });
-
-  test('should reject immediately and terminate tabix and bgzip processes on outputStream error', async () => {
+    tabix = createMockProcess();
+    bgzip = createMockProcess();
+    output = new Writable({
+      write(_chunk, _encoding, done) {
+        done();
+      },
+    });
+    logger = createMockLogger();
+    metrics = { totalFilesDownloaded: 0, totalFilesSkipped: 0 };
     fs.existsSync.mockReturnValue(false);
-
-    const tabixProcess = createMockProcess();
-    const bgzipProcess = createMockProcess();
-    const outputStream = createMockStream();
-
-    spawn.mockReturnValueOnce(tabixProcess).mockReturnValueOnce(bgzipProcess);
-    fs.createWriteStream.mockReturnValue(outputStream);
-
-    const downloadPromise = rangedDownloadVCF(
-      'https://example.com/test.vcf.gz',
-      'chr1:1000-2000',
-      '/path/to/output.vcf.gz',
-      '/path/to/index.tbi',
-      mockLogger,
-      mockMetrics,
-      false,
-    );
-
-    const streamError = new Error('ENOSPC: no space left on device');
-    outputStream.emit('error', streamError);
-
-    await expect(downloadPromise).rejects.toThrow(
-      'Error in outputStream: ENOSPC: no space left on device',
-    );
-
-    expect(tabixProcess.kill).toHaveBeenCalledWith('SIGTERM');
-    expect(bgzipProcess.kill).toHaveBeenCalledWith('SIGTERM');
+    spawn.mockReturnValueOnce(tabix).mockReturnValueOnce(bgzip);
+    fs.createWriteStream.mockReturnValue(output);
   });
 
-  test('should cleanup partial output file when outputStream emits error', async () => {
-    fs.existsSync.mockImplementation(
-      (file) => file === '/path/to/output.vcf.gz',
-    );
-
-    const tabixProcess = createMockProcess();
-    const bgzipProcess = createMockProcess();
-    const outputStream = createMockStream();
-
-    spawn.mockReturnValueOnce(tabixProcess).mockReturnValueOnce(bgzipProcess);
-    fs.createWriteStream.mockReturnValue(outputStream);
-
-    const downloadPromise = rangedDownloadVCF(
+  function run() {
+    return rangedDownloadVCF(
       'https://example.com/test.vcf.gz',
       'chr1:1000-2000',
       '/path/to/output.vcf.gz',
       '/path/to/index.tbi',
-      mockLogger,
-      mockMetrics,
+      logger,
+      metrics,
       true,
+      { enabled: false },
     );
+  }
 
-    const streamError = new Error('EACCES: permission denied');
-    outputStream.emit('error', streamError);
-
-    await expect(downloadPromise).rejects.toThrow(
-      'Error in outputStream: EACCES: permission denied',
-    );
-
-    expect(fs.unlinkSync).toHaveBeenCalledWith('/path/to/output.vcf.gz');
-    expect(tabixProcess.kill).toHaveBeenCalledWith('SIGTERM');
-    expect(bgzipProcess.kill).toHaveBeenCalledWith('SIGTERM');
+  test('rejects and terminates both tools on output error', async () => {
+    const download = run();
+    const rejected = expect(download).rejects.toThrow('ENOSPC');
+    output.destroy(new Error('ENOSPC: no space left on device'));
+    await rejected;
+    expect(tabix.kill).toHaveBeenCalled();
+    expect(bgzip.kill).toHaveBeenCalled();
+    expect(fs.renameSync).not.toHaveBeenCalled();
+    expect(metrics.totalFilesDownloaded).toBe(0);
   });
 
-  test('should not call kill if child processes are already killed', async () => {
-    fs.existsSync.mockReturnValue(false);
-
-    const tabixProcess = createMockProcess();
-    tabixProcess.killed = true;
-    const bgzipProcess = createMockProcess();
-    bgzipProcess.killed = true;
-    const outputStream = createMockStream();
-
-    spawn.mockReturnValueOnce(tabixProcess).mockReturnValueOnce(bgzipProcess);
-    fs.createWriteStream.mockReturnValue(outputStream);
-
-    const downloadPromise = rangedDownloadVCF(
-      'https://example.com/test.vcf.gz',
-      'chr1:1000-2000',
-      '/path/to/output.vcf.gz',
-      '/path/to/index.tbi',
-      mockLogger,
-      mockMetrics,
-      false,
-    );
-
-    outputStream.emit('error', new Error('stream write failure'));
-
-    await expect(downloadPromise).rejects.toThrow(
-      'Error in outputStream: stream write failure',
-    );
-
-    expect(tabixProcess.kill).not.toHaveBeenCalled();
-    expect(bgzipProcess.kill).not.toHaveBeenCalled();
+  test('removes partial output and preserves the existing destination on failure', async () => {
+    fs.existsSync.mockReturnValue(true);
+    const download = run();
+    const rejected = expect(download).rejects.toThrow('EACCES');
+    const temporaryFile = fs.createWriteStream.mock.calls[0][0];
+    output.destroy(new Error('EACCES: permission denied'));
+    await rejected;
+    expect(fs.unlinkSync).toHaveBeenCalledWith(temporaryFile);
+    expect(fs.unlinkSync).not.toHaveBeenCalledWith('/path/to/output.vcf.gz');
+    expect(fs.renameSync).not.toHaveBeenCalled();
+    expect(tabix.kill).toHaveBeenCalled();
+    expect(bgzip.kill).toHaveBeenCalled();
   });
 
-  test('strictly caps stderr buffer at 65536 characters even when chunk overshoots', async () => {
-    fs.existsSync.mockReturnValue(false);
+  test('does not kill tools that have already exited when output fails', async () => {
+    const download = run();
+    const rejected = expect(download).rejects.toThrow('stream write failure');
+    for (const child of [tabix, bgzip]) {
+      child.exitCode = 0;
+      child.emit('close', 0);
+    }
+    output.destroy(new Error('stream write failure'));
+    await rejected;
+    expect(tabix.kill).not.toHaveBeenCalled();
+    expect(bgzip.kill).not.toHaveBeenCalled();
+  });
 
-    const tabixProcess = createMockProcess();
-    const bgzipProcess = createMockProcess();
-    const outputStream = createMockStream();
-
-    spawn.mockReturnValueOnce(tabixProcess).mockReturnValueOnce(bgzipProcess);
-    fs.createWriteStream.mockReturnValue(outputStream);
-
-    const downloadPromise = rangedDownloadVCF(
-      'https://example.com/test.vcf.gz',
-      'chr1:1000-2000',
-      '/path/to/output.vcf.gz',
-      '/path/to/index.tbi',
-      mockLogger,
-      mockMetrics,
-      false,
+  test('strictly caps stderr diagnostics even when a chunk overshoots', async () => {
+    const download = run();
+    const rejected = expect(download).rejects.toThrow(
+      /^tabix process exited with code 1\. Stderr: A{8000}B{192}$/,
     );
-
-    // Emit chunks totaling 70KB (exceeding 65536 bytes)
-    tabixProcess.stderr.emit('data', 'A'.repeat(60000));
-    tabixProcess.stderr.emit('data', 'B'.repeat(10000));
-
-    tabixProcess.emit('close', 1);
-    bgzipProcess.emit('close', 0);
-    outputStream.emit('finish');
-
-    await expect(downloadPromise).rejects.toThrow(
-      new RegExp(
-        `tabix process exited with code 1\\. Stderr: A{60000}B{5536}$`,
-      ),
-    );
+    tabix.stderr.write('A'.repeat(8000));
+    tabix.stderr.write('B'.repeat(10000));
+    tabix.exitCode = 1;
+    tabix.emit('close', 1);
+    await rejected;
   });
 });

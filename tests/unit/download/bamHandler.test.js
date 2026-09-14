@@ -1,5 +1,10 @@
 const path = require('node:path');
 
+jest.mock('../../../js/download/atomicOutput.cjs', () => ({
+  withStagedOutput: jest.fn(async (file, _overwrite, _suffix, action) =>
+    action(file),
+  ),
+}));
 jest.mock('../../../js/download/urlRefresh.cjs', () => ({
   getValidDownloadUrl: jest.fn(async (_fileDict, name) => `https://${name}`),
 }));
@@ -139,6 +144,11 @@ describe('download/bamHandler.handleBamFile', () => {
       mockLogger,
       deps.metrics,
       false,
+      {
+        enabled: undefined,
+        chunkSize: undefined,
+        dispatcher: deps.agent,
+      },
     );
     expect(indexBAM).toHaveBeenCalledWith(
       path.join('/tmp', 'out_sample.bam_unmapped'),
@@ -147,6 +157,74 @@ describe('download/bamHandler.handleBamFile', () => {
     );
     expect(rangedDownloadBAM).not.toHaveBeenCalled();
     expect(fullDownloadWithOptionalIndex).not.toHaveBeenCalled();
+  });
+
+  test('forwards custom boundedRangeProxy configuration to ranged and unmapped download', async () => {
+    await handleBamFile(
+      {
+        fileDict: { ...baseFileDict },
+        fileName: 'sample.bam',
+        finalConfig: {
+          destination: '/tmp',
+          overwrite: false,
+          unmapped: false,
+          boundedRangeProxy: false,
+          boundedRangeChunkSize: 1048576,
+        },
+        regions: ['chr1:1-100'],
+        target: 'demo',
+        tempBedPath: '/tmp/regions.bed',
+      },
+      deps,
+    );
+
+    expect(rangedDownloadBAM).toHaveBeenCalledWith(
+      'https://sample.bam',
+      '/tmp/regions.bed',
+      path.join('/tmp', 'out_sample.bam_chr1:1-100'),
+      path.join('/tmp', 'sample.bam.bai'),
+      mockLogger,
+      deps.metrics,
+      false,
+      false,
+      ['chr1:1-100'],
+      {
+        enabled: false,
+        chunkSize: 1048576,
+        dispatcher: deps.agent,
+      },
+    );
+
+    await handleBamFile(
+      {
+        fileDict: { ...baseFileDict },
+        fileName: 'sample.bam',
+        finalConfig: {
+          destination: '/tmp',
+          overwrite: false,
+          unmapped: true,
+          boundedRangeProxy: false,
+          boundedRangeChunkSize: 1048576,
+        },
+        regions: [],
+        target: 'demo',
+      },
+      deps,
+    );
+
+    expect(unmappedDownloadBAM).toHaveBeenCalledWith(
+      'https://sample.bam',
+      path.join('/tmp', 'out_sample.bam_unmapped'),
+      path.join('/tmp', 'sample.bam.bai'),
+      mockLogger,
+      deps.metrics,
+      false,
+      {
+        enabled: false,
+        chunkSize: 1048576,
+        dispatcher: deps.agent,
+      },
+    );
   });
 
   test('logs and skips ranged download when required index is missing', async () => {

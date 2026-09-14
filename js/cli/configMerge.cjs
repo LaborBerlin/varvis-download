@@ -1,4 +1,8 @@
 const path = require('node:path');
+const {
+  DEFAULT_CHUNK_SIZE,
+  validateChunkSize,
+} = require('../net/rangeProtocol.cjs');
 
 const {
   normalizeArrayInput,
@@ -13,6 +17,8 @@ const { ConfigurationError } = require('../errors.cjs');
  * @typedef {Record<string, unknown> & {
  *   analysisIds?: (string|number)[],
  *   bed?: string|string[]|null,
+ *   boundedRangeChunkSize?: number|string|null,
+ *   boundedRangeProxy?: boolean,
  *   config?: string|string[]|null,
  *   destination?: string|string[]|null,
  *   filetypes?: string[],
@@ -303,6 +309,35 @@ function mergeConfig({ argv = {}, config = {}, env = {} } = {}) {
     !hasExplicitOption(argv, 'overwrite') &&
     config.overwrite === true;
 
+  // resolve bounded range proxy settings
+  const boundedRangeProxy = mergeBoolean(
+    argv,
+    config,
+    'boundedRangeProxy',
+    true,
+  );
+  const boundedRangeProxyExplicit =
+    hasExplicitOption(argv, 'boundedRangeProxy') ||
+    config.boundedRangeProxy !== undefined;
+  const explicitChunkSize = getExplicitOption(argv, 'boundedRangeChunkSize');
+  const rawChunkSize =
+    explicitChunkSize !== undefined
+      ? explicitChunkSize
+      : config.boundedRangeChunkSize;
+  let boundedRangeChunkSize;
+  try {
+    boundedRangeChunkSize = validateChunkSize(
+      rawChunkSize === undefined ? DEFAULT_CHUNK_SIZE : Number(rawChunkSize),
+    );
+  } catch {
+    throw new ConfigurationError(
+      '--bounded-range-chunk-size must be an integer between 65536 and 67108864 bytes.',
+    );
+  }
+  const boundedRangeChunkSizeExplicit =
+    hasExplicitOption(argv, 'boundedRangeChunkSize') ||
+    config.boundedRangeChunkSize !== undefined;
+
   /** @type {import('../types').FinalConfig} */
   const finalConfig = {
     username,
@@ -379,6 +414,10 @@ function mergeConfig({ argv = {}, config = {}, env = {} } = {}) {
     list: mergeBoolean(argv, config, 'list', false),
     loglevel,
     version: mergeBoolean(argv, config, 'version', false),
+    boundedRangeProxy,
+    boundedRangeChunkSize,
+    boundedRangeProxyExplicit,
+    boundedRangeChunkSizeExplicit,
   };
 
   if (configPath) {

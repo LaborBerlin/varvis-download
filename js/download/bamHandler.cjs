@@ -1,3 +1,4 @@
+const { withStagedOutput } = require('./atomicOutput.cjs');
 const path = require('node:path');
 
 const { fullDownloadWithOptionalIndex } = require('./commonDownload.cjs');
@@ -16,7 +17,7 @@ const { isUrlExpiringSoon } = require('../urlUtils.cjs');
  * @typedef {object} BamHandlerArgs
  * @property {import('../types').FileDict} fileDict - File dictionary.
  * @property {string} fileName - BAM file name.
- * @property {Pick<import('../types').FinalConfig, 'destination'|'overwrite'|'unmapped'>} finalConfig - Final CLI config (only the fields this handler reads; callers may pass the full config).
+ * @property {Pick<import('../types').FinalConfig, 'destination'|'overwrite'|'unmapped'> & Partial<Pick<import('../types').FinalConfig, 'boundedRangeProxy'|'boundedRangeChunkSize'>>} finalConfig - Final CLI config (only the fields this handler reads; callers may pass the full config).
  * @property {string[]} regions - Genomic regions.
  * @property {string} target - Varvis target.
  * @property {string} [tempBedPath] - Temporary BED path.
@@ -34,7 +35,13 @@ async function handleBamFile(args, deps) {
   const { fileDict, fileName, finalConfig, regions, target, tempBedPath } =
     args;
   const { agent, authService, logger, metrics, rl } = deps;
-  const { destination, overwrite, unmapped } = finalConfig;
+  const {
+    destination,
+    overwrite,
+    unmapped,
+    boundedRangeProxy,
+    boundedRangeChunkSize,
+  } = finalConfig;
 
   let ok = true;
 
@@ -129,18 +136,30 @@ async function handleBamFile(args, deps) {
     try {
       const modeLabel = unmapped ? 'ranged + unmapped' : 'ranged';
       logger.info(`Performing ${modeLabel} download for BAM file: ${fileName}`);
-      await rangedDownloadBAM(
-        downloadLink,
-        tempBedPath,
+      await withStagedOutput(
         outputFile,
-        indexFilePath,
-        logger,
-        metrics,
         overwrite,
-        unmapped,
-        regions,
+        '.bai',
+        async (stagedFile) => {
+          await rangedDownloadBAM(
+            downloadLink,
+            tempBedPath,
+            stagedFile,
+            indexFilePath,
+            logger,
+            metrics,
+            overwrite,
+            unmapped,
+            regions,
+            {
+              enabled: boundedRangeProxy,
+              chunkSize: boundedRangeChunkSize,
+              dispatcher: agent,
+            },
+          );
+          await indexBAM(stagedFile, logger, overwrite);
+        },
       );
-      await indexBAM(outputFile, logger, overwrite);
     } catch (error) {
       ok = false;
       logger.error(
@@ -156,15 +175,27 @@ async function handleBamFile(args, deps) {
   );
   try {
     logger.info(`Extracting unmapped reads from BAM file: ${fileName}`);
-    await unmappedDownloadBAM(
-      downloadLink,
+    await withStagedOutput(
       unmappedOutputFile,
-      indexFilePath,
-      logger,
-      metrics,
       overwrite,
+      '.bai',
+      async (stagedFile) => {
+        await unmappedDownloadBAM(
+          downloadLink,
+          stagedFile,
+          indexFilePath,
+          logger,
+          metrics,
+          overwrite,
+          {
+            enabled: boundedRangeProxy,
+            chunkSize: boundedRangeChunkSize,
+            dispatcher: agent,
+          },
+        );
+        await indexBAM(stagedFile, logger, overwrite);
+      },
     );
-    await indexBAM(unmappedOutputFile, logger, overwrite);
   } catch (error) {
     ok = false;
     logger.error(
