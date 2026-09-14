@@ -9,27 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Production dependencies**: `fs-extra` 11.3.6 → 11.4.0, `undici` 8.7.0 → 8.10.2, `yargs` 18.0.0 → 18.1.0 (#140).
-- **Tooling**: `@types/node` 26.1.1 → 26.1.2, `lint-staged` 17.1.0 → 17.2.0, `prettier` 3.9.5 → 3.9.6 (#144).
-- **Linting**: `eslint` 10.7.0 → 10.8.0, `eslint-plugin-jsdoc` 63.2.0 → 63.3.3, `eslint-plugin-unicorn` 72.0.0 → 73.0.0 (#145).
-- **Testing**: `jest` 30.4.2 → 30.5.1, `nock` 14.0.16 → 14.0.17 (#146).
+- Consolidated dependency updates from #159–#162 in #150: fs-extra 11.4.0, yargs 18.1.0, ESLint 10.10.0, eslint-plugin-jsdoc 64.3.10 (range ^64.3.9), eslint-plugin-unicorn 74.0.0, Jest 30.5.1, Nock 14.0.17, @types/node 26.5.1, lint-staged 17.5.1, and Prettier 3.9.6.
 
 ### Security
 
-- **Resolved 13 Dependabot security advisories** across production and dev dependency trees (`npm audit` reports 0 vulnerabilities):
-  - `undici`: CRLF injection and cache/cookie disclosure advisories (GHSA-8xcm-r25x-g524, GHSA-4cwx-7wf7-3272, GHSA-m8rv-5g2x-5cg5, GHSA-jr45-8vmc-qm54, GHSA-v3r7-h72x-cjcm).
-  - `js-yaml`: quadratic CPU consumption in !!omap resolution (CVE-2026-59870 / GHSA-5p4m-2wfm-xmqj), pinned to `^3.15.2` via npm overrides.
-  - `brace-expansion`: exponential-time DoS (GHSA-3jxr-9vmj-r5cp, GHSA-mh99-v99m-4gvg, GHSA-rgw5-rvv9-x895), resolved by pinning `brace-expansion` with scoped overrides under `minimatch` (`^5.0.9`) and under `glob`/`test-exclude` (`^1.1.18`).
-  - `browserslist`: unhandled crash and memory growth (GHSA-73wf-gq98-2v4g, GHSA-c83g-rgw3-j3cx), pinned to `^4.28.9` via npm overrides.
-  - `postcss`: path traversal in source map auto-loading (GHSA-fxqj-rqcc-2cmp, GHSA-r28c-9q8g-f849), pinned to `^8.5.28` via npm overrides.
-  - `@humanfs/node`: symlink traversal in recursive copy (GHSA-p498-v437-472g), pinned to `^0.16.8` via npm overrides.
-  - `nanoid`: loop DoS in generators (GHSA-28wg-ghj8-5hjv, GHSA-2v37-7h3g-55p8), pinned to `^3.3.18` via npm overrides.
+- Updated transitive dependencies to address all 10 Dependabot alerts open on 2026-09-14: js-yaml (#80, #92), baseline-browser-mapping (#91), browserslist (#90), @humanfs/node (#88), brace-expansion (#68, #69, #85), and postcss (#71, #83).
+- Scoped brace-expansion overrides by its own major version to preserve each consumer's API: compatible patched 1.x, 2.x, and 5.x releases. This avoids forcing the 5.x named export into minimatch 9, which expects the 2.x callable export.
 
 ### Fixed
 
-- **Jest 30.5 ESM compatibility**: accessed host `createRequire` via `Object.getPrototypeOf(nodeModule)` in `js/cli/args.cjs` and `varvis-download.cjs` to bypass Jest 30.5's newly added sandboxed `createRequire` interception for ESM packages (`yargs`).
-- **Path assertions**: normalized hardcoded POSIX paths in `tests/unit/archiveUtils.resumeRanged.test.js` and `tests/unit/download/bamHandler.test.js` with `path.join` for cross-platform Windows/POSIX compatibility.
-- **Git worktree isolation**: ignored `.worktrees/` and `worktrees/` in `eslint.config.js`, `jest.config.cjs`, and `scripts/check-architecture-budget.mjs`.
+- Preserved native loading of ESM-only yargs under Jest 30.5 using the host module's createRequire implementation.
+- Excluded nested worktree directories from linting, test discovery, and architecture checks; anchored Jest exclusions to the checkout root so tests still run when the checkout itself is inside a worktree directory.
+- Enforced LF text checkout through .gitattributes for consistent formatting on Windows and POSIX.
 
 ## [0.35.0] - 2026-09-14
 

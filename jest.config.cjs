@@ -10,8 +10,8 @@ module.exports = {
   testMatch: ['**/tests/**/*.test.js'],
   testPathIgnorePatterns: [
     'tests/integration/e2e/',
-    '/\\.worktrees/',
-    '/worktrees/',
+    '<rootDir>/\\.worktrees/',
+    '<rootDir>/worktrees/',
   ],
   modulePathIgnorePatterns: ['<rootDir>/\\.worktrees/', '<rootDir>/worktrees/'],
   verbose: true,

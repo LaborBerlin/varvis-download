@@ -1,140 +1,52 @@
-# Consolidated Dependency & Security Updates Implementation Plan
+# Consolidated Dependency and Security Updates Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** Use `superpowers:executing-plans` for implementation and `superpowers:requesting-code-review` for independent verification.
 
-**Goal:** Consolidate all 4 open Dependabot PRs (#140, #144, #145, #146) and fix all 13 Dependabot security alerts into a single unified PR, pass local gates and CI, merge to `main`, bump fix version to `0.33.2`, tag `v0.33.2`, and publish a release.
+**Goal:** Update PR #150 on current main, incorporate #159–#162, remediate every open Dependabot alert, answer review comments, and request another review.
 
-**Architecture:** Update `package.json` with the consolidated dependency bumps and security overrides/resolutions. Run `npm install` to update `package-lock.json` cleanly, run `npm audit fix` for transitive vulnerabilities, and verify `npm audit` reports 0 vulnerabilities. Use parallel subagents to conduct adversarial code and lint reviews on any breaking changes in updated packages (especially ESLint, unicorn, Jest, undici). Run full local CI gate (`npm run check` + docs build). Commit and open a PR with GitHub CLI, monitor CI until green, merge into `main`, bump version to 0.33.2, tag, and publish release.
+**Architecture:** Preserve main's runtime behavior, production `dotenv`, and version 0.35.0. Update existing dependency ranges and regenerate the npm lockfile; keep security overrides compatible with their consumers. Record changes under Unreleased.
 
-**Tech Stack:** Node.js >=22.22.2, npm >=10, Jest 30, ESLint 10, Prettier, TypeScript (tsc --noEmit), GitHub CLI (`gh`), Git.
+**Tech Stack:** Node.js >=22.22.2, npm >=10, CommonJS, Jest 30, ESLint 10, TypeScript, VitePress.
 
-**Spec:** User prompt requesting single consolidated PR for PRs #140, #144, #145, #146, resolution of all Dependabot alerts, adversarial review, full testing, PR creation, CI verification, merge, version bump (0.33.2), tagging, and release.
+**Spec:** September 14 user request to refresh #150 and consolidate all open Dependabot updates so they become superseded when #150 merges.
 
 ## Global Constraints
 
-- CommonJS (`.cjs`) for runtime code; ESM for scripts.
-- Never weaken ESLint, security, or JSDoc rules.
-- Maintain small files (<600 LOC budget).
-- Run all checks via `npm run check`.
-- Zero vulnerabilities in `npm audit`.
+- Preserve changes already merged into main, including #158 and release #163.
+- Do not weaken lint rules, bypass hooks, change CI workflows, or add top-level dependencies.
+- Verify both production and development dependencies against current advisories.
+- Do not describe a skipped live integration step as a passing integration test.
 
----
+## Task 1: Rebase and consolidate
 
-### Task 1: Consolidate Dependencies in `package.json` and Resolve Vulnerabilities
+**Files:** `package.json`, `package-lock.json`, `CHANGELOG.md`.
 
-**Files:**
-- Modify: `package.json`
-- Modify: `package-lock.json`
+- [x] Rebase the existing branch onto main; resolve conflicts while retaining production `dotenv` and version 0.35.0.
+- [x] Drop the obsolete 0.33.2 release commit and move dependency release notes under Unreleased.
+- [x] Incorporate the exact dependency targets from #159–#162: fs-extra 11.4.0, yargs 18.1.0, ESLint 10.10.0, jsdoc plugin 64.3.9, unicorn 74.0.0, Jest 30.5.1, Nock 14.0.17, Node types 26.5.1, lint-staged 17.5.1, and Prettier 3.9.6.
+- [x] Regenerate the lockfile with `npm install`, inspect override compatibility, and verify `npm ci` reproducibility.
 
-**Interfaces:**
-- Consumes: Open PR diffs (#140, #144, #145, #146) and security advisory fixes.
-- Produces: Updated `package.json` with bumped dependencies and updated `overrides` section for zero vulnerabilities.
+## Task 2: Verify compatibility and security
 
-- [ ] **Step 1: Update `package.json` dependencies and overrides**
-  Apply dependency bumps:
-  - `fs-extra`: `^11.4.0` (PR #140)
-  - `undici`: `^8.10.2` (PR #140 + security fixes)
-  - `yargs`: `^18.1.0` (PR #140)
-  - `@types/node`: `^26.1.2` (PR #144)
-  - `lint-staged`: `^17.2.0` (PR #144)
-  - `prettier`: `^3.9.6` (PR #144)
-  - `eslint`: `^10.8.0` (PR #145)
-  - `eslint-plugin-jsdoc`: `^63.3.3` (PR #145)
-  - `eslint-plugin-unicorn`: `^73.0.0` (PR #145)
-  - `jest`: `^30.5.1` (PR #146)
-  - `nock`: `^14.0.17` (PR #146)
-  Update overrides:
-  - `js-yaml`: `^3.15.2` (resolves CVE-2026-59870 / GHSA-5p4m-2wfm-xmqj)
-  - `brace-expansion`: `^1.1.18` (or `npm audit fix` for transitive trees)
-  - `browserslist`: `^4.28.9`
-  - `postcss`: `^8.5.28`
+**Files:** Existing CLI loader compatibility changes, Jest configuration, and dependency manifests; adjust only where verification demonstrates a problem.
 
-- [ ] **Step 2: Run `npm install` and `npm audit fix`**
-  Run `npm install` followed by `npm audit fix` if needed, then `npm audit` to verify 0 vulnerabilities.
+- [x] Independently review the CLI loader workaround and scoped transitive overrides.
+- [x] Run `npm run check`, `npm test -- --coverage`, and `npm run docs:build` with supported Node.
+- [x] Run `npm audit --json` and check every installed occurrence of each package against all open Dependabot advisory ranges.
+- [ ] Inspect actual CI integration steps and document any environment-dependent skip.
 
-- [ ] **Step 3: Verify lockfile consistency and architecture budget**
-  Run `npm run architecture:check` to ensure lockfile is clean and file budgets are maintained.
+## Task 3: Update the existing PR
 
----
+**Files:** `CHANGELOG.md`, this plan, and GitHub PR metadata/comments.
 
-### Task 2: Adversarial Review of Bumped Packages & Lint/Test Adaptation
+- [x] Update the changelog to reflect the final dependency versions and security fixes.
+- [ ] Commit validated changes and push the rebased branch using an explicit force-with-lease against the previously inspected remote head.
+- [ ] Rewrite #150's title and body around the final implementation, validation, superseded dependency PRs, and alert coverage.
+- [ ] Reply to both inline comments and the blocking review with verified outcomes; request review from the prior human reviewers.
+- [ ] Verify GitHub checks on the updated head and leave the PR ready for review.
 
-**Files:**
-- Modify (if required): `eslint.config.js`, source files if new unicorn/eslint rules trigger.
-- Modify: `tests/**` if any Jest 30.5 behavior changed.
+## Merge and verification notes
 
-**Interfaces:**
-- Consumes: Installed node_modules, `npm run check` results.
-- Produces: Clean codebase passing all lints, types, tests, and formatting.
+Preserve the four bot head commits in the consolidated branch after checking that every changed direct range and locked direct version is represented. Merge #150 with **Create a merge commit** so GitHub can indirectly merge #159–#162 by ancestry; squash/rebase loses this guarantee. Recheck captured bot heads before merging.
 
-- [ ] **Step 1: Run `npm run lint` and analyze any new ESLint/unicorn diagnostics**
-  Check whether `eslint-plugin-unicorn@73` or `eslint@10.8` introduced new rules or broke existing configs.
-  Fix any issues without weakening security or JSDoc rules.
-
-- [ ] **Step 2: Run `npm run type-check`**
-  Verify TypeScript compiler passes with zero errors on `@types/node` 26.1.2.
-
-- [ ] **Step 3: Run `npm test` and `npm run docs:build`**
-  Verify all 453+ Jest unit tests pass, integration config parses, and VitePress docs build succeeds.
-
-- [ ] **Step 4: Subagent Adversarial Audit**
-  Dispatch research/adversarial review subagent to independently audit the diff for security regressions, breaking API contracts, or stealthy changes.
-
----
-
-### Task 3: Documentation and Changelog Preparation
-
-**Files:**
-- Modify: `CHANGELOG.md`
-
-**Interfaces:**
-- Consumes: List of consolidated PRs (#140, #144, #145, #146) and security advisory resolutions.
-- Produces: Detailed `CHANGELOG.md` entry under `0.33.2`.
-
-- [ ] **Step 1: Draft CHANGELOG entry for 0.33.2**
-  Detail all consolidated dependency bumps, security advisory CVE/GHSA fixes, and verified gates.
-
-- [ ] **Step 2: Run prettier and verify markdown formatting**
-  `npx prettier --check CHANGELOG.md`
-
----
-
-### Task 4: PR Creation and CI Verification
-
-**Files:**
-- Git branch `chore/consolidated-updates-2026-09`
-
-- [ ] **Step 1: Commit changes and push branch to origin**
-  Use descriptive commit message adhering to project conventions.
-
-- [ ] **Step 2: Create GitHub Pull Request via `gh pr create`**
-  Reference PRs #140, #144, #145, #146 and list all resolved security advisories.
-
-- [ ] **Step 3: Monitor GitHub Actions CI on the PR**
-  Use `gh pr checks` / `gh run watch` to ensure all checks pass.
-
----
-
-### Task 5: Merge, Version Bump, Tag, and Release
-
-**Files:**
-- `package.json`
-- `package-lock.json`
-
-- [ ] **Step 1: Merge PR into `main`**
-  Use `gh pr merge --squash` or `gh pr merge --merge` (matching repo conventions).
-
-- [ ] **Step 2: Pull latest `main` locally**
-  `git checkout main && git pull origin main`
-
-- [ ] **Step 3: Bump version to `0.33.2` and tag**
-  Ensure package.json is 0.33.2, git tag `v0.33.2` created.
-
-- [ ] **Step 4: Push commit and tag to origin**
-  `git push origin main --tags`
-
-- [ ] **Step 5: Create GitHub Release**
-  `gh release create v0.33.2 --title "v0.33.2" --notes-file ...`
-
-- [ ] **Step 6: Close superseded Dependabot PRs**
-  Close #140, #144, #145, #146 if not automatically closed.
+Local `npm ci`, the full `npm run check` gate (47 suites, 484 tests), the docs build, and the complete npm audit passed on Node 22.22.2. Every installed package occurrence is outside all 10 open advisory ranges.
