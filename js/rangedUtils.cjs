@@ -351,7 +351,7 @@ async function indexVCF(vcfGzFile, logger, overwrite = false) {
   }
 
   try {
-    const args = ['-p', 'vcf', vcfGzFile];
+    const args = [...(overwrite ? ['-f'] : []), '-p', 'vcf', vcfGzFile];
     logger.info(`Indexing VCF.gz file: ${vcfGzFile}`);
     await spawnPromise('tabix', args, logger);
     logger.info(`Indexed VCF.gz file: ${vcfGzFile}`);

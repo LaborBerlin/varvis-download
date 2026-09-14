@@ -459,7 +459,12 @@ describe('rangedUtils', () => {
 
       await indexVCF(vcfGzFile, mockLogger, true); // overwrite = true
 
-      expect(spawn).toHaveBeenCalledWith('tabix', ['-p', 'vcf', vcfGzFile]);
+      expect(spawn).toHaveBeenCalledWith('tabix', [
+        '-f',
+        '-p',
+        'vcf',
+        vcfGzFile,
+      ]);
     });
 
     test('should handle indexing failure', async () => {

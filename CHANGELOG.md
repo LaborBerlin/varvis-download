@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Passed tabix's force flag when overwriting VCF indexes, fixing full downloads with `--overwrite` when an index already exists.
 - Preserved native loading of ESM-only yargs under Jest 30.5 using the host module's createRequire implementation.
 - Excluded nested worktree directories from linting, test discovery, and architecture checks; anchored Jest exclusions to the checkout root so tests still run when the checkout itself is inside a worktree directory.
 - Enforced LF text checkout through .gitattributes for consistent formatting on Windows and POSIX.
