@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.1] - 2026-09-14
+
+### Changed
+
+- Consolidated dependency updates from #159–#162 in #150: fs-extra 11.4.0, yargs 18.1.0, ESLint 10.10.0, eslint-plugin-jsdoc 64.3.10 (range ^64.3.9), eslint-plugin-unicorn 74.0.0, Jest 30.5.1, Nock 14.0.17, @types/node 26.5.1, lint-staged 17.5.1, and Prettier 3.9.6.
+
+### Security
+
+- Updated transitive dependencies to address all 10 Dependabot alerts open on 2026-09-14: js-yaml (#80, #92), baseline-browser-mapping (#91), browserslist (#90), @humanfs/node (#88), brace-expansion (#68, #69, #85), and postcss (#71, #83).
+- Scoped brace-expansion overrides by its own major version to preserve each consumer's API: compatible patched 1.x, 2.x, and 5.x releases. This avoids forcing the 5.x named export into minimatch 9, which expects the 2.x callable export.
+
+### Fixed
+
+- Passed tabix's force flag when overwriting VCF indexes, fixing full downloads with `--overwrite` when an index already exists.
+- Preserved native loading of ESM-only yargs under Jest 30.5 using the host module's createRequire implementation.
+- Excluded nested worktree directories from linting, test discovery, and architecture checks; anchored Jest exclusions to the checkout root so tests still run when the checkout itself is inside a worktree directory.
+- Enforced LF text checkout through .gitattributes for consistent formatting on Windows and POSIX.
+
 ## [0.35.0] - 2026-09-14
 
 ### Breaking Changes
