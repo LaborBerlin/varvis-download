@@ -4,7 +4,7 @@
 
 **Goal:** Update PR #150 on current main, incorporate #159–#162, remediate every open Dependabot alert, answer review comments, and request another review.
 
-**Architecture:** Preserve main's runtime behavior, production `dotenv`, and version 0.35.0. Update existing dependency ranges and regenerate the npm lockfile; keep security overrides compatible with their consumers. Record changes under Unreleased.
+**Architecture:** Preserve main's runtime behavior, production `dotenv`, and released version history. Update existing dependency ranges and regenerate the npm lockfile; keep security overrides compatible with their consumers. Prepare version 0.35.1 and its release changelog in this PR.
 
 **Tech Stack:** Node.js >=22.22.2, npm >=10, CommonJS, Jest 30, ESLint 10, TypeScript, VitePress.
 
@@ -21,7 +21,7 @@
 
 **Files:** `package.json`, `package-lock.json`, `CHANGELOG.md`.
 
-- [x] Rebase the existing branch onto main; resolve conflicts while retaining production `dotenv` and version 0.35.0.
+- [x] Rebase the existing branch onto main; resolve conflicts while retaining production `dotenv` and released version history.
 - [x] Drop the obsolete 0.33.2 release commit and move dependency release notes under Unreleased.
 - [x] Incorporate the exact dependency targets from #159–#162: fs-extra 11.4.0, yargs 18.1.0, ESLint 10.10.0, jsdoc plugin 64.3.9, unicorn 74.0.0, Jest 30.5.1, Nock 14.0.17, Node types 26.5.1, lint-staged 17.5.1, and Prettier 3.9.6.
 - [x] Regenerate the lockfile with `npm install`, inspect override compatibility, and verify `npm ci` reproducibility.
@@ -50,3 +50,5 @@
 Preserve the four bot head commits in the consolidated branch after checking that every changed direct range and locked direct version is represented. Merge #150 with **Create a merge commit** so GitHub can indirectly merge #159–#162 by ancestry; squash/rebase loses this guarantee. Recheck captured bot heads before merging.
 
 Local `npm ci`, the full `npm run check` gate (47 suites, 484 tests), the docs build, and the complete npm audit passed on Node 22.22.2. Every installed package occurrence is outside all 10 open advisory ranges.
+
+The final PR includes package and lockfile version 0.35.1 and dated release notes. After merge, tag the merged commit as v0.35.1 and publish the release from that tag; no additional version PR is needed.

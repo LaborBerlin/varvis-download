@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.1] - 2026-09-14
+
 ### Changed
 
 - Consolidated dependency updates from #159–#162 in #150: fs-extra 11.4.0, yargs 18.1.0, ESLint 10.10.0, eslint-plugin-jsdoc 64.3.10 (range ^64.3.9), eslint-plugin-unicorn 74.0.0, Jest 30.5.1, Nock 14.0.17, @types/node 26.5.1, lint-staged 17.5.1, and Prettier 3.9.6.
