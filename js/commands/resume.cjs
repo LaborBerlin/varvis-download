@@ -144,6 +144,7 @@ async function resumeArchivedDownloads(
           logger.error(
             `Error reading BED file ${restoredOptions.bed} for ${entry.fileName}: ${getErrorMessage(bedError)}. Keeping entry in restoration queue to prevent unintended full download.`,
           );
+          failedDownloads++;
           updatedData.push(entry);
           continue;
         }

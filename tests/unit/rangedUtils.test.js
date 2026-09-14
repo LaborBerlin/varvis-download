@@ -13,7 +13,11 @@ jest.mock('fs');
 // Mock fileUtils
 jest.mock('../../js/fileUtils');
 
-const { rangedDownloadVCF, indexVCF } = require('../../js/rangedUtils');
+const {
+  rangedDownloadVCF,
+  indexVCF,
+  generateOutputFileName,
+} = require('../../js/rangedUtils');
 
 describe('rangedUtils', () => {
   let mockLogger;

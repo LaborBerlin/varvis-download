@@ -402,7 +402,7 @@ describe('commands/resume.resumeArchivedDownloads', () => {
       });
 
     try {
-      await resumeArchivedDownloads(
+      const failed = await resumeArchivedDownloads(
         'awaiting-restoration.json',
         '/tmp',
         'demo',
@@ -412,6 +412,7 @@ describe('commands/resume.resumeArchivedDownloads', () => {
         false,
       );
 
+      expect(failed).toBe(1);
       expect(handleBamFile).not.toHaveBeenCalled();
       expect(handleVcfFile).not.toHaveBeenCalled();
       expect(downloadFile).not.toHaveBeenCalled();

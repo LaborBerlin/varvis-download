@@ -82,6 +82,7 @@ describe('commands/download proxy guard', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    deps.metrics.totalFilesFailed = 0;
     checkToolAvailability.mockResolvedValue(true);
   });
 
