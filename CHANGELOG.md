@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-09-14
+
 ### Breaking Changes
 
 - **Removed `confirmOverwrite` export**: Removed unused `confirmOverwrite` helper from `js/fileUtils.cjs` as file overwrites are controlled explicitly via the `--overwrite` flag (#154).
