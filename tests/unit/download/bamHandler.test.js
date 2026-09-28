@@ -18,6 +18,12 @@ jest.mock('../../../js/rangedUtils.cjs', () => ({
   unmappedDownloadBAM: jest.fn(),
 }));
 
+jest.mock('../../../js/download/rangedSource.cjs', () => ({
+  withRangedSource: jest.fn((options, _deps, run) =>
+    run({ location: options.url, indexPath: options.indexPath }),
+  ),
+}));
+
 jest.mock('../../../js/download/commonDownload.cjs', () => ({
   fullDownloadWithOptionalIndex: jest.fn(async () => ({
     indexDownloaded: false,
@@ -35,6 +41,7 @@ const {
   fullDownloadWithOptionalIndex,
 } = require('../../../js/download/commonDownload.cjs');
 const { getValidDownloadUrl } = require('../../../js/download/urlRefresh.cjs');
+const { withRangedSource } = require('../../../js/download/rangedSource.cjs');
 
 describe('download/bamHandler.handleBamFile', () => {
   const mockLogger = {
@@ -286,6 +293,49 @@ describe('download/bamHandler.handleBamFile', () => {
       path.join('/tmp', 'out_sample.bam'),
       mockLogger,
       true,
+    );
+  });
+
+  test('routes ranged and unmapped reads through the ranged source', async () => {
+    await handleBamFile(
+      {
+        fileDict: { ...baseFileDict },
+        fileName: 'sample.bam',
+        finalConfig: {
+          destination: '/tmp',
+          overwrite: false,
+          unmapped: true,
+          rangeStrategy: 'planned',
+        },
+        regions: ['chr1:1-10'],
+        target: 'demo',
+        tempBedPath: '/tmp/r.bed',
+      },
+      deps,
+    );
+    expect(withRangedSource.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        strategy: 'planned',
+        format: 'bam',
+        regions: ['chr1:1-10'],
+        includeUnmapped: true,
+        indexPath: path.join('/tmp', 'sample.bam.bai'),
+      }),
+    );
+
+    withRangedSource.mockClear();
+    await handleBamFile(
+      {
+        fileDict: { ...baseFileDict },
+        fileName: 'sample.bam',
+        finalConfig: { destination: '/tmp', overwrite: false, unmapped: true },
+        regions: [],
+        target: 'demo',
+      },
+      deps,
+    );
+    expect(withRangedSource.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ regions: [], includeUnmapped: true }),
     );
   });
 });

@@ -1,6 +1,7 @@
 const path = require('node:path');
 
 const { fullDownloadWithOptionalIndex } = require('./commonDownload.cjs');
+const { withRangedSource } = require('./rangedSource.cjs');
 const { getValidDownloadUrl } = require('./urlRefresh.cjs');
 const { getErrorMessage } = require('../errorUtils.cjs');
 const {
@@ -16,7 +17,7 @@ const { isUrlExpiringSoon } = require('../urlUtils.cjs');
  * @typedef {object} BamHandlerArgs
  * @property {import('../types').FileDict} fileDict - File dictionary.
  * @property {string} fileName - BAM file name.
- * @property {Pick<import('../types').FinalConfig, 'destination'|'overwrite'|'unmapped'>} finalConfig - Final CLI config (only the fields this handler reads; callers may pass the full config).
+ * @property {Pick<import('../types').FinalConfig, 'destination'|'overwrite'|'unmapped'> & Partial<Pick<import('../types').FinalConfig, 'rangeStrategy'>>} finalConfig - Final CLI config (only the fields this handler reads; callers may pass the full config).
  * @property {string[]} regions - Genomic regions.
  * @property {string} target - Varvis target.
  * @property {string} [tempBedPath] - Temporary BED path.
@@ -34,7 +35,7 @@ async function handleBamFile(args, deps) {
   const { fileDict, fileName, finalConfig, regions, target, tempBedPath } =
     args;
   const { agent, authService, logger, metrics, rl } = deps;
-  const { destination, overwrite, unmapped } = finalConfig;
+  const { destination, overwrite, unmapped, rangeStrategy } = finalConfig;
 
   let ok = true;
 
@@ -129,16 +130,31 @@ async function handleBamFile(args, deps) {
     try {
       const modeLabel = unmapped ? 'ranged + unmapped' : 'ranged';
       logger.info(`Performing ${modeLabel} download for BAM file: ${fileName}`);
-      await rangedDownloadBAM(
-        downloadLink,
-        tempBedPath,
-        outputFile,
-        indexFilePath,
-        logger,
-        metrics,
-        overwrite,
-        unmapped,
-        regions,
+      await withRangedSource(
+        {
+          strategy: rangeStrategy,
+          url: downloadLink,
+          indexPath: indexFilePath,
+          format: 'bam',
+          regions,
+          includeUnmapped: unmapped,
+          outputs: [outputFile],
+          overwrite,
+          fileName,
+        },
+        deps,
+        (source) =>
+          rangedDownloadBAM(
+            source.location,
+            tempBedPath,
+            outputFile,
+            source.indexPath,
+            logger,
+            metrics,
+            overwrite,
+            unmapped,
+            regions,
+          ),
       );
       await indexBAM(outputFile, logger, overwrite);
     } catch (error) {
@@ -156,13 +172,28 @@ async function handleBamFile(args, deps) {
   );
   try {
     logger.info(`Extracting unmapped reads from BAM file: ${fileName}`);
-    await unmappedDownloadBAM(
-      downloadLink,
-      unmappedOutputFile,
-      indexFilePath,
-      logger,
-      metrics,
-      overwrite,
+    await withRangedSource(
+      {
+        strategy: rangeStrategy,
+        url: downloadLink,
+        indexPath: indexFilePath,
+        format: 'bam',
+        regions: [],
+        includeUnmapped: true,
+        outputs: [unmappedOutputFile],
+        overwrite,
+        fileName,
+      },
+      deps,
+      (source) =>
+        unmappedDownloadBAM(
+          source.location,
+          unmappedOutputFile,
+          source.indexPath,
+          logger,
+          metrics,
+          overwrite,
+        ),
     );
     await indexBAM(unmappedOutputFile, logger, overwrite);
   } catch (error) {
