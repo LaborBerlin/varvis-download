@@ -452,7 +452,7 @@ Each file logs one line, for example:
 Planned ranged read for sample.bam: fetched 12.3 MB in 41 requests (1.0% of 1.18 GB)
 ```
 
-Unfetched bytes in the sparse file are zeros, which fail BGZF validation. If a plan ever missed a block, the tool would fail loudly instead of returning wrong data. Any planning, transfer or tool failure logs a warning and retries the extraction once with direct remote access. To always use direct remote access, pass `--range-strategy stream` or set `"rangeStrategy": "stream"` in the config file. CSI indexes are not planned and always use the fallback.
+Unfetched bytes in the sparse file are zeros, which fail BGZF validation. If a plan ever missed a block, the tool would fail loudly instead of returning wrong data. Any planning, transfer or tool failure logs a warning and retries the extraction once with direct remote access. To always use direct remote access, pass `--range-strategy stream` or set `"rangeStrategy": "stream"` in the config file. Objects without a strong ETag, and CSI indexes, are never planned; they always use direct remote access. The ETag pins every range request to one object version.
 
 ## Troubleshooting Range Downloads
 
