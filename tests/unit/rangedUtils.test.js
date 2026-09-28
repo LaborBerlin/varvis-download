@@ -243,7 +243,11 @@ describe('rangedUtils', () => {
       const mockTabixProcess = {
         stdout: { pipe: jest.fn() },
         stderr: { on: jest.fn() },
-        on: jest.fn(),
+        on: jest.fn((event, callback) => {
+          if (event === 'close') {
+            setTimeout(() => callback(0), 0); // tabix exits successfully
+          }
+        }),
       };
       const mockBgzipProcess = {
         stdin: {},
@@ -295,7 +299,11 @@ describe('rangedUtils', () => {
       const mockTabixProcess = {
         stdout: { pipe: jest.fn() },
         stderr: { on: jest.fn() },
-        on: jest.fn(),
+        on: jest.fn((event, callback) => {
+          if (event === 'close') {
+            setTimeout(() => callback(0), 0); // tabix exits successfully
+          }
+        }),
       };
       const mockBgzipProcess = {
         stdin: {},
@@ -345,7 +353,11 @@ describe('rangedUtils', () => {
       const mockTabixProcess = {
         stdout: { pipe: jest.fn() },
         stderr: { on: jest.fn() },
-        on: jest.fn(),
+        on: jest.fn((event, callback) => {
+          if (event === 'close') {
+            setTimeout(() => callback(0), 0); // tabix exits successfully
+          }
+        }),
       };
       const mockBgzipProcess = {
         stdin: {},
