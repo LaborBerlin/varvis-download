@@ -5,11 +5,12 @@ const { once } = require('node:events');
  * Starts a loopback HTTP server that serves `data` with Range support and
  * counts every body byte it sends.
  * @param {Buffer}                                                   data    - Object bytes.
- * @param {{etag?: string, handler?: (req, res) => boolean}}         [opts]  - Overrides; a handler returning true has responded.
+ * @param {{etag?: string|null, handler?: (req, res) => boolean}}    [opts]  - Overrides (`etag: null` omits the header); a handler returning true has responded.
  */
 async function startRangeServer(data, opts = {}) {
   const stats = { requests: 0, bytesSent: 0, ranges: [] };
-  const etag = opts.etag ?? '"fixture-etag"';
+  const etag = opts.etag === undefined ? '"fixture-etag"' : opts.etag;
+  const etagHeader = etag === null ? {} : { etag };
   const server = http.createServer((req, res) => {
     stats.requests++;
     stats.ranges.push(req.headers.range);
@@ -21,7 +22,9 @@ async function startRangeServer(data, opts = {}) {
     const match = /^bytes=(\d+)-(\d*)$/.exec(req.headers.range ?? '');
     if (!match) {
       stats.bytesSent += data.length;
-      res.writeHead(200, { 'content-length': data.length, etag }).end(data);
+      res
+        .writeHead(200, { 'content-length': data.length, ...etagHeader })
+        .end(data);
       return;
     }
     const start = Number(match[1]);
@@ -38,7 +41,7 @@ async function startRangeServer(data, opts = {}) {
       .writeHead(206, {
         'content-length': body.length,
         'content-range': `bytes ${start}-${end}/${data.length}`,
-        etag,
+        ...etagHeader,
       })
       .end(body);
   });

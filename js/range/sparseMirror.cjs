@@ -5,7 +5,7 @@ const path = require('node:path');
 const { MAX_BLOCK_SIZE, inflateBlocks, readBlockSize } = require('./bgzf.cjs');
 const { parseBamHeader } = require('./bamHeader.cjs');
 const { parseIndexFile } = require('./indexParser.cjs');
-const { fetchRange, fetchRanges } = require('./rangeFetcher.cjs');
+const { fetchRange, fetchRanges, isStrongEtag } = require('./rangeFetcher.cjs');
 const {
   mergeRanges,
   parseRegion,
@@ -146,6 +146,13 @@ async function buildSparseMirror(options) {
       dispatcher,
       fileHandle: handle,
     });
+    // Blocks from different object versions can each pass BGZF CRC checks, so
+    // every request is pinned to one version via its strong ETag.
+    if (!isStrongEtag(probe.etag)) {
+      throw new Error(
+        'Remote object has no strong ETag; cannot pin its version across range requests',
+      );
+    }
     const identity = { size: probe.size, etag: probe.etag };
     await handle.truncate(identity.size);
     let bytes = 1;

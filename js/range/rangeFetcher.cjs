@@ -32,6 +32,7 @@ class RangeFetchError extends Error {
  * @property {import('../types').HttpDispatcher}    [dispatcher] - Configured dispatcher.
  * @property {import('node:fs/promises').FileHandle} fileHandle - Destination, written at `start`.
  * @property {ObjectIdentity}                       [expect]   - Identity every response must match.
+ * @property {AbortSignal}                          [signal]   - Cancels the request.
  */
 
 /**
@@ -55,7 +56,15 @@ function isStrongEtag(etag) {
  * @param   {RangeRequest}         req - Request.
  * @returns {Promise<RangeResult>}     - Result.
  */
-async function fetchOnce({ url, start, end, dispatcher, fileHandle, expect }) {
+async function fetchOnce({
+  url,
+  start,
+  end,
+  dispatcher,
+  fileHandle,
+  expect,
+  signal,
+}) {
   /** @type {Record<string, string>} */
   const headers = {
     range: `bytes=${start}-${end - 1}`,
@@ -66,6 +75,7 @@ async function fetchOnce({ url, start, end, dispatcher, fileHandle, expect }) {
     method: 'GET',
     headers,
     dispatcher,
+    signal,
     headersTimeout: TIMEOUT_MS,
     bodyTimeout: TIMEOUT_MS,
   });
@@ -133,7 +143,7 @@ async function fetchRange(req) {
       return await fetchOnce(req);
     } catch (error) {
       const retryable = !(error instanceof RangeFetchError) || error.retryable;
-      if (!retryable || attempt >= ATTEMPTS) throw error;
+      if (!retryable || attempt >= ATTEMPTS || req.signal?.aborted) throw error;
       await sleep(250 * 2 ** (attempt - 1));
     }
   }
@@ -150,7 +160,9 @@ async function fetchRange(req) {
  */
 
 /**
- * Fetches many ranges with bounded concurrency; stops scheduling on first failure.
+ * Fetches many ranges with bounded concurrency. The first failure aborts the
+ * other requests, and the call rejects only after every worker has stopped, so
+ * no write can land after the caller starts cleaning up.
  * @param   {RangesRequest}                              req - Request.
  * @returns {Promise<{bytes: number, requests: number}>}     - Totals.
  */
@@ -162,11 +174,13 @@ async function fetchRanges({
   expect,
   concurrency = 4,
 }) {
+  const controller = new AbortController();
   let next = 0;
   let bytes = 0;
-  let failed = false;
+  /** @type {unknown[]} */
+  const errors = [];
   const worker = async () => {
-    while (!failed && next < ranges.length) {
+    while (!controller.signal.aborted && next < ranges.length) {
       const [start, end] = ranges[next++];
       try {
         const result = await fetchRange({
@@ -176,19 +190,21 @@ async function fetchRanges({
           dispatcher,
           fileHandle,
           expect,
+          signal: controller.signal,
         });
         bytes += result.bytes;
       } catch (error) {
-        failed = true;
-        throw error;
+        if (!controller.signal.aborted) {
+          errors.push(error);
+          controller.abort();
+        }
       }
     }
   };
-  const workers = Array.from(
-    { length: Math.min(concurrency, ranges.length) },
-    worker,
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, ranges.length) }, worker),
   );
-  await Promise.all(workers);
+  if (errors.length > 0) throw errors[0];
   return { bytes, requests: ranges.length };
 }
 

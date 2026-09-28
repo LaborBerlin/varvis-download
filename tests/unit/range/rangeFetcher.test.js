@@ -146,6 +146,56 @@ describe('range/rangeFetcher', () => {
     }
   });
 
+  test('fetchRanges settles every worker before rejecting', async () => {
+    server = await startRangeServer(data, {
+      handler: (req, res) => {
+        if (req.headers.range === 'bytes=0-9') {
+          setTimeout(() => res.writeHead(403).end(), 50);
+          return true;
+        }
+        // Stream slowly so writes would continue after the 403 without aborts.
+        res.writeHead(206, {
+          'content-length': 100,
+          'content-range': `bytes 1000-1099/${data.length}`,
+          etag: '"fixture-etag"',
+        });
+        let offset = 1000;
+        const timer = setInterval(() => {
+          res.write(data.subarray(offset, offset + 10));
+          offset += 10;
+          if (offset >= 1100) {
+            clearInterval(timer);
+            res.end();
+          }
+        }, 20);
+        res.on('close', () => clearInterval(timer));
+        return true;
+      },
+    });
+    let settled = false;
+    let lateWrites = 0;
+    const tracked = {
+      write: (...args) => {
+        if (settled) lateWrites++;
+        return handle.write(...args);
+      },
+    };
+    await expect(
+      fetchRanges({
+        url: server.url,
+        ranges: [
+          [0, 10],
+          [1000, 1100],
+        ],
+        fileHandle: tracked,
+        expect: { size: data.length },
+      }),
+    ).rejects.toThrow(/HTTP 403/);
+    settled = true;
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(lateWrites).toBe(0);
+  });
+
   test('isStrongEtag distinguishes weak tags', () => {
     expect(isStrongEtag('"abc"')).toBe(true);
     expect(isStrongEtag('W/"abc"')).toBe(false);

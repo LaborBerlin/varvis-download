@@ -123,6 +123,8 @@ async function handleVcfFile(args, deps) {
   );
   /** @type {string[]} */
   let failures = [];
+  // Regions already extracted are not repeated by the streamed retry.
+  const completed = new Set();
   await withRangedSource(
     {
       strategy: rangeStrategy,
@@ -139,6 +141,7 @@ async function handleVcfFile(args, deps) {
     async (source) => {
       failures = [];
       for (const [i, region] of regions.entries()) {
+        if (completed.has(i)) continue;
         try {
           logger.info(
             `Performing ranged download for VCF file: ${fileName} with region: ${region}`,
@@ -153,6 +156,7 @@ async function handleVcfFile(args, deps) {
             overwrite,
           );
           await indexVCF(outputs[i], logger, overwrite);
+          completed.add(i);
         } catch (error) {
           failures.push(`region ${region}: ${getErrorMessage(error)}`);
         }

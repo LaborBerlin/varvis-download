@@ -276,4 +276,32 @@ describe('download/vcfHandler.handleVcfFile', () => {
     ]);
     expect(mockLogger.error).not.toHaveBeenCalled();
   });
+
+  test('the streamed retry only reruns regions that failed on the mirror', async () => {
+    withRangedSource.mockImplementationOnce(async (options, _deps, run) => {
+      await expect(
+        run({ location: '/tmp/mirror/sample.vcf.gz', indexPath: '/m.tbi' }),
+      ).rejects.toThrow('boom');
+      await run({ location: options.url, indexPath: options.indexPath });
+    });
+    rangedDownloadVCF
+      .mockResolvedValueOnce()
+      .mockRejectedValueOnce(new Error('boom'));
+    const result = await handleVcfFile(
+      {
+        fileDict: { ...baseFileDict },
+        fileName: 'sample.vcf.gz',
+        finalConfig: { destination: '/tmp', overwrite: true },
+        regions: ['chr1:1-10', 'chr2:5-15'],
+        target: 'demo',
+      },
+      deps,
+    );
+    expect(result).toEqual({ ok: true });
+    expect(rangedDownloadVCF.mock.calls.map((c) => [c[0], c[1]])).toEqual([
+      ['/tmp/mirror/sample.vcf.gz', 'chr1:1-10'],
+      ['/tmp/mirror/sample.vcf.gz', 'chr2:5-15'],
+      ['https://sample.vcf.gz', 'chr2:5-15'],
+    ]);
+  });
 });

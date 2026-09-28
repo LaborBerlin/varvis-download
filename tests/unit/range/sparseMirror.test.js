@@ -165,6 +165,30 @@ describeWithTools('range/sparseMirror with real HTSlib tools', () => {
     }
   });
 
+  test('refuses to plan when the object has no strong ETag', async () => {
+    for (const etag of [null, 'W/"weak"']) {
+      const server = await startRangeServer(fs.readFileSync(panel.bam), {
+        etag,
+      });
+      try {
+        await expect(
+          buildSparseMirror({
+            url: server.url,
+            logger,
+            fileName: 'panel.bam',
+            format: 'bam',
+            indexPath: panel.bai,
+            regions: ['chr1:1-1000'],
+            includeUnmapped: false,
+          }),
+        ).rejects.toThrow(/strong ETag/);
+        expect(server.stats.requests).toBe(1);
+      } finally {
+        await server.close();
+      }
+    }
+  });
+
   test('rejects an index that does not match the format', async () => {
     await expect(
       buildSparseMirror({
