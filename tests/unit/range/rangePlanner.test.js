@@ -1,9 +1,10 @@
 const {
-  createBlockBound,
+  mergeRanges,
   parseRegion,
   planRanges,
   reg2bins,
-  vcfHeaderEnd,
+  subtractRanges,
+  vcfHeader,
 } = require('../../../js/range/rangePlanner.cjs');
 
 /** Virtual offset from a compressed and uncompressed offset. */
@@ -61,99 +62,108 @@ describe('range/rangePlanner.reg2bins', () => {
 
 describe('range/rangePlanner.planRanges', () => {
   const base = { includeUnmapped: false, fileSize: 10 * MB, headerEnd: 100 };
+  const plan = (index, intervals, extra = {}) =>
+    planRanges({ ...base, index, intervals, mergeGap: 0, ...extra });
 
   test('always includes the header and EOF marker', () => {
-    expect(planRanges({ ...base, index: indexOf([]), intervals: [] })).toEqual([
-      [0, 100],
-      [10 * MB - 28, 10 * MB],
+    expect(plan(indexOf([]), [])).toEqual({
+      ranges: [
+        [0, 100],
+        [10 * MB - 28, 10 * MB],
+      ],
+      blocks: [],
+    });
+  });
+
+  test('a chunk ending inside a block requests that whole block', () => {
+    const result = plan(indexOf([[4681, [[vo(1 * MB), vo(2 * MB, 5)]]]]), [
+      { tid: 0, beg: 0, end: 100 },
     ]);
+    expect(result.ranges).toContainEqual([1 * MB, 2 * MB]);
+    expect(result.blocks).toEqual([2 * MB]);
   });
 
-  test('fetches a leaf-bin chunk up to the next known block start', () => {
-    const index = indexOf(
-      [[4681, [[vo(1 * MB), vo(2 * MB, 5)]]]],
-      [vo(1 * MB)],
-    );
-    // A known block start 30 KB after the chunk end tightens the bound.
-    index.refs[0].bins.set(4682, [[vo(2 * MB + 30000), vo(3 * MB)]]);
-    const ranges = planRanges({
-      ...base,
-      index,
-      intervals: [{ tid: 0, beg: 0, end: 100 }],
-    });
-    expect(ranges).toContainEqual([1 * MB, 2 * MB + 30000]);
+  test('a chunk ending on a block boundary needs no extra block', () => {
+    const result = plan(indexOf([[4681, [[vo(1 * MB), vo(2 * MB, 0)]]]]), [
+      { tid: 0, beg: 0, end: 100 },
+    ]);
+    expect(result.ranges).toContainEqual([1 * MB, 2 * MB]);
+    expect(result.blocks).toEqual([]);
   });
 
-  test('caps the end block at 64 KiB when no later offset is known', () => {
-    const index = indexOf([[4681, [[vo(1 * MB), vo(2 * MB)]]]]);
-    const ranges = planRanges({
-      ...base,
-      index,
-      intervals: [{ tid: 0, beg: 0, end: 100 }],
-    });
-    expect(ranges).toContainEqual([1 * MB, 2 * MB + 65536]);
-  });
-
-  test('uses parent bins and trims chunks ending before the linear minimum', () => {
+  test('drops chunks ending before min_off and clips starts to it', () => {
     const index = indexOf(
       [
         [
           0,
           [
-            [vo(200), vo(300)],
-            [vo(5 * MB), vo(5 * MB + 1000)],
+            [vo(2 * MB), vo(2 * MB + 200)],
+            [vo(4 * MB), vo(6 * MB, 1)],
           ],
         ],
       ],
-      [vo(4 * MB)],
+      [vo(3 * MB), vo(5 * MB)],
     );
-    const ranges = planRanges({
-      ...base,
-      index,
-      intervals: [{ tid: 0, beg: 10, end: 20 }],
+    // Window 1 has linear 5 MB; the smaller previous entry (3 MB) is min_off.
+    const { ranges } = plan(index, [{ tid: 0, beg: 16384, end: 16400 }], {
+      headerEnd: 10,
     });
-    expect(ranges.some(([s]) => s === 200)).toBe(false);
-    expect(ranges.some(([s]) => s === 5 * MB)).toBe(true);
+    expect(ranges.some(([s]) => s === 2 * MB)).toBe(false);
+    expect(ranges).toContainEqual([4 * MB, 6 * MB]);
   });
 
-  test('clips chunk starts to the linear minimum', () => {
+  test('plans from 0 when no smaller earlier linear entry exists', () => {
     const index = indexOf(
-      [[0, [[vo(1 * MB), vo(6 * MB)]]]],
-      [vo(1 * MB), vo(4 * MB)],
+      [[0, [[vo(1 * MB), vo(1 * MB + 50, 3)]]]],
+      [vo(5 * MB)],
     );
-    const ranges = planRanges({
-      ...base,
-      index,
-      intervals: [{ tid: 0, beg: 16384, end: 16400 }],
+    // HTSlib may fall back to the bin loff here, so nothing is trimmed.
+    const { ranges } = plan(index, [{ tid: 0, beg: 10, end: 20 }], {
+      headerEnd: 10,
     });
-    expect(ranges.find(([, e]) => e > 5 * MB)?.[0]).toBe(4 * MB);
+    expect(ranges).toContainEqual([1 * MB, 1 * MB + 50]);
   });
 
-  test('steps back over zero linear entries and past the linear end', () => {
+  test('uses no floor for zero or missing linear entries', () => {
     const index = indexOf(
-      [[0, [[vo(1 * MB), vo(6 * MB)]]]],
+      [[0, [[vo(1 * MB), vo(6 * MB, 1)]]]],
       [vo(3 * MB), 0n, 0n],
     );
     for (const beg of [2 * 16384, 50 * 16384]) {
-      const ranges = planRanges({
-        ...base,
-        index,
-        intervals: [{ tid: 0, beg, end: beg + 10 }],
+      const { ranges } = plan(index, [{ tid: 0, beg, end: beg + 10 }], {
+        headerEnd: 10,
       });
-      expect(ranges.find(([, e]) => e > 5 * MB)?.[0]).toBe(3 * MB);
+      expect(ranges).toContainEqual([1 * MB, 6 * MB]);
     }
+  });
+
+  test('applies HTSlib max_off from the next populated bin to the right', () => {
+    const index = indexOf([
+      [
+        0,
+        [
+          [vo(1 * MB), vo(3 * MB, 9)],
+          [vo(5 * MB), vo(6 * MB, 9)],
+        ],
+      ],
+      [4681, [[vo(1 * MB), vo(1 * MB + 500, 9)]]],
+      [4682, [[vo(2 * MB, 4), vo(2 * MB + 900, 9)]]],
+    ]);
+    const result = plan(index, [{ tid: 0, beg: 0, end: 100 }], {
+      headerEnd: 10,
+    });
+    // Clipped at max_off (2 MB, inside a block); the later chunk is dropped.
+    expect(result.ranges).toContainEqual([1 * MB, 2 * MB]);
+    expect(result.ranges.some(([s]) => s === 5 * MB)).toBe(false);
+    expect(result.blocks).toEqual([1 * MB + 500, 2 * MB]);
   });
 
   test('ignores the pseudo-bin and unknown references', () => {
     const index = indexOf([[37450, [[vo(7 * MB), vo(8 * MB)]]]]);
-    const ranges = planRanges({
-      ...base,
-      index,
-      intervals: [
-        { tid: 0, beg: 0, end: 100 },
-        { tid: 5, beg: 0, end: 100 },
-      ],
-    });
+    const { ranges } = plan(index, [
+      { tid: 0, beg: 0, end: 100 },
+      { tid: 5, beg: 0, end: 100 },
+    ]);
     expect(ranges).toHaveLength(2);
   });
 
@@ -162,12 +172,7 @@ describe('range/rangePlanner.planRanges', () => {
       [4681, [[vo(1 * MB), vo(3 * MB, 7)]]],
       [37450, [[vo(1 * MB), vo(9 * MB)]]],
     ]);
-    const ranges = planRanges({
-      ...base,
-      index,
-      intervals: [],
-      includeUnmapped: true,
-    });
+    const { ranges } = plan(index, [], { includeUnmapped: true });
     expect(ranges.at(-1)).toEqual([3 * MB, 10 * MB]);
   });
 
@@ -177,28 +182,62 @@ describe('range/rangePlanner.planRanges', () => {
         4681,
         [
           [vo(1 * MB), vo(1 * MB + 10)],
-          [vo(1 * MB + 100_000), vo(1 * MB + 100_010)],
+          [vo(1 * MB + 50_000), vo(1 * MB + 50_010)],
           [vo(3 * MB), vo(3 * MB + 10)],
         ],
       ],
     ]);
-    const ranges = planRanges({
-      ...base,
-      index,
-      intervals: [{ tid: 0, beg: 0, end: 10 }],
+    const { ranges } = plan(index, [{ tid: 0, beg: 0, end: 10 }], {
       mergeGap: 65536,
     });
-    const starts = ranges.map(([s]) => s);
-    expect(starts).toEqual([0, 1 * MB, 3 * MB, 10 * MB - 28]);
+    expect(ranges).toEqual([
+      [0, 100],
+      [1 * MB, 1 * MB + 50_010],
+      [3 * MB, 3 * MB + 10],
+      [10 * MB - 28, 10 * MB],
+    ]);
   });
 });
 
 describe('range/rangePlanner helpers', () => {
-  test('createBlockBound never exceeds the file size', () => {
-    expect(createBlockBound(indexOf([]), 1000)(990)).toBe(1000);
+  test('mergeRanges sorts, merges and drops empty ranges', () => {
+    expect(
+      mergeRanges(
+        [
+          [10, 20],
+          [0, 5],
+          [5, 7],
+          [30, 30],
+          [22, 25],
+        ],
+        2,
+      ),
+    ).toEqual([
+      [0, 7],
+      [10, 25],
+    ]);
   });
 
-  test('vcfHeaderEnd covers the chunk holding the first record', () => {
+  test('subtractRanges returns only uncovered pieces', () => {
+    expect(
+      subtractRanges(
+        [
+          [0, 100],
+          [150, 160],
+        ],
+        [
+          [10, 20],
+          [50, 155],
+        ],
+      ),
+    ).toEqual([
+      [0, 10],
+      [20, 50],
+      [155, 160],
+    ]);
+  });
+
+  test('vcfHeader covers the chunk holding the first record', () => {
     const index = indexOf([
       [
         4681,
@@ -208,7 +247,7 @@ describe('range/rangePlanner helpers', () => {
         ],
       ],
     ]);
-    expect(vcfHeaderEnd(index, MB)).toBe(20000);
-    expect(vcfHeaderEnd(indexOf([]), MB)).toBe(MB);
+    expect(vcfHeader(index)).toEqual({ end: 9000, block: 9000 });
+    expect(vcfHeader(indexOf([]))).toBeNull();
   });
 });

@@ -435,6 +435,25 @@ vep --input_file "$REGION_VCF" \
     --cache
 ```
 
+## How Ranged Reads Fetch Data
+
+By default (`--range-strategy planned`), ranged BAM/VCF and unmapped-read downloads do not let samtools or tabix read the remote file. For each file the tool:
+
+1. downloads the `.bai`/`.tbi` index;
+2. works out from the index exactly which compressed blocks samtools/tabix will decode for your regions, using the same bin, linear-index and `min_off`/`max_off` rules as HTSlib;
+3. fetches only those blocks, plus the header and the end-of-file marker, with bounded HTTP range requests into a private temporary sparse file;
+4. runs the usual `samtools view` / `tabix -h` command on that local file, then deletes it.
+
+Output records are identical to remote access, and traffic is typically about twice the size of the extracted output. When HTSlib reads a URL directly, it reads through and discards every forward gap under 1 MB, so on gene panels it transfers most of the file.
+
+Each file logs one line, for example:
+
+```
+Planned ranged read for sample.bam: fetched 12.3 MB in 41 requests (1.0% of 1.18 GB)
+```
+
+Unfetched bytes in the sparse file are zeros, which fail BGZF validation. If a plan ever missed a block, the tool would fail loudly instead of returning wrong data. Any planning, transfer or tool failure logs a warning and retries the extraction once with direct remote access. To always use direct remote access, pass `--range-strategy stream` or set `"rangeStrategy": "stream"` in the config file. CSI indexes are not planned and always use the fallback.
+
 ## Troubleshooting Range Downloads
 
 ### Common Issues

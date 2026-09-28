@@ -2,6 +2,14 @@
 
 Candidate alternative to PR #157 (bounded-range proxy).
 
+Measured on a synthetic 20 MB panel BAM served over HTTP, with records identical to direct access in every case:
+
+| Regions | Streamed (direct) | #157 proxy | Planned | Output |
+|---|---|---|---|---|
+| 99 | 40.4 MB | 20.7–22.3 MB | 8.82 MB | 4.95 MB |
+| 30 | 40.4 MB | 20.7–22.3 MB | 2.76 MB | 1.50 MB |
+| 10 | 130.1 MB | 8.2–32.9 MB | 0.89 MB | 0.50 MB |
+
 ## Problem
 
 Ranged BAM/VCF downloads give samtools or tabix the presigned S3 URL, and HTSlib then reads it remotely. HTSlib's libcurl backend (1.17 through current `develop`) handles a forward seek shorter than `MIN_SEEK_FORWARD` (1,000,000 bytes) by reading the skipped bytes and discarding them. Every longer seek opens a new request with no end offset (`bytes=N-`), which transfers data past the point the client needs.
@@ -31,29 +39,26 @@ Output must be byte-for-byte the same record set that remote samtools/tabix acce
 2. **Names.**
    - BAM: fetch the header one 64 KiB bounded range at a time from offset 0. Decompress complete BGZF blocks until the whole binary header has been parsed. Map reference names to IDs, including `@SQ AN:` aliases, the way HTSlib's `sam_hdr_name2tid` does.
    - VCF: the reference names are stored in the TBI itself.
-3. **Plan** (a pure function). For each region, reproduce HTSlib's `hts_itr_query` chunk selection, but choose the conservative option wherever HTSlib's rule is stricter:
+3. **Plan** (a pure function). For each region, reproduce the chunk selection in HTSlib's `hts_itr_query` and `hts_itr_multi_bam` (checked against HTSlib 1.20 source):
    - Candidate bins come from `reg2bins`, skipping the pseudo-bin 37450.
-   - Set `min_off` from the linear index entry for window `beg>>14`. If that window is beyond the end of the index, use the last entry. If the entry is zero, step back to the nearest earlier non-zero entry. The result is always ≤ HTSlib's `min_off`.
-   - Keep chunks whose end is greater than `min_off`. Clip the chunk start to `min_off`. Do not apply HTSlib's `max_off` pruning.
-
-   The selected chunks are therefore a superset of the ones HTSlib reads.
-
-   Each chunk becomes a compressed byte range `[coffset(begin), blockEnd(coffset(end)))`, where `blockEnd(c)` is the smallest of:
-   - the next block start after `c` known from the index (from all chunk boundaries and linear-index entries);
-   - `c + 65536`, the maximum BGZF block size;
-   - the file size.
-
-   `blockEnd` always covers the whole block that starts at `c`.
-   - **Unmapped (`*`) reads:** these are stored after all mapped reads. Fetch from `coffset` of the largest chunk end across all references up to the end of the file.
-   - **VCF header:** fetch from 0 to the `blockEnd` of the end of the lowest-starting chunk. That chunk contains the first record, which `tabix -h` reads to find where the header ends.
-   - **Merging:** sort the ranges and merge those separated by ≤ 64 KiB (one block), trading a few spare bytes for fewer requests.
-4. **Fetch.**
-   - Use bounded `Range: bytes=a-b` GETs through the configured undici dispatcher (with `--proxy` support), 4 at a time, with a few retries on network errors and 5xx responses.
-   - Require status 206 with a `Content-Range` that exactly matches the request, and check the body length.
-   - Send `If-Match` with the object's strong ETag, and require the same total size on every response.
-   - If the server ignores the Range header and returns 200, abort immediately and never download the whole file by accident.
-   - Write each range at its offset into a file in a private temp directory. The file is pre-sized to the full object size, so disk usage is only the fetched bytes.
-   - Fetch the 28-byte EOF marker, so HTSlib's EOF check passes.
+   - **`min_off`** is a lower bound for HTSlib's value. Take the linear-index entry for `beg>>14`, then step back to the nearest smaller earlier entry. HTSlib does this whenever the reference has placed unmapped reads. If the entry is zero, beyond the end of the index, or has no smaller predecessor, use 0, because HTSlib may use the bin's `loff` there.
+   - **`max_off`** is identical to HTSlib's: the first chunk start of the nearest populated bin to the right of `end`, walking up to parent bins at the first child of each group. Chunks starting at or after it are dropped, and chunk ends are clipped to it.
+   - Keep chunks with `v > min_off`, and clip their start to `min_off`. The selection is therefore always a superset of what HTSlib reads.
+   - **End of each chunk:** a chunk ending at uncompressed offset 0 ends on a block boundary, and HTSlib stops before loading the next block. Otherwise the block at `coffset(v)` is needed in full, and it is recorded as a *partial end block*.
+   - **Unmapped (`*`) reads:** fetch from `coffset` of the largest chunk end across all references up to the end of the file.
+   - **VCF header:** fetch from 0 up to the end of the lowest-starting chunk, plus its end block. That chunk contains the first record, which `tabix -h` reads.
+   - **Merging:** merge ranges separated by ≤ 16 KiB.
+4. **Fetch, in two passes.**
+   - **Pass 1:** the merged ranges, plus the 18-byte header of each partial end block.
+   - **Pass 2:** read each end block's exact size from its header (`BSIZE`), then fetch the rest of the block, skipping bytes already fetched.
+   - This removes the up-to-64 KiB guess per range at the cost of about one extra request per region.
+   - Requests:
+     - Use bounded `Range: bytes=a-b` GETs through the configured undici dispatcher (with `--proxy` support), 4 at a time, with up to 3 attempts on network errors, 5xx and 429 responses.
+     - Require status 206 with a `Content-Range` that exactly matches the request, and check the body length.
+     - Send `If-Match` with the strong ETag, and require the same total size and ETag on every response.
+     - If the server ignores the Range header and returns 200, abort immediately. Never download the whole object as a fallback.
+   - Write each range at its offset into a file in a private temp directory. The file is pre-sized to the object size, so disk usage is only the fetched bytes.
+   - The 28-byte EOF marker is always fetched, so HTSlib's EOF check passes.
 5. **Run the tools locally.** The existing `samtools view -X <sparse> <index> ...` and `tabix -h <sparse> region` commands run unchanged, pointed at the local path instead of the URL.
    - For tabix, copy the index next to the sparse file as `<name>.tbi`.
    - Set the sparse file's mtime older than the index's, to suppress HTSlib's "index is older than data" warning.

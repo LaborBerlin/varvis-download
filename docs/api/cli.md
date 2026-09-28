@@ -35,6 +35,7 @@ varvis-download [options]
 | `--range, g`                     | `string`  | -                           | Genomic range for ranged download (e.g., chr1:1-100000)                                                             |
 | `--bed, b`                       | `string`  | -                           | Path to BED file containing multiple regions                                                                        |
 | `--unmapped, um`                 | `boolean` | `false`                     | Extract unmapped reads from BAM files. Can be combined with `--range` to produce a single BAM with both.            |
+| `--range-strategy`               | `string`  | `planned`                   | `planned` fetches only index-selected blocks for ranged/unmapped reads; `stream` lets samtools/tabix read the URL.  |
 | `--restoreArchived, ra`          | `string`  | `ask`                       | Restore archived files. Accepts "no", "ask" (default), "all", or "force".                                           |
 | `--restorationFile, rf`          | `string`  | `awaiting-restoration.json` | Path and name for the awaiting-restoration JSON file                                                                |
 | `--resumeArchivedDownloads, rad` | `boolean` | `false`                     | Resume downloads for archived files from the awaiting-restoration JSON file if restoreEstimation has passed.        |

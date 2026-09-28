@@ -1,5 +1,7 @@
 # Index-planned ranged downloads: implementation plan
 
+> **Execution note (2026-09-28):** Implementation replaced the single-pass `blockEnd` bound in Task 4 with the two-pass exact end-block fetch and HTSlib-identical `max_off` described in the spec. `planRanges` returns `{ranges, blocks}`, and `vcfHeaderEnd` became `vcfHeader`. The merge gap is 16 KiB.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Ranged and unmapped BAM downloads and ranged VCF downloads transfer only the BGZF blocks named in the local index, instead of letting HTSlib stream the file remotely.

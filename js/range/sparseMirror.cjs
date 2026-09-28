@@ -2,15 +2,24 @@ const fsp = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 
-const { inflateBlocks } = require('./bgzf.cjs');
+const { MAX_BLOCK_SIZE, inflateBlocks, readBlockSize } = require('./bgzf.cjs');
 const { parseBamHeader } = require('./bamHeader.cjs');
 const { parseIndexFile } = require('./indexParser.cjs');
 const { fetchRange, fetchRanges } = require('./rangeFetcher.cjs');
-const { parseRegion, planRanges, vcfHeaderEnd } = require('./rangePlanner.cjs');
+const {
+  mergeRanges,
+  parseRegion,
+  planRanges,
+  subtractRanges,
+  vcfHeader,
+} = require('./rangePlanner.cjs');
 
 const HEADER_WINDOW = 65536;
 const MAX_HEADER_WINDOW = 4 * 1024 * 1024;
 const MAX_HEADER_BYTES = 64 * 1024 * 1024;
+const BLOCK_HEADER_BYTES = 18;
+// Gaps up to this size are fetched rather than split into another request.
+const MERGE_GAP = 16 * 1024;
 
 /**
  * @typedef {object} MirrorOptions
@@ -70,6 +79,50 @@ async function fetchBamHeader({ url, dispatcher, handle, identity }) {
 }
 
 /**
+ * Fetches a plan in two passes: the ranges plus each partial end block's
+ * header, then the rest of every such block once its length is known.
+ * @param   {{url: string, dispatcher?: import('../types').HttpDispatcher, handle: import('node:fs/promises').FileHandle, identity: {size: number, etag?: string}}} ctx     - Transfer context.
+ * @param   {import('./rangePlanner.cjs').RangePlan}                                                                                                                plan    - Planned ranges and blocks.
+ * @param   {Array<[number, number]>}                                                                                                                               covered - Bytes already in the file.
+ * @returns {Promise<{bytes: number, requests: number}>}                                                                                                                    - Transfer totals.
+ */
+async function fetchPlan({ url, dispatcher, handle, identity }, plan, covered) {
+  const request = (/** @type {Array<[number, number]>} */ ranges) =>
+    fetchRanges({
+      url,
+      ranges,
+      dispatcher,
+      fileHandle: handle,
+      expect: identity,
+    });
+  const headers = plan.blocks.map(
+    (c) =>
+      /** @type {[number, number]} */ ([
+        c,
+        Math.min(c + BLOCK_HEADER_BYTES, identity.size),
+      ]),
+  );
+  const first = subtractRanges(
+    mergeRanges([...plan.ranges, ...headers], MERGE_GAP),
+    covered,
+  );
+  const a = await request(first);
+  const have = mergeRanges([...covered, ...first]);
+
+  /** @type {Array<[number, number]>} */
+  const tails = [];
+  const header = Buffer.alloc(BLOCK_HEADER_BYTES);
+  for (const c of plan.blocks) {
+    const { bytesRead } = await handle.read(header, 0, header.length, c);
+    const size = readBlockSize(header.subarray(0, bytesRead), 0);
+    tails.push([c, Math.min(c + (size ?? MAX_BLOCK_SIZE), identity.size)]);
+  }
+  const second = subtractRanges(mergeRanges(tails, MERGE_GAP), have);
+  const b = await request(second);
+  return { bytes: a.bytes + b.bytes, requests: a.requests + b.requests };
+}
+
+/**
  * Builds a sparse local copy holding only the bytes HTSlib needs for `regions`.
  * Unfetched bytes are zero, so a planning gap fails BGZF validation loudly.
  * @param   {MirrorOptions}         options - Mirror options.
@@ -102,6 +155,8 @@ async function buildSparseMirror(options) {
     /** @type {Map<string, number>} */
     let nameToTid;
     let headerEnd;
+    /** @type {number|null} */
+    let headerBlock = null;
     if (format === 'bam') {
       const head = await fetchBamHeader({ ...options, handle, identity });
       nameToTid = head.header.nameToTid;
@@ -111,7 +166,9 @@ async function buildSparseMirror(options) {
       headerEnd = fetchedEnd;
     } else {
       nameToTid = new Map((index.names ?? []).map((name, tid) => [name, tid]));
-      headerEnd = vcfHeaderEnd(index, identity.size);
+      const span = vcfHeader(index);
+      headerEnd = span ? span.end : identity.size;
+      headerBlock = span ? span.block : null;
     }
 
     const intervals = [];
@@ -127,25 +184,22 @@ async function buildSparseMirror(options) {
       intervals.push({ tid, beg: spec.beg, end: spec.end });
     }
 
-    const ranges = planRanges({
+    const plan = planRanges({
       index,
       intervals,
       includeUnmapped,
       fileSize: identity.size,
       headerEnd,
-    })
-      .map(
-        ([s, e]) =>
-          /** @type {[number, number]} */ ([Math.max(s, fetchedEnd), e]),
-      )
-      .filter(([s, e]) => e > s);
-    const totals = await fetchRanges({
-      url,
-      ranges,
-      dispatcher,
-      fileHandle: handle,
-      expect: identity,
+      mergeGap: MERGE_GAP,
     });
+    if (headerBlock !== null) {
+      plan.blocks = [...new Set([...plan.blocks, headerBlock])];
+    }
+    const totals = await fetchPlan(
+      { url, dispatcher, handle, identity },
+      plan,
+      [[0, fetchedEnd]],
+    );
     await handle.close();
 
     let mirrorIndex = indexPath;
