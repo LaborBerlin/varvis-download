@@ -6,6 +6,14 @@ const {
 
 describe('arrayUtils', () => {
   describe('normalizeArrayInput', () => {
+    test.each([
+      ['123, 456', ['123', '456']],
+      ['AN001', ['AN001']],
+      [123, ['123']],
+    ])('normalizes scalar config input %s', (value, expected) => {
+      expect(normalizeArrayInput(undefined, value)).toEqual(expected);
+    });
+
     test('should split comma-separated strings into separate elements', () => {
       const result = normalizeArrayInput(['id1,id2,id3'], undefined, []);
       expect(result).toEqual(['id1', 'id2', 'id3']);
@@ -97,6 +105,13 @@ describe('arrayUtils', () => {
   });
 
   describe('normalizeFiletypes', () => {
+    test.each([
+      ['bam, bam.bai', ['bam', 'bam.bai']],
+      ['vcf.gz', ['vcf.gz']],
+    ])('normalizes scalar config filetypes %s', (value, expected) => {
+      expect(normalizeFiletypes(undefined, value)).toEqual(expected);
+    });
+
     test('should return default filetypes when both inputs are undefined', () => {
       const result = normalizeFiletypes();
       expect(result).toEqual(['bam', 'bam.bai']);

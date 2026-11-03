@@ -11,14 +11,14 @@ const { ConfigurationError } = require('../errors.cjs');
 
 /**
  * @typedef {Record<string, unknown> & {
- *   analysisIds?: (string|number)[],
+ *   analysisIds?: string|number|(string|number)[],
  *   bed?: string|string[]|null,
  *   config?: string|string[]|null,
  *   destination?: string|string[]|null,
- *   filetypes?: string[],
+ *   filetypes?: string|string[],
  *   filter?: string[],
  *   filters?: string[],
- *   limsIds?: (string|number)[],
+ *   limsIds?: string|number|(string|number)[],
  *   listUrls?: boolean,
  *   overwrite?: boolean,
  *   password?: string|string[]|null,
@@ -27,7 +27,7 @@ const { ConfigurationError } = require('../errors.cjs');
  *   restorationFile?: string|string[]|null,
  *   restoreArchived?: string|string[]|null,
  *   resumeArchivedDownloads?: boolean,
- *   sampleIds?: (string|number)[],
+ *   sampleIds?: string|number|(string|number)[],
  *   target?: string|string[]|null,
  *   unmapped?: boolean,
  *   urlFile?: string|string[]|null,

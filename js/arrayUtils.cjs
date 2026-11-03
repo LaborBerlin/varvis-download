@@ -7,14 +7,14 @@
 /**
  * Normalizes array inputs that may contain comma-separated strings.
  * Handles both CLI arguments (which may pass comma-separated values as single strings)
- * and config file arrays. Numeric values (e.g., IDs read from a JSON config file) are
+ * and config file arrays or scalar values. Numeric values (e.g., IDs read from a JSON config file) are
  * coerced to strings so they match the string identifiers returned by the Varvis API;
  * downstream filtering uses strict `Array.prototype.includes`.
  *
- * @param   {(string|number)[]|undefined} cliValue     - Value from CLI arguments.
- * @param   {(string|number)[]|undefined} configValue  - Value from config file.
- * @param   {(string|number)[]}           defaultValue - Default value if both are undefined.
- * @returns {string[]}                                 - Normalized array of string values.
+ * @param   {(string|number)[]|undefined}               cliValue     - Value from CLI arguments.
+ * @param   {string|number|(string|number)[]|undefined} configValue  - Value from config file.
+ * @param   {(string|number)[]}                         defaultValue - Default value if both are undefined.
+ * @returns {string[]}                                               - Normalized array of string values.
  * @example
  * // CLI passes "id1,id2" as single array element
  * normalizeArrayInput(['id1,id2'], undefined, [])
@@ -37,7 +37,7 @@
  */
 function normalizeArrayInput(cliValue, configValue, defaultValue = []) {
   const raw = cliValue || configValue || defaultValue;
-  return raw
+  return (Array.isArray(raw) ? raw : [raw])
     .flatMap((item) =>
       typeof item === 'string' && item.includes(',')
         ? item.split(',').map((s) => s.trim())
@@ -51,9 +51,9 @@ function normalizeArrayInput(cliValue, configValue, defaultValue = []) {
  * Normalizes file type inputs with a specific default.
  * File types don't need the Boolean filter since empty strings are valid defaults.
  *
- * @param   {string[]|undefined} cliValue    - Value from CLI arguments.
- * @param   {string[]|undefined} configValue - Value from config file.
- * @returns {string[]}                       - Normalized array of file types.
+ * @param   {string[]|undefined}        cliValue    - Value from CLI arguments.
+ * @param   {string|string[]|undefined} configValue - Value from config file.
+ * @returns {string[]}                              - Normalized array of file types.
  * @example
  * // Default file types when nothing specified
  * normalizeFiletypes(undefined, undefined)
@@ -62,7 +62,7 @@ function normalizeArrayInput(cliValue, configValue, defaultValue = []) {
 function normalizeFiletypes(cliValue, configValue) {
   const defaultFiletypes = ['bam', 'bam.bai'];
   const raw = cliValue || configValue || defaultFiletypes;
-  return raw.flatMap((item) =>
+  return (Array.isArray(raw) ? raw : [raw]).flatMap((item) =>
     typeof item === 'string' && item.includes(',')
       ? item.split(',').map((s) => s.trim())
       : item,

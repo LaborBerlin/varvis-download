@@ -3,6 +3,44 @@ const { parseArguments } = require('../../../js/cli/args.cjs');
 const { ConfigurationError } = require('../../../js/errors.cjs');
 
 describe('CLI config merge', () => {
+  test('normalizes scalar config lists and preserves explicit CLI overrides', () => {
+    const config = {
+      username: 'config-user',
+      target: 'config-target',
+      filetypes: 'bam, bam.bai',
+      analysisIds: 'AN001, AN002',
+      sampleIds: 'S001, S002',
+      limsIds: 'L001, L002',
+    };
+    const result = mergeConfig({ config, argv: parseArguments([]), env: {} });
+    expect(result).toMatchObject({
+      filetypes: ['bam', 'bam.bai'],
+      analysisIds: ['AN001', 'AN002'],
+      sampleIds: ['S001', 'S002'],
+      limsIds: ['L001', 'L002'],
+    });
+    const overridden = mergeConfig({
+      config,
+      argv: parseArguments([
+        '-f',
+        'vcf.gz',
+        '-a',
+        'AN003',
+        '--sampleIds',
+        'S003',
+        '--limsIds',
+        'L003',
+      ]),
+      env: {},
+    });
+    expect(overridden).toMatchObject({
+      filetypes: ['vcf.gz'],
+      analysisIds: ['AN003'],
+      sampleIds: ['S003'],
+      limsIds: ['L003'],
+    });
+  });
+
   test('merges argv over env over config and normalizes CLI arrays', () => {
     const result = mergeConfig({
       argv: {
