@@ -157,3 +157,25 @@ release-major: ci ## Release major version (runs CI first)
 	@echo "$(BLUE)Creating major release...$(RESET)"
 	npm version major
 	@echo "$(GREEN)✓ Major version released$(RESET)"
+
+changelog:
+	npx --no-install git-cliff --unreleased \
+		--tag "v$$(node -p "require('./package.json').version")" \
+		--prepend CHANGELOG.md
+
+pr: check_git_clean
+	bash scripts/create-pr.sh	
+
+# create a release: create a tag based on the current version,
+# push that version; will then trigger the "build_and_release" GHA workflow
+release: check_git_clean
+	bash scripts/create-release.sh
+
+# helper target to check if the current repository is "clean" (i.e. no uncommited changes)
+check_git_clean:
+	@if test -n "$$(git status --porcelain)"; then \
+		echo "Error: Git status not clean:" >&2; \
+		git status --short >&2; \
+		echo "Please commit or stash your changes and try again." >&2; \
+		exit 1; \
+	fi
