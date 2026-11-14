@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `--range-strategy` / `rangeStrategy` (`planned` by default, `stream` for the previous behaviour).
+
+### Changed
+
+- Ranged/unmapped BAM and ranged VCF downloads now fetch only the BGZF blocks that the local `.bai`/`.tbi` selects for the requested regions. The index is planned with HTSlib-compatible `min_off`/`max_off` rules. The blocks go into a temporary sparse file, and the unchanged samtools/tabix commands run on it locally. HTSlib's remote reader streams every forward gap under 1 MB (`MIN_SEEK_FORWARD`), so panel downloads previously transferred about 100× their output size (#157). On a synthetic panel BAM, traffic fell from 20–40 MB to 8.8 MB for 4.95 MB of output, with identical records. Any planning or tool failure retries once with direct remote access.
+
+### Fixed
+
+- Ranged VCF extraction now waits for tabix to exit. Previously a tabix failure reported after bgzip finished could leave a truncated VCF that was counted as downloaded.
+
 ## [0.35.1] - 2026-09-14
 
 ### Changed

@@ -24,6 +24,7 @@ const { ConfigurationError } = require('../errors.cjs');
  *   password?: string|string[]|null,
  *   passwordStdin?: boolean,
  *   range?: string|string[]|null,
+ *   rangeStrategy?: string|string[]|null,
  *   restorationFile?: string|string[]|null,
  *   restoreArchived?: string|string[]|null,
  *   resumeArchivedDownloads?: boolean,
@@ -161,6 +162,12 @@ function normalizeFilters(argvFilters, configFilters) {
  * @param {import('../types').FinalConfig} config - Final merged config.
  */
 function validateConfig(config) {
+  if (!['planned', 'stream'].includes(config.rangeStrategy)) {
+    throw new ConfigurationError(
+      `Invalid rangeStrategy "${config.rangeStrategy}". Use "planned" or "stream".`,
+    );
+  }
+
   if (config.unmapped && config.bed) {
     throw new ConfigurationError(
       '--unmapped cannot be combined with --bed. Use --unmapped with --range (-g) instead, or use --unmapped alone.',
@@ -375,6 +382,14 @@ function mergeConfig({ argv = {}, config = {}, env = {} } = {}) {
       ) ||
       null,
     unmapped: mergeBoolean(argv, config, 'unmapped', false),
+    rangeStrategy: /** @type {import('../types').RangeStrategy} */ (
+      firstNonEmptyString(
+        /** @type {string|string[]|null|undefined} */ (
+          getExplicitOption(argv, 'rangeStrategy')
+        ),
+        /** @type {string|string[]|null|undefined} */ (config.rangeStrategy),
+      ) || 'planned'
+    ),
     latest: mergeBoolean(argv, config, 'latest', false),
     list: mergeBoolean(argv, config, 'list', false),
     loglevel,

@@ -180,4 +180,40 @@ describe('rangedDownloadVCF - pipe deadlock prevention on outputStream error', (
       ),
     );
   });
+
+  test('waits for tabix to exit and rejects when it fails after bgzip finished', async () => {
+    fs.existsSync.mockReturnValue(true);
+    fs.unlinkSync.mockReturnValue();
+
+    const tabixProcess = createMockProcess();
+    const bgzipProcess = createMockProcess();
+    const outputStream = createMockStream();
+
+    spawn.mockReturnValueOnce(tabixProcess).mockReturnValueOnce(bgzipProcess);
+    fs.createWriteStream.mockReturnValue(outputStream);
+
+    let settled = false;
+    const downloadPromise = rangedDownloadVCF(
+      'https://example.com/test.vcf.gz',
+      'chr1:1000-2000',
+      '/path/to/output.vcf.gz',
+      '/path/to/index.tbi',
+      mockLogger,
+      mockMetrics,
+      true,
+    ).finally(() => {
+      settled = true;
+    });
+
+    // bgzip and the output finish on partial input before tabix reports failure.
+    bgzipProcess.emit('close', 0);
+    outputStream.emit('finish');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(settled).toBe(false);
+
+    tabixProcess.emit('close', 1);
+    await expect(downloadPromise).rejects.toThrow(/tabix process exited/);
+    expect(mockMetrics.totalFilesDownloaded).toBe(0);
+    expect(fs.unlinkSync).toHaveBeenCalledWith('/path/to/output.vcf.gz');
+  });
 });

@@ -157,6 +157,7 @@ async function rangedDownloadVCF(
     /** @type {string|null} */
     let processError = null;
     let bgzipClosed = false;
+    let tabixClosed = false;
     let streamFinished = false;
     let resolved = false;
 
@@ -172,7 +173,9 @@ async function rangedDownloadVCF(
 
     const tryResolve = () => {
       if (resolved) return;
-      if (bgzipClosed && streamFinished) {
+      // tabix must have exited too: bgzip can finish on partial input before
+      // a failing tabix reports its exit status.
+      if (tabixClosed && bgzipClosed && streamFinished) {
         resolved = true;
         if (processError) {
           cleanup();
@@ -254,7 +257,8 @@ async function rangedDownloadVCF(
       if (code !== 0 && !processError) {
         processError = `tabix process exited with code ${code}. Stderr: ${tabixError}`;
       }
-      // Don't resolve here; wait for bgzip and stream to finish
+      tabixClosed = true;
+      tryResolve();
     });
   });
 }

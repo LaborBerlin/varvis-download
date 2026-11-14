@@ -33,6 +33,7 @@ By default, the tool looks for a configuration file named `.config.json` in the 
 | `range`           | `string`  | No       | -                           | Genomic range for ranged download (e.g. `chr1:1-100000`)                       |
 | `bed`             | `string`  | No       | -                           | Path to a BED file with multiple regions                                       |
 | `unmapped`        | `boolean` | No       | `false`                     | Extract unmapped reads from BAM files (cannot combine with `bed`)              |
+| `rangeStrategy`   | `string`  | No       | `planned`                   | `planned` or `stream`; see Range Downloads → How ranged reads fetch data       |
 | `list`            | `boolean` | No       | `false`                     | List available files instead of downloading                                    |
 | `listUrls`        | `boolean` | No       | `false`                     | Print direct download URLs instead of downloading                              |
 | `urlFile`         | `string`  | No       | -                           | File to save URLs when `listUrls` is set                                       |

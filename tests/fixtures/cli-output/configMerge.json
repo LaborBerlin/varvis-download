@@ -17,6 +17,7 @@
   "passwordStdin": false,
   "urlFile": null,
   "range": null,
+  "rangeStrategy": "planned",
   "bed": null,
   "unmapped": false,
   "latest": false,
