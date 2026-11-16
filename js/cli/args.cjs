@@ -176,6 +176,18 @@ function buildParser(argv) {
         'Path to a file to save the download URLs when using --list-urls.',
       type: 'string',
     })
+    .option('bounded-range-proxy', {
+      describe:
+        'Enable local proxy with bounded upstream requests for remote ranged downloads.',
+      type: 'boolean',
+      default: true,
+    })
+    .option('bounded-range-chunk-size', {
+      describe:
+        'Maximum upstream request size, integer 65536–67108864 bytes (default: 2097152 [2 MiB]).',
+      type: 'number',
+      default: 2097152,
+    })
     .option('version', {
       alias: 'v',
       type: 'boolean',

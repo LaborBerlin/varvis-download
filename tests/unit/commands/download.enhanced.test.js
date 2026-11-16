@@ -14,10 +14,10 @@ jest.mock('../../../js/fetchUtils.cjs', () => ({
   },
 }));
 jest.mock('../../../js/download/bamHandler.cjs', () => ({
-  handleBamFile: jest.fn(),
+  handleBamFile: jest.fn(async () => ({ ok: true })),
 }));
 jest.mock('../../../js/download/vcfHandler.cjs', () => ({
-  handleVcfFile: jest.fn(),
+  handleVcfFile: jest.fn(async () => ({ ok: true })),
 }));
 jest.mock('../../../js/toolChecks.cjs', () => ({
   checkToolAvailability: jest.fn(async () => true),

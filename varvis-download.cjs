@@ -172,7 +172,7 @@ async function main() {
     if (finalConfig.resumeArchivedDownloads) {
       activeLogger.info('Starting in archive resumption mode.');
       activeLogger.info('Resuming archived downloads as requested.');
-      await resumeArchivedDownloads(
+      const failedDownloads = await resumeArchivedDownloads(
         finalConfig.restorationFile,
         finalConfig.destination,
         finalConfig.target,
@@ -180,7 +180,13 @@ async function main() {
         agent,
         activeLogger,
         finalConfig.overwrite,
+        finalConfig,
       );
+      if (failedDownloads > 0) {
+        throw new OperationalError(
+          `${failedDownloads} resumed download(s) failed. Entries were kept for retry.`,
+        );
+      }
       activeLogger.info('Archive resumption process complete.');
       return;
     }

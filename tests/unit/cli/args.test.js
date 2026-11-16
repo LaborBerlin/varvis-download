@@ -47,6 +47,30 @@ describe('CLI argument parser', () => {
     expect(parse(['--password-stdin']).passwordStdin).toBe(true);
   });
 
+  test('defaults bounded-range-proxy to true', () => {
+    const argv = parse([]);
+
+    expect(argv.boundedRangeProxy).toBe(true);
+  });
+
+  test('parses --no-bounded-range-proxy as false', () => {
+    const argv = parse(['--no-bounded-range-proxy']);
+
+    expect(argv.boundedRangeProxy).toBe(false);
+  });
+
+  test('parses --bounded-range-chunk-size as number', () => {
+    const argv = parse(['--bounded-range-chunk-size', '1048576']);
+
+    expect(argv.boundedRangeChunkSize).toBe(1048576);
+  });
+
+  test('defaults bounded-range-chunk-size to 2097152', () => {
+    const argv = parse([]);
+
+    expect(argv.boundedRangeChunkSize).toBe(2097152);
+  });
+
   test('parses multiple filter values', () => {
     const argv = parse([
       '--filter',
@@ -120,6 +144,18 @@ describe('parseArguments explicit-option detection', () => {
     expect(explicit(['--no-overwrite'])).toContain('overwrite');
   });
 
+  test('--no-bounded-range-proxy is explicit', () => {
+    expect(explicit(['--no-bounded-range-proxy'])).toContain(
+      'boundedRangeProxy',
+    );
+  });
+
+  test('--bounded-range-chunk-size is explicit', () => {
+    expect(explicit(['--bounded-range-chunk-size', '1048576'])).toContain(
+      'boundedRangeChunkSize',
+    );
+  });
+
   test('defaulted options (incl. their aliases) are NOT explicit', () => {
     const set = explicit([]);
     for (const name of [
@@ -131,6 +167,8 @@ describe('parseArguments explicit-option detection', () => {
       'restoreArchived',
       'unmapped',
       'latest',
+      'boundedRangeProxy',
+      'boundedRangeChunkSize',
     ]) {
       expect(set).not.toContain(name);
     }

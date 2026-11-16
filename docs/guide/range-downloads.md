@@ -366,6 +366,30 @@ mkdir -p ./regions/{region_a,region_b,region_c}
 ./varvis-download.cjs -t mytarget -a 12345 -g "chr7:5500000-5600000" -d "./regions/region_c/"
 ```
 
+## Bounded range proxy
+
+Ranged BAM, VCF and unmapped BAM downloads use a local HTTP proxy by default. It fetches the remote file in requests of at most 2 MiB while presenting the complete requested response to samtools or tabix. Reads can continue across any number of chunks; closing the tool's connection cancels the active upstream request.
+
+- `--no-bounded-range-proxy` connects tools directly to the remote URL.
+- `--bounded-range-chunk-size <bytes>` sets the maximum upstream request size: an integer from 65536 (64 KiB) to 67108864 (64 MiB), default 2097152 (2 MiB).
+- Config files accept `boundedRangeProxy` and `boundedRangeChunkSize`. Archive restoration saves these settings. Explicit settings in the current CLI/config override saved settings; saved settings otherwise override defaults.
+
+There is no automatic bypass based on a guessed future tool version. The proxy validates upstream range responses and cancels failed transfers. Servers that ignore Range requests, return changed objects, lack a strong ETag for multiple requests, or cannot complete a requested chunk cause a download error. The CLI exits nonzero for failed downloads.
+
+Each upstream request is bounded; the total bytes for a query depend on the records and seeks it needs. Proxy body-byte counters do not measure provider billing or direct-download network traffic. No fixed percentage of egress savings is claimed.
+
+To compare a populated region using real tools, provide a BAM/VCF URL and its independently signed index URL through the environment:
+
+```bash
+export BENCHMARK_URL='https://example.org/sample.bam'
+export BENCHMARK_INDEX_URL='https://example.org/sample.bam.bai'
+export BENCHMARK_TYPE=bam
+export BENCHMARK_REGION='1:10384971-10385971'
+node scripts/benchmark-bounded-proxy.mjs
+```
+
+The benchmark runs samtools (BAM) or tabix (VCF) directly and through the proxy, compares SHA-256 hashes of decoded records, and reports timings and observed proxy body bytes. It fails on network/tool errors, empty control regions or mismatched records. `BENCHMARK_CHUNK_SIZE` optionally changes the chunk size. It never substitutes simulated results for failed measurements.
+
 ## Integration with Downstream Research Tools
 
 ### Optional Downstream Processing

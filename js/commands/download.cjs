@@ -90,6 +90,8 @@ async function runDownloadCommand({ finalConfig, regions, tempBedPath }, deps) {
       range: finalConfig.range,
       bed: finalConfig.bed,
       unmapped: finalConfig.unmapped,
+      boundedRangeProxy: finalConfig.boundedRangeProxy,
+      boundedRangeChunkSize: finalConfig.boundedRangeChunkSize,
       restorationFile,
       filetypes,
     };

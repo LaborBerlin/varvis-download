@@ -57,6 +57,8 @@ export interface Metrics {
 }
 
 export interface RestorationOptions {
+  boundedRangeProxy?: boolean;
+  boundedRangeChunkSize?: number;
   destination: string;
   overwrite: boolean;
   range: string | null;
@@ -126,6 +128,10 @@ export interface FinalConfig {
   loglevel?: string;
   logfile?: string;
   version?: boolean;
+  boundedRangeProxy: boolean;
+  boundedRangeChunkSize: number;
+  boundedRangeProxyExplicit?: boolean;
+  boundedRangeChunkSizeExplicit?: boolean;
 }
 
 export interface Credentials {

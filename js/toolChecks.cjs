@@ -1,4 +1,8 @@
 const { spawn } = require('node:child_process');
+const {
+  createToolDiagnostic,
+  redactToolText,
+} = require('./download/toolDiagnostics.cjs');
 const { getErrorMessage } = require('./errorUtils.cjs');
 
 /**
@@ -13,30 +17,38 @@ function spawnPromise(command, args, logger, captureOutput = false) {
   return new Promise((resolve, reject) => {
     const childProcess = spawn(command, args);
     let stdout = '';
+    const stderr = createToolDiagnostic();
+    const stdoutDiagnostic = createToolDiagnostic();
 
     childProcess.stdout.on('data', (data) => {
       const output = data.toString();
       if (captureOutput) {
         stdout += output;
       }
-      logger.debug(`[${command}] stdout: ${output.trim()}`);
+      stdoutDiagnostic.append(output);
     });
 
     childProcess.stderr.on('data', (data) => {
-      const output = data.toString();
-      logger.debug(`[${command}] stderr: ${output.trim()}`);
+      stderr.append(data);
     });
 
     childProcess.on('close', (code) => {
+      if (stdoutDiagnostic.text())
+        logger.debug(`[${command}] stdout: ${stdoutDiagnostic.text()}`);
+      if (stderr.text()) logger.debug(`[${command}] stderr: ${stderr.text()}`);
       if (code === 0) {
         resolve(captureOutput ? { stdout } : {});
       } else {
-        reject(new Error(`Process ${command} exited with code ${code}`));
+        reject(
+          new Error(
+            `Process ${command} exited with code ${code}${stderr.text() ? `. Stderr: ${stderr.text()}` : ''}`,
+          ),
+        );
       }
     });
 
     childProcess.on('error', (err) => {
-      reject(err);
+      reject(new Error(redactToolText(getErrorMessage(err))));
     });
   });
 }
@@ -86,16 +98,16 @@ function compareVersions(version, minVersion) {
 }
 
 /**
- * Checks if a tool is available and meets the minimum version.
+ * Retrieves the installed version string of an external tool.
+ *
  * @param   {string}                   tool           - The name of the tool (samtools, tabix, or bgzip).
  * @param   {string}                   versionCommand - Command to check the tool version.
- * @param   {string}                   minVersion     - The minimal required version.
  * @param   {import('winston').Logger} logger         - The logger instance.
- * @returns {Promise<boolean>}                        - Resolves to true if the tool is available and meets the version requirement.
+ * @returns {Promise<string|null>}                    - The tool version string, or null if detection failed.
  */
-async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
+async function getToolVersion(tool, versionCommand, logger) {
   try {
-    // Parse the versionCommand to extract command and arguments
+    // parse the versionCommand to extract command and arguments
     const commandParts = versionCommand.split(/\s+/);
     const command = commandParts[0];
     const args = commandParts.slice(1);
@@ -113,7 +125,7 @@ async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
     }
 
     let toolVersion;
-    // For tabix and bgzip, the second word is in parentheses, so the version is the third element.
+    // for tabix and bgzip, the second word is in parentheses, so the version is the third element
     if (parts[1].startsWith('(')) {
       if (parts.length < 3) {
         throw new Error(
@@ -124,24 +136,43 @@ async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
     } else {
       toolVersion = parts[1].trim();
     }
-
-    if (compareVersions(toolVersion, minVersion)) {
-      logger.info(`${tool} version ${toolVersion} is available.`);
-      return true;
-    } else {
-      logger.error(
-        `${tool} version ${toolVersion} is less than the required version ${minVersion}.`,
-      );
-      return false;
-    }
+    return toolVersion;
   } catch (error) {
     logger.error(`Error checking ${tool} version: ${getErrorMessage(error)}`);
+    return null;
+  }
+}
+
+/**
+ * Checks if a tool is available and meets the minimum version.
+ *
+ * @param   {string}                   tool           - The name of the tool (samtools, tabix, or bgzip).
+ * @param   {string}                   versionCommand - Command to check the tool version.
+ * @param   {string}                   minVersion     - The minimal required version.
+ * @param   {import('winston').Logger} logger         - The logger instance.
+ * @returns {Promise<boolean>}                        - Resolves to true if the tool is available and meets the version requirement.
+ */
+async function checkToolAvailability(tool, versionCommand, minVersion, logger) {
+  const toolVersion = await getToolVersion(tool, versionCommand, logger);
+  if (!toolVersion) {
     return false;
   }
+
+  // compare installed version against minimum required version
+  if (compareVersions(toolVersion, minVersion)) {
+    logger.info(`${tool} version ${toolVersion} is available.`);
+    return true;
+  }
+
+  logger.error(
+    `${tool} version ${toolVersion} is less than the required version ${minVersion}.`,
+  );
+  return false;
 }
 
 module.exports = {
   spawnPromise,
   compareVersions,
+  getToolVersion,
   checkToolAvailability,
 };

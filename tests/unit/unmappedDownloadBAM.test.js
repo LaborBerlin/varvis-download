@@ -54,11 +54,11 @@ describe('unmappedDownloadBAM', () => {
       'view',
       '-b',
       '-X',
-      'https://example.com/sample.bam',
+      expect.stringMatching(/^http:\/\/127\.0\.0\.1:\d+\/stream\//),
       '/output/sample.bam.bai',
       '*',
       '-o',
-      '/output/sample.unmapped.bam',
+      expect.stringContaining('/output/sample.unmapped.bam.'),
     ]);
     expect(mockMetrics.totalFilesDownloaded).toBe(1);
   });
@@ -193,12 +193,12 @@ describe('rangedDownloadBAM with includeUnmapped', () => {
       'view',
       '-b',
       '-X',
-      'https://example.com/sample.bam',
+      expect.stringMatching(/^http:\/\/127\.0\.0\.1:\d+\/stream\//),
       '/output/sample.bam.bai',
       'chr1:155184000-155194000',
       '*',
       '-o',
-      '/output/sample.region.bam',
+      expect.stringContaining('/output/sample.region.bam.'),
     ]);
     expect(mockMetrics.totalFilesDownloaded).toBe(1);
   });
@@ -235,13 +235,13 @@ describe('rangedDownloadBAM with includeUnmapped', () => {
       'view',
       '-b',
       '-X',
-      'https://example.com/sample.bam',
+      expect.stringMatching(/^http:\/\/127\.0\.0\.1:\d+\/stream\//),
       '/output/sample.bam.bai',
       '-L',
       '/tmp/regions.bed',
       '-M',
       '-o',
-      '/output/sample.region.bam',
+      expect.stringContaining('/output/sample.region.bam.'),
     ]);
   });
 
@@ -278,13 +278,13 @@ describe('rangedDownloadBAM with includeUnmapped', () => {
       'view',
       '-b',
       '-X',
-      'https://example.com/sample.bam',
+      expect.stringMatching(/^http:\/\/127\.0\.0\.1:\d+\/stream\//),
       '/output/sample.bam.bai',
       'chr1:1000-2000',
       'chr2:3000-4000',
       '*',
       '-o',
-      '/output/sample.region.bam',
+      expect.stringContaining('/output/sample.region.bam.'),
     ]);
   });
 });

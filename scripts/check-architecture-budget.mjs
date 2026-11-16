@@ -50,10 +50,7 @@ const SKIP_PREFIXES = [
 
 // Pinned legacy files. Touching one is an implicit request to split it.
 // Remove the entry once the file drops below NEW_FILE_HARD_THRESHOLD.
-const KNOWN_OVERSIZED_FILES = new Set([
-  'tests/integration/archive.test.js',
-  'tests/unit/rangedUtils.enhanced.test.js',
-]);
+const KNOWN_OVERSIZED_FILES = new Set([]);
 
 function toRepoPath(rootDir, path) {
   return relative(rootDir, path).split(sep).join('/');

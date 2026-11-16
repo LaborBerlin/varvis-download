@@ -1,3 +1,8 @@
+jest.mock('../../js/download/atomicOutput.cjs', () => ({
+  withStagedOutput: jest.fn(async (file, _overwrite, _suffix, action) =>
+    action(file),
+  ),
+}));
 const {
   triggerRestoreArchivedFile,
   appendToAwaitingRestoration,

@@ -58,6 +58,8 @@ describe('commands/download.runDownloadCommand', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    handleBamFile.mockResolvedValue({ ok: true });
+    handleVcfFile.mockResolvedValue({ ok: true });
   });
 
   test('dispatches BAM primary files to handleBamFile', async () => {

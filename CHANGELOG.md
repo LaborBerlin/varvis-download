@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-09-14
+
+### Added
+
+- Bounded-range loopback proxy for remote BAM/VCF queries, enabled by default. Sequential upstream chunks preserve complete downstream responses and validate range metadata and strong ETags (#157).
+- `--no-bounded-range-proxy` and `--bounded-range-chunk-size` controls, including validation before authentication and saved settings for resumed archive downloads.
+- Real-tool benchmark comparing decoded-record hashes and observed proxy response bytes, with end-to-end coverage for large VCF queries and BAM regions.
+
+### Fixed
+
+- Wait for tabix, bgzip, and every stream before publishing ranged VCF output; cancel upstream requests when clients disconnect.
+- Stage ranged data and indexes together, roll back failed publication, and clean up failed indexing attempts.
+- Return a failing exit status for failed resumed downloads while preserving their restoration entries for retry.
+- Include bounded, URL-redacted tool diagnostics in download errors.
+
 ## [0.35.1] - 2026-09-14
 
 ### Changed

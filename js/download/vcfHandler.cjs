@@ -1,3 +1,4 @@
+const { withStagedOutput } = require('./atomicOutput.cjs');
 const path = require('node:path');
 
 const { fullDownloadWithOptionalIndex } = require('./commonDownload.cjs');
@@ -15,7 +16,7 @@ const { isUrlExpiringSoon } = require('../urlUtils.cjs');
  * @typedef {object} VcfHandlerArgs
  * @property {import('../types').FileDict} fileDict - File dictionary.
  * @property {string} fileName - VCF file name.
- * @property {Pick<import('../types').FinalConfig, 'destination'|'overwrite'|'unmapped'>} finalConfig - Final CLI config (only the fields this handler reads; callers may pass the full config).
+ * @property {Pick<import('../types').FinalConfig, 'destination'|'overwrite'|'unmapped'> & Partial<Pick<import('../types').FinalConfig, 'boundedRangeProxy'|'boundedRangeChunkSize'>>} finalConfig - Final CLI config (only the fields this handler reads; callers may pass the full config).
  * @property {string[]} regions - Genomic regions.
  * @property {string} target - Varvis target.
  */
@@ -31,7 +32,13 @@ const { isUrlExpiringSoon } = require('../urlUtils.cjs');
 async function handleVcfFile(args, deps) {
   const { fileDict, fileName, finalConfig, regions, target } = args;
   const { agent, authService, logger, metrics, rl } = deps;
-  const { destination, overwrite, unmapped } = finalConfig;
+  const {
+    destination,
+    overwrite,
+    unmapped,
+    boundedRangeProxy,
+    boundedRangeChunkSize,
+  } = finalConfig;
 
   let ok = true;
 
@@ -127,16 +134,28 @@ async function handleVcfFile(args, deps) {
       logger.info(
         `Performing ranged download for VCF file: ${fileName} with region: ${region}`,
       );
-      await rangedDownloadVCF(
-        downloadLink,
-        region,
+      await withStagedOutput(
         regionSpecificOutputFile,
-        indexFilePath,
-        logger,
-        metrics,
         overwrite,
+        '.tbi',
+        async (stagedFile) => {
+          await rangedDownloadVCF(
+            downloadLink,
+            region,
+            stagedFile,
+            indexFilePath,
+            logger,
+            metrics,
+            overwrite,
+            {
+              enabled: boundedRangeProxy,
+              chunkSize: boundedRangeChunkSize,
+              dispatcher: agent,
+            },
+          );
+          await indexVCF(stagedFile, logger, overwrite);
+        },
       );
-      await indexVCF(regionSpecificOutputFile, logger, overwrite);
     } catch (error) {
       ok = false;
       logger.error(
