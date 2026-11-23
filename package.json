@@ -53,7 +53,7 @@
     "mute-stream": "^4.0.0",
     "progress": "^2.0.3",
     "tough-cookie": "^6.1.0",
-    "undici": "^8.12.4",
+    "undici": "^8.13.0",
     "winston": "^3.19.0",
     "yargs": "^18.2.0"
   },
