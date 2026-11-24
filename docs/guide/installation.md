@@ -43,13 +43,19 @@ chmod +x varvis-download.cjs
 
 ### Method 2: Download Release
 
+Choose a published version from the
+[GitHub Releases page](https://github.com/LaborBerlin/varvis-download/releases), then download the corresponding tagged
+source archive:
+
 ```bash
-# Download latest release
-curl -L https://github.com/LaborBerlin/varvis-download/archive/refs/heads/main.zip -o varvis-download.zip
+release_version=v0.35.1
+curl -L \
+  "https://github.com/LaborBerlin/varvis-download/archive/refs/tags/${release_version}.zip" \
+  -o varvis-download.zip
 
 # Extract and setup
 unzip varvis-download.zip
-cd varvis-download-main
+cd "varvis-download-${release_version#v}"
 npm install
 chmod +x varvis-download.cjs
 ```

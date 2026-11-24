@@ -1,0 +1,62 @@
+# git-cliff ~ configuration file
+# https://git-cliff.org/docs/configuration
+
+[changelog]
+# A Tera template to be rendered as the changelog's header.
+# See https://keats.github.io/tera/#getting-started
+header = """
+# Changelog\n
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n
+"""
+
+body = """
+{% if version -%}
+    ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else -%}
+    ## [Unreleased]
+{% endif -%}
+{% for group, commits in commits | group_by(attribute="group") %}
+    ### {{ group | upper_first }}
+    {% for commit in commits %}
+        - {{ commit.message | split(pat="\n") | first | upper_first | trim }}\
+    {% endfor %}
+{% endfor %}\n
+"""
+
+# Remove leading and trailing whitespaces from the changelog's body.
+trim = true
+
+[git]
+# Parse commits according to the conventional commits specification.
+# See https://www.conventionalcommits.org
+conventional_commits = true
+# Exclude commits that do not match the conventional commits specification.
+require_conventional = false # lint commit messages
+filter_unconventional = true
+fail_on_unmatched_commit = true # also required to lint commit messages
+ignore_tags = "\\.dev[0-9]+$" # don't show development tags (but include their commits)
+commit_parsers = [
+  { message = "bump version", skip = true },
+  { message = "version bump", skip = true },
+  { message = "^Merging", skip = true },
+  { message = "^Merge", skip = true },
+  { message = "^wip", skip = true },
+  { message = "^feat", group = "Features" },
+  { message = "^fix", group = "Bug Fixes" },
+  { message = "^doc", group = "Documentation" },
+  { message = "^perf", group = "Performance" },
+  { message = "^refactor", group = "Refactor" },
+  { message = "^style", group = "Styling" },
+  { message = "^test", group = "Testing" },
+  { message = "^ci", group = "CI" },
+  { message = "^build", group = "Development" },
+  { message = "^chore", group = "Other" },
+  { message = ".*", skip = true }
+]
+commit_preprocessors = [
+  # remove gitmoji, both actual UTF emoji and :emoji:
+  { pattern = ' *(:\w+:|[\p{Emoji_Presentation}\p{Extended_Pictographic}](?:\u{FE0F})?\u{200D}?) *', replace = "" },
+]

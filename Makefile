@@ -1,4 +1,4 @@
-.PHONY: help install clean test test-watch test-int test-cov lint lint-fix format format-check type-check docs-dev docs-build audit audit-all audit-fix security ci dev pre-commit update-deps version-patch version-minor version-major release-patch release-minor release-major
+.PHONY: help install clean test test-watch test-int test-cov lint lint-fix format format-check type-check docs-dev docs-build audit audit-all audit-fix security ci dev pre-commit update-deps version-patch version-minor version-major release-patch release-minor release-major changelog pr release check_git_clean
 
 # Default target
 .DEFAULT_GOAL := help
@@ -157,3 +157,24 @@ release-major: ci ## Release major version (runs CI first)
 	@echo "$(BLUE)Creating major release...$(RESET)"
 	npm version major
 	@echo "$(GREEN)✓ Major version released$(RESET)"
+
+changelog: ## Generate the changelog for the current package version
+	npx --no-install git-cliff --unreleased \
+		--tag "v$$(node -p "require('./package.json').version")" \
+		--prepend CHANGELOG.md
+
+pr: check_git_clean ## Prepare and open a draft pull request
+	bash scripts/create-pr.sh
+
+# Create and push a tag based on the current package version.
+release: check_git_clean ## Create and push the current version tag
+	bash scripts/create-release.sh
+
+# Helper target to check if the current repository is clean.
+check_git_clean:
+	@if test -n "$$(git status --porcelain)"; then \
+		echo "Error: Git status not clean:" >&2; \
+		git status --short >&2; \
+		echo "Please commit or stash your changes and try again." >&2; \
+		exit 1; \
+	fi
