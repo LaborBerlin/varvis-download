@@ -143,6 +143,12 @@ function buildParser(argv) {
       type: 'boolean',
       default: false,
     })
+    .option('range-strategy', {
+      describe:
+        'How ranged BAM/VCF reads fetch data: "planned" downloads only the index-selected blocks (default); "stream" lets samtools/tabix read the remote URL directly.',
+      type: 'string',
+      choices: ['planned', 'stream'],
+    })
     .option('restoreArchived', {
       alias: 'ra',
       describe:

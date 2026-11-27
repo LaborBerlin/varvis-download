@@ -94,6 +94,9 @@ export interface LoggerConfig {
   loglevel?: string;
 }
 
+// 'planned' fetches only index-selected blocks; 'stream' lets HTSlib read the URL.
+export type RangeStrategy = 'planned' | 'stream';
+
 export interface FinalConfig {
   username: string;
   password?: string;
@@ -120,6 +123,7 @@ export interface FinalConfig {
   range: string | null;
   bed: string | null;
   unmapped: boolean;
+  rangeStrategy: RangeStrategy;
   latest: boolean;
   list?: boolean;
   config?: string;

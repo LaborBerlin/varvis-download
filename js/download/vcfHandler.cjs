@@ -1,6 +1,7 @@
 const path = require('node:path');
 
 const { fullDownloadWithOptionalIndex } = require('./commonDownload.cjs');
+const { withRangedSource } = require('./rangedSource.cjs');
 const { getValidDownloadUrl } = require('./urlRefresh.cjs');
 const { getErrorMessage } = require('../errorUtils.cjs');
 const {
@@ -15,7 +16,7 @@ const { isUrlExpiringSoon } = require('../urlUtils.cjs');
  * @typedef {object} VcfHandlerArgs
  * @property {import('../types').FileDict} fileDict - File dictionary.
  * @property {string} fileName - VCF file name.
- * @property {Pick<import('../types').FinalConfig, 'destination'|'overwrite'|'unmapped'>} finalConfig - Final CLI config (only the fields this handler reads; callers may pass the full config).
+ * @property {Pick<import('../types').FinalConfig, 'destination'|'overwrite'|'unmapped'> & Partial<Pick<import('../types').FinalConfig, 'rangeStrategy'>>} finalConfig - Final CLI config (only the fields this handler reads; callers may pass the full config).
  * @property {string[]} regions - Genomic regions.
  * @property {string} target - Varvis target.
  */
@@ -31,7 +32,7 @@ const { isUrlExpiringSoon } = require('../urlUtils.cjs');
 async function handleVcfFile(args, deps) {
   const { fileDict, fileName, finalConfig, regions, target } = args;
   const { agent, authService, logger, metrics, rl } = deps;
-  const { destination, overwrite, unmapped } = finalConfig;
+  const { destination, overwrite, unmapped, rangeStrategy } = finalConfig;
 
   let ok = true;
 
@@ -117,32 +118,58 @@ async function handleVcfFile(args, deps) {
     overwrite,
   );
 
-  for (const region of regions) {
-    const regionSpecificOutputFile = path.join(
-      destination,
-      generateOutputFileName(fileName, [region], logger),
-    );
-
-    try {
-      logger.info(
-        `Performing ranged download for VCF file: ${fileName} with region: ${region}`,
-      );
-      await rangedDownloadVCF(
-        downloadLink,
-        region,
-        regionSpecificOutputFile,
-        indexFilePath,
-        logger,
-        metrics,
-        overwrite,
-      );
-      await indexVCF(regionSpecificOutputFile, logger, overwrite);
-    } catch (error) {
-      ok = false;
-      logger.error(
-        `Error during ranged download for ${fileName} on region ${region}: ${getErrorMessage(error)}`,
-      );
-    }
+  const outputs = regions.map((region) =>
+    path.join(destination, generateOutputFileName(fileName, [region], logger)),
+  );
+  /** @type {string[]} */
+  let failures = [];
+  // Regions already extracted are not repeated by the streamed retry.
+  const completed = new Set();
+  await withRangedSource(
+    {
+      strategy: rangeStrategy,
+      url: downloadLink,
+      indexPath: indexFilePath,
+      format: 'vcf',
+      regions,
+      includeUnmapped: false,
+      outputs,
+      overwrite,
+      fileName,
+    },
+    deps,
+    async (source) => {
+      failures = [];
+      for (const [i, region] of regions.entries()) {
+        if (completed.has(i)) continue;
+        try {
+          logger.info(
+            `Performing ranged download for VCF file: ${fileName} with region: ${region}`,
+          );
+          await rangedDownloadVCF(
+            source.location,
+            region,
+            outputs[i],
+            source.indexPath,
+            logger,
+            metrics,
+            overwrite,
+          );
+          await indexVCF(outputs[i], logger, overwrite);
+          completed.add(i);
+        } catch (error) {
+          failures.push(`region ${region}: ${getErrorMessage(error)}`);
+        }
+      }
+      // A failure on the local mirror triggers the streamed retry.
+      if (source.location !== downloadLink && failures.length > 0) {
+        throw new Error(failures[0]);
+      }
+    },
+  );
+  for (const failure of failures) {
+    ok = false;
+    logger.error(`Error during ranged download for ${fileName} on ${failure}`);
   }
   return { ok };
 }
